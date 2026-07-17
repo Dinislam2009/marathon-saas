@@ -123,6 +123,11 @@ export function DataProvider({ children }) {
       db.assignMentorToStudent(studentId, mentorId);
       bump();
     },
+    addInvitation: (marathonId, orgId, role, fields) => {
+      const invite = db.addInvitation(marathonId, orgId, role, fields);
+      bump();
+      return invite;
+    },
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

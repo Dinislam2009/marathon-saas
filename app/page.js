@@ -16,7 +16,7 @@ import {
   Zap,
   Palette,
   X,
-} from "lucide-react"; // Бұл жерден Instagram мүлдем өшірілді
+} from "lucide-react";
 import { getSession } from "@/lib/auth";
 import Button from "@/components/ui/Button";
 
@@ -176,6 +176,16 @@ function DashboardPreview() {
   );
 }
 
+function InstagramIcon({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 const PRIVACY_TEXT = `ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ И ОБРАБОТКИ ПЕРСОНАЛЬНЫХ ДАННЫХ
 
 1. ОБЩИЕ ПОЛОЖЕНИЯ
@@ -226,12 +236,9 @@ export default function LandingPage() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
-  const [currentYear, setCurrentYear] = useState("2026");
 
   useEffect(() => {
     setLoggedIn(Boolean(getSession()));
-    // Hydration mismatch-тің алдын алу үшін жылды тек клиентте анықтаймыз
-    setCurrentYear(new Date().getFullYear().toString());
   }, []);
 
   return (
@@ -309,7 +316,6 @@ export default function LandingPage() {
         <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-14">
           Как это работает
         </h2>
-        
         <div className="grid sm:grid-cols-3 gap-8">
           {STEPS.map(({ icon: Icon, title, desc }, i) => (
             <div key={title} className="text-center">
@@ -445,51 +451,36 @@ export default function LandingPage() {
           </div>
 
           <div>
-  <p className="text-xs font-bold uppercase tracking-wider text-mist mb-3">Соцсети</p>
-  <ul className="space-y-3">
-    <li>
-      <a
-        href="https://instagram.com/loopit"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2.5 group"
-      >
-        <span className="bg-pink-50 text-pink-600 w-8 h-8 flex items-center justify-center rounded-full shrink-0">
-          {/* Lucide-react орнына қатесіз істейтін SVG белгішесі */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-          </svg>
-        </span>
-        <span className="text-sm font-medium text-ink group-hover:text-pink-600 transition-colors">Instagram</span>
-      </a>
-    </li>
-    <li>
-      <a
-        href="https://t.me/loopit"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2.5 group"
-      >
-        <span className="bg-blue-50 text-blue-600 w-8 h-8 flex items-center justify-center rounded-full shrink-0">
-          <Send size={14} />
-        </span>
-        <span className="text-sm font-medium text-ink group-hover:text-blue-600 transition-colors">Telegram</span>
-      </a>
-    </li>
-  </ul>
-</div>
+            <p className="text-xs font-bold uppercase tracking-wider text-mist mb-3">Соцсети</p>
+            <ul className="space-y-3">
+              <li>
+                <a
+                  href="https://instagram.com/loopit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 group"
+                >
+                  <span className="bg-pink-50 text-pink-600 w-8 h-8 flex items-center justify-center rounded-full shrink-0">
+                    <InstagramIcon size={14} />
+                  </span>
+                  <span className="text-sm font-medium text-ink group-hover:text-pink-600 transition-colors">Instagram</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://t.me/loopit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 group"
+                >
+                  <span className="bg-blue-50 text-blue-600 w-8 h-8 flex items-center justify-center rounded-full shrink-0">
+                    <Send size={14} />
+                  </span>
+                  <span className="text-sm font-medium text-ink group-hover:text-blue-600 transition-colors">Telegram</span>
+                </a>
+              </li>
+            </ul>
+          </div>
 
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-mist mb-3">Навигация</p>
@@ -504,7 +495,7 @@ export default function LandingPage() {
         </div>
 
         <div className="border-t border-mist-light py-6 text-center text-xs text-mist flex flex-col sm:flex-row items-center justify-center gap-2">
-          <span>© {currentYear} Loopit. Все права защищены.</span>
+          <span>© {new Date().getFullYear()} Loopit. Все права защищены.</span>
           <span className="hidden sm:inline">·</span>
           <button onClick={() => setIsPrivacyOpen(true)} className="hover:text-horizon-dark">Политика конфиденциальности</button>
           <span className="hidden sm:inline">·</span>
