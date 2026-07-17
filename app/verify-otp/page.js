@@ -63,7 +63,15 @@ function VerifyOtpForm() {
       inputsRef.current[0]?.focus();
       return;
     }
-    router.push("/start");
+
+    const grant = result.granted?.[0];
+    if (grant?.role === "student") {
+      router.push(`/org/${grant.orgId}/student`);
+    } else if (grant?.role === "mentor") {
+      router.push(`/org/${grant.orgId}/mentor`);
+    } else {
+      router.push("/start");
+    }
   }
 
   function handleResend() {
@@ -135,3 +143,4 @@ export default function VerifyOtpPage() {
     </Suspense>
   );
 }
+
