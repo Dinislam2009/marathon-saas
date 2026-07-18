@@ -1,16 +1,15 @@
 "use client";
 
 import { use } from "react";
-import { Users, Home } from "lucide-react"; // Home иконкасын қостық
+import { Home, Users } from "lucide-react";
 import DashboardShell from "@/components/ui/DashboardShell";
 
 export default function MentorLayout({ children, params }) {
   const { orgId } = use(params);
   
-  // Навигация тізіміне "Главная" батырмасын бірінші кезекке қостық
   const navItems = [
     { href: "/", label: "Главная", icon: Home },
-    { href: `/org/${orgId}/mentor`, label: "Мои студенты", icon: Users }
+    { href: `/org/${orgId}/mentor`, label: "Кабинет ментора", icon: Users }
   ];
 
   return (

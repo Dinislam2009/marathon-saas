@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import * as db from "@/lib/data";
 import { useData } from "@/context/DataContext";
-import { STUDENT_STATUS, SUBMISSION_STATUS, MARATHON_STATUS, MARATHON_STATUS_LABELS } from "@/lib/constants";
+import { SUBMISSION_STATUS, MARATHON_STATUS, MARATHON_STATUS_LABELS } from "@/lib/constants";
 import { getTodayDayNumber, formatDate, cn } from "@/lib/utils";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -65,54 +65,26 @@ function last30DaysActivity(students) {
   return days.map((d) => ({ date: d, count: counts[d] }));
 }
 
-// --- small UI pieces ------------------------------------------------------
+// --- UI Components ------------------------------------------------------
 
-function KpiCard({ icon: Icon, label, value, sub }) {
+function KpiCard({ icon: Icon, label, value }) {
   return (
-    <Card className="flex items-start gap-3">
+    <Card className="flex items-start gap-3 bg-white border border-mist-light rounded-2xl">
       <div className="h-10 w-10 rounded-xl bg-horizon/10 flex items-center justify-center text-horizon-dark shrink-0">
         <Icon size={18} />
       </div>
       <div>
-        <p className="text-xs text-mist uppercase tracking-wide mb-1">{label}</p>
+        <p className="text-xs text-mist uppercase tracking-wide mb-1 font-medium">{label}</p>
         <p className="font-display text-2xl font-semibold text-ink">{value}</p>
-        {sub && <p className="text-xs text-mist mt-0.5">{sub}</p>}
       </div>
     </Card>
-  );
-}
-
-function CircularProgress({ percent, size = 72 }) {
-  const stroke = 7;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c - (percent / 100) * c;
-  return (
-    <svg width={size} height={size} className="-rotate-90 shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--color-paper-dim)" strokeWidth={stroke} fill="none" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="var(--color-steppe)"
-        strokeWidth={stroke}
-        fill="none"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        className="transition-all duration-700"
-      />
-      <text x="50%" y="50%" transform={`rotate(90 ${size / 2} ${size / 2})`} textAnchor="middle" dominantBaseline="middle" className="fill-ink font-display font-bold text-sm">
-        {percent}%
-      </text>
-    </svg>
   );
 }
 
 function ActivityChart({ data }) {
   const max = Math.max(...data.map((d) => d.count), 1);
   return (
-    <div className="flex items-end gap-[3px] h-24">
+    <div className="flex items-end gap-[4px] h-24 pt-4">
       {data.map((d) => (
         <div
           key={d.date}
@@ -148,7 +120,9 @@ function StudentDetail({ student, marathon, onClose }) {
 
         <div className="px-6 py-5 flex flex-col gap-5">
           <div className="flex items-center gap-4">
-            <CircularProgress percent={rate} />
+            <div className="h-12 w-12 rounded-full border-4 border-horizon flex items-center justify-center text-ink font-bold text-sm">
+              {rate}%
+            </div>
             <div>
               <p className="text-xs text-mist uppercase tracking-wide mb-1">Доводимость</p>
               <Badge tone={risky ? "ember" : "steppe"}>
@@ -182,13 +156,13 @@ function StudentDetail({ student, marathon, onClose }) {
   );
 }
 
-// --- page -----------------------------------------------------------------
+// --- Main Page -----------------------------------------------------------
 
 export default function MentorDashboardPage({ params }) {
   const { orgId } = use(params);
   const { ready, tick } = useData();
   const [mentorId, setMentorId] = useState("");
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("overview"); // "overview" немесе "students"
   const [search, setSearch] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState(null);
 
@@ -196,7 +170,6 @@ export default function MentorDashboardPage({ params }) {
 
   useEffect(() => {
     if (ready && !mentorId && mentors[0]) setMentorId(mentors[0].id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, mentors.length]);
 
   if (!ready) return <LoadingState />;
@@ -224,17 +197,19 @@ export default function MentorDashboardPage({ params }) {
 
   return (
     <div key={tick} className="flex flex-col gap-6">
+      
+      {/* Шапка */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">Ментор кабинеті</h1>
-          <p className="text-mist text-sm mt-1">Тек өзіңе тіркелген оқушылар (изоляция).</p>
+          <p className="text-mist text-sm mt-1">Бекітілген оқушылар мен марафондарды басқару.</p>
         </div>
         <label className="flex items-center gap-2 text-xs text-mist">
-          Демо ретінде көру:
+          Демо куратор:
           <select
             value={mentorId}
             onChange={(e) => setMentorId(e.target.value)}
-            className="rounded-lg border border-mist-light px-2.5 py-1.5 text-xs text-ink bg-white"
+            className="rounded-lg border border-mist-light px-2.5 py-1.5 text-xs text-ink bg-white focus:outline-none"
           >
             {mentors.map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
@@ -243,17 +218,18 @@ export default function MentorDashboardPage({ params }) {
         </label>
       </div>
 
+      {/* Вкладкалар (Табы) */}
       <div className="flex gap-1 bg-paper-dim rounded-xl p-1 w-fit">
         {[
           { key: "overview", label: "Жалпы статистика" },
-          { key: "students", label: "Оқушылар статистикасы" },
+          { key: "students", label: "Оқушылар тізімі" },
         ].map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              tab === t.key ? "bg-white text-horizon-dark shadow-sm" : "text-mist hover:text-ink"
+              "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              tab === t.key ? "bg-white text-horizon-dark shadow-sm font-semibold" : "text-mist hover:text-ink"
             )}
           >
             {t.label}
@@ -261,40 +237,42 @@ export default function MentorDashboardPage({ params }) {
         ))}
       </div>
 
+      {/* Вкладка 1: Жалпы статистика */}
       {tab === "overview" ? (
         <div className="flex flex-col gap-6">
           <div className="grid sm:grid-cols-3 gap-4">
             <KpiCard icon={Users} label="Барлық оқушылар" value={students.length} />
-            <KpiCard icon={Flag} label="Белсенді челленджтер" value={activeMarathons.length} />
-            <Card className="flex items-center gap-4">
-              <CircularProgress percent={avgCompletion} />
+            <KpiCard icon={Flag} label="Белсенді марафондар" value={activeMarathons.length} />
+            <Card className="flex items-center gap-4 bg-white border border-mist-light rounded-2xl">
+              <div className="h-12 w-12 rounded-full border-4 border-horizon flex items-center justify-center text-ink font-bold text-sm">
+                {avgCompletion}%
+              </div>
               <div>
-                <p className="text-xs text-mist uppercase tracking-wide mb-1">Орташа доводимость</p>
-                <p className="font-display text-xl font-semibold text-ink">{avgCompletion}%</p>
+                <p className="text-xs text-mist uppercase tracking-wide font-medium">Орташа доводимость</p>
               </div>
             </Card>
           </div>
 
-          <Card>
-            <p className="text-xs font-bold uppercase tracking-wider text-mist mb-4">
+          <Card className="bg-white border border-mist-light rounded-2xl">
+            <p className="text-xs font-bold uppercase tracking-wider text-mist">
               Оқушылар белсенділігі (соңғы 30 күн)
             </p>
             <ActivityChart data={activity} />
           </Card>
 
-          <Card padded={false} className="overflow-hidden">
-            <table className="w-full text-sm">
+          <Card padded={false} className="overflow-hidden bg-white border border-mist-light rounded-2xl">
+            <table className="w-full text-sm text-left">
               <thead>
-                <tr className="border-b border-mist-light text-left text-xs uppercase text-mist tracking-wide">
-                  <th className="px-5 py-3 font-medium">Челлендж атауы</th>
-                  <th className="px-5 py-3 font-medium">Кезеңі</th>
-                  <th className="px-5 py-3 font-medium">Қатысушы</th>
-                  <th className="px-5 py-3 font-medium">Күй</th>
+                <tr className="border-b border-mist-light text-xs uppercase text-mist tracking-wide font-medium bg-paper-dim/30">
+                  <th className="px-5 py-3">Марафон атауы</th>
+                  <th className="px-5 py-3">Мерзімі</th>
+                  <th className="px-5 py-3">Қатысушылар</th>
+                  <th className="px-5 py-3">Күйі</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-mist-light">
                 {marathons.length === 0 && (
-                  <tr><td colSpan={4} className="px-5 py-10 text-center text-mist">Челлендж жоқ.</td></tr>
+                  <tr><td colSpan={4} className="px-5 py-10 text-center text-mist">Марафондар жоқ.</td></tr>
                 )}
                 {marathons.map((m) => {
                   const start = new Date(m.startDate);
@@ -302,12 +280,12 @@ export default function MentorDashboardPage({ params }) {
                   end.setDate(end.getDate() + m.durationDays - 1);
                   const count = students.filter((s) => s.marathonId === m.id).length;
                   return (
-                    <tr key={m.id} className="border-b border-mist-light last:border-0">
+                    <tr key={m.id} className="hover:bg-paper-dim/10">
                       <td className="px-5 py-3.5 font-medium text-ink">{m.title}</td>
                       <td className="px-5 py-3.5 text-mist text-xs">
                         {formatDate(start)} — {formatDate(end)}
                       </td>
-                      <td className="px-5 py-3.5 text-ink">{count}</td>
+                      <td className="px-5 py-3.5 text-ink font-medium">{count}</td>
                       <td className="px-5 py-3.5">
                         <Badge tone={m.status === MARATHON_STATUS.ACTIVE ? "steppe" : "neutral"}>
                           {MARATHON_STATUS_LABELS[m.status]}
@@ -321,6 +299,7 @@ export default function MentorDashboardPage({ params }) {
           </Card>
         </div>
       ) : (
+        /* Вкладка 2: Оқушылар тізімі (Іздеумен) */
         <div className="flex flex-col gap-4">
           <div className="relative max-w-sm">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-mist" />
@@ -328,20 +307,20 @@ export default function MentorDashboardPage({ params }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Аты немесе email бойынша іздеу..."
-              className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-mist-light text-sm"
+              className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-mist-light text-sm focus:outline-none focus:border-horizon bg-white"
             />
           </div>
 
-          <Card padded={false} className="overflow-hidden">
-            <table className="w-full text-sm">
+          <Card padded={false} className="overflow-hidden bg-white border border-mist-light rounded-2xl">
+            <table className="w-full text-sm text-left">
               <thead>
-                <tr className="border-b border-mist-light text-left text-xs uppercase text-mist tracking-wide">
-                  <th className="px-5 py-3 font-medium">Оқушы</th>
-                  <th className="px-5 py-3 font-medium">Ұпай</th>
-                  <th className="px-5 py-3 font-medium">Тәртіп</th>
+                <tr className="border-b border-mist-light text-xs uppercase text-mist tracking-wide font-medium bg-paper-dim/30">
+                  <th className="px-5 py-3">Оқушы</th>
+                  <th className="px-5 py-3">Ұпай</th>
+                  <th className="px-5 py-3">Тәртіп күйі</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-mist-light">
                 {filteredStudents.length === 0 && (
                   <tr><td colSpan={3} className="px-5 py-10 text-center text-mist">Оқушы табылмады.</td></tr>
                 )}
@@ -352,10 +331,10 @@ export default function MentorDashboardPage({ params }) {
                     <tr
                       key={student.id}
                       onClick={() => setSelectedStudentId(student.id)}
-                      className="border-b border-mist-light last:border-0 cursor-pointer hover:bg-paper-dim transition-colors"
+                      className="cursor-pointer hover:bg-paper-dim/20 transition-colors"
                     >
                       <td className="px-5 py-3.5">
-                        <p className="font-medium text-ink">{student.name}</p>
+                        <p className="font-semibold text-ink text-base">{student.name}</p>
                         <p className="text-mist text-xs">{student.email}</p>
                       </td>
                       <td className="px-5 py-3.5 text-ink font-medium">{student.points}</td>
@@ -373,8 +352,13 @@ export default function MentorDashboardPage({ params }) {
         </div>
       )}
 
+      {/* Оқушының толық профилі (Модалка) */}
       {selectedStudent && (
-        <StudentDetail student={selectedStudent} marathon={selectedMarathon} onClose={() => setSelectedStudentId(null)} />
+        <StudentDetail
+          student={selectedStudent}
+          marathon={selectedMarathon}
+          onClose={() => setSelectedStudentId(null)}
+        />
       )}
     </div>
   );
