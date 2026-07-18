@@ -128,6 +128,16 @@ export function DataProvider({ children }) {
       bump();
       return invite;
     },
+    addStudentToMarathon: (marathonId, fields) => {
+      const student = db.addStudentToMarathon(marathonId, fields);
+      bump();
+      return student;
+    },
+    addStudentInvitationByMentor: (mentorId, marathonId, fields) => {
+      const invite = db.addStudentInvitationByMentor(mentorId, marathonId, fields);
+      bump();
+      return invite;
+    },
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

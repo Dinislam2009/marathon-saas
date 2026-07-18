@@ -1,15 +1,13 @@
 "use client";
 
 import { use } from "react";
-import { Flag, UserCog, Home, Users } from "lucide-react"; // Users иконкасын қостық
+import { Flag, UserCog, Users } from "lucide-react";
 import DashboardShell from "@/components/ui/DashboardShell";
 
-// Мәзірге "Участники" бетін қостық және орысшаладық
 const NAV_ITEMS = (orgId) => [
-  { href: "/", label: "Главная", icon: Home },
   { href: `/org/${orgId}/admin`, label: "Марафоны", icon: Flag },
-  { href: `/org/${orgId}/admin/mentors`, label: "Mentors", icon: UserCog },
-  { href: `/org/${orgId}/admin/students`, label: "Участники", icon: Users }, // Жаңа сілтеме
+  { href: `/org/${orgId}/admin/students`, label: "Участники", icon: Users },
+  { href: `/org/${orgId}/admin/mentors`, label: "Менторы", icon: UserCog },
 ];
 
 export default function TenantAdminLayout({ children, params }) {
