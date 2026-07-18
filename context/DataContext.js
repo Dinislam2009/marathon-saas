@@ -69,8 +69,8 @@ export function DataProvider({ children }) {
       bump();
       return task;
     },
-    setStudentLives: (studentId, lives) => {
-      db.setStudentLives(studentId, lives);
+    setStudentStatus: (studentId, status) => {
+      db.setStudentStatus(studentId, status);
       bump();
     },
     updateChecklist: (studentId, marathonId, dayNumber, patch) => {
