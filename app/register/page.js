@@ -31,19 +31,19 @@ export default function RegisterPage() {
     setError("");
 
     if (!isValidKzPhone(form.phone)) {
-      setError("Телефон нөмірін толық енгізіңіз (+7 (7XX) XXX-XX-XX).");
+      setError("Введите полный номер телефона (+7 (7XX) XXX-XX-XX).");
       return;
     }
     if (form.password.length < 6) {
-      setError("Құпия сөз кемінде 6 таңбадан тұруы керек.");
+      setError("Пароль должен содержать не менее 6 символов.");
       return;
     }
     if (form.password !== form.confirmPassword) {
-      setError("Құпия сөздер сәйкес келмейді.");
+      setError("Пароли не совпадают.");
       return;
     }
     if (findUserByIdentifier(form.email) || findUserByIdentifier(form.phone)) {
-      setError("Бұл email немесе телефон нөмірімен аккаунт бар болып тұр.");
+      setError("Аккаунт с таким email или номером телефона уже существует.");
       return;
     }
 
@@ -54,24 +54,24 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-paper px-6 py-8">
       <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-mist mb-6">
-        <ArrowLeft size={14} /> Артқа
+        <ArrowLeft size={14} /> Назад
       </Link>
 
       <div className="max-w-sm mx-auto">
         <h1 className="font-display text-2xl font-semibold text-horizon-dark text-center mb-1">
-          Тіркелу
+          Регистрация
         </h1>
         <p className="text-sm text-mist text-center mb-6">
-          Аккаунтыңыз бар ма?{" "}
+          Уже есть аккаунт?{" "}
           <Link href="/login" className="text-horizon-dark font-medium">
-            Кіру
+            Вход
           </Link>
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-ink">Аты</span>
+              <span className="font-medium text-ink">Имя</span>
               <input
                 required
                 value={form.firstName}
@@ -80,7 +80,7 @@ export default function RegisterPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-ink">Тегі</span>
+              <span className="font-medium text-ink">Фамилия</span>
               <input
                 required
                 value={form.lastName}
@@ -102,7 +102,7 @@ export default function RegisterPage() {
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-ink">Телефон нөмірі</span>
+            <span className="font-medium text-ink">Номер телефона</span>
             <input
               required
               inputMode="numeric"
@@ -111,23 +111,23 @@ export default function RegisterPage() {
               placeholder="+7 (7XX) XXX-XX-XX"
               className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
             />
-            <span className="text-xs text-mist">Тек Қазақстан нөмірлері қабылданады</span>
+            <span className="text-xs text-mist">Принимаются только номера Казахстана</span>
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-ink">Құпия сөз орнату</span>
+            <span className="font-medium text-ink">Придумайте пароль</span>
             <input
               required
               type="password"
               value={form.password}
               onChange={(e) => set("password", e.target.value)}
-              placeholder="кемінде 6 таңба"
+              placeholder="не менее 6 символов"
               className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-ink">Құпия сөзді қайталаңыз</span>
+            <span className="font-medium text-ink">Повторите пароль</span>
             <input
               required
               type="password"
@@ -140,7 +140,7 @@ export default function RegisterPage() {
           {error && <p className="text-xs text-ember bg-ember-light rounded-lg px-3 py-2">{error}</p>}
 
           <Button type="submit" size="lg" className="mt-2 w-full">
-            Тіркелу
+            Зарегистрироваться
           </Button>
         </form>
       </div>

@@ -39,24 +39,24 @@ export default function LoginPage() {
 
       <div className="flex-1 px-6 -mt-8">
         <div className="bg-white rounded-3xl shadow-lg border border-mist-light p-6 max-w-sm mx-auto">
-          <h2 className="font-display text-xl font-semibold text-ink mb-1">Кіру</h2>
-          <p className="text-sm text-mist mb-6">Аккаунтыңызға кіріп жалғастырыңыз</p>
+          <h2 className="font-display text-xl font-semibold text-ink mb-1">Вход</h2>
+          <p className="text-sm text-mist mb-6">Войдите в аккаунт, чтобы продолжить</p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-ink">Email немесе телефон нөмірі</span>
+              <span className="font-medium text-ink">Email или номер телефона</span>
               <input
                 required
                 autoFocus
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="email@mail.kz немесе +7..."
+                placeholder="email@mail.kz или +7..."
                 className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
               />
             </label>
 
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-ink">Құпия сөз</span>
+              <span className="font-medium text-ink">Пароль</span>
               <div className="relative">
                 <input
                   required
@@ -79,14 +79,14 @@ export default function LoginPage() {
             {error && <p className="text-xs text-ember bg-ember-light rounded-lg px-3 py-2">{error}</p>}
 
             <Button type="submit" size="lg" disabled={loading} className="mt-2 w-full">
-              {loading ? "Тексерілуде..." : "Кіру"}
+              {loading ? "Проверка..." : "Войти"}
             </Button>
           </form>
 
           <p className="text-center text-sm text-mist mt-6">
-            Аккаунтыңыз жоқ па?{" "}
+            Нет аккаунта?{" "}
             <Link href="/register" className="text-horizon-dark font-medium">
-              Тіркелу
+              Регистрация
             </Link>
           </p>
         </div>

@@ -86,17 +86,17 @@ function VerifyOtpForm() {
     <div className="min-h-screen bg-paper px-6 py-6">
       <div className="flex items-center justify-between mb-10">
         <Link href="/register" className="inline-flex items-center gap-1.5 text-sm text-mist">
-          <ArrowLeft size={14} /> Артқа
+          <ArrowLeft size={14} /> Назад
         </Link>
-        <span className="text-sm font-medium text-horizon-dark">Көмек</span>
+        <span className="text-sm font-medium text-horizon-dark">Помощь</span>
       </div>
 
       <div className="max-w-sm mx-auto">
         <h1 className="font-display text-2xl font-semibold text-ink mb-2">
-          Сізге SMS жібердік
+          Мы отправили вам SMS
         </h1>
         <p className="text-sm text-mist mb-8">
-          Растау кодын енгізіңіз: <span className="font-medium text-ink">{maskPhone(phone)}</span>
+          Введите код подтверждения: <span className="font-medium text-ink">{maskPhone(phone)}</span>
         </p>
 
         <div className="flex justify-between gap-2 mb-4">
@@ -122,13 +122,13 @@ function VerifyOtpForm() {
           disabled={cooldown > 0}
           className="text-sm text-horizon-dark font-medium disabled:text-mist disabled:font-normal"
         >
-          {cooldown > 0 ? `Кодты қайта жіберу (${cooldown}с)` : "Кодты қайта жіберу"}
+          {cooldown > 0 ? `Отправить код повторно (${cooldown}с)` : "Отправить код повторно"}
         </button>
 
         {devCode && (
           <div className="mt-8 rounded-xl border border-dashed border-horizon/40 bg-horizon/5 px-4 py-3 text-xs text-horizon-dark">
-            <strong>Demo режимі:</strong> код — <span className="font-mono font-bold">{devCode}</span>.
-            smsc.kz қосылғанда бұл блок жойылады, код нақты SMS/WhatsApp арқылы келеді.
+            <strong>Демо-режим:</strong> код — <span className="font-mono font-bold">{devCode}</span>.
+            После подключения smsc.kz этот блок исчезнет, код будет приходить по SMS/WhatsApp.
           </div>
         )}
       </div>
