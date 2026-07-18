@@ -102,7 +102,7 @@ export default function RegisterPage() {
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-ink">Номер телефона</span>
+            <span className="font-medium text-ink">Номер телефона (Whatsapp)</span>
             <input
               required
               inputMode="numeric"
