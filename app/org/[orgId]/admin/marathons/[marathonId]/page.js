@@ -11,7 +11,12 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
 
-const EMPTY_TASK = { title: "", videoUrl: "", content: "", verificationType: VERIFICATION_TYPE.TEST };
+const EMPTY_TASK = { 
+  title: "", 
+  videoUrl: "", 
+  content: "", 
+  verificationType: VERIFICATION_TYPE.TEST 
+};
 
 export default function MarathonDetailPage({ params }) {
   const { orgId, marathonId } = use(params);
