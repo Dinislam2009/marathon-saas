@@ -7,7 +7,6 @@ import { useData } from "@/context/DataContext";
 import { STUDENT_STATUS, DEFAULT_LIVES } from "@/lib/constants";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import LivesBadge from "@/components/ui/LivesBadge";
 import LoadingState from "@/components/ui/LoadingState";
 
 export default function MentorDashboardPage({ params }) {
