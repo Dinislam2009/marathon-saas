@@ -1,13 +1,17 @@
 "use client";
 
-import { Building2 } from "lucide-react";
+import { Building2, Home } from "lucide-react"; // Home иконкасын қостық
 import DashboardShell from "@/components/ui/DashboardShell";
 
-const NAV_ITEMS = [{ href: "/super-admin", label: "Ұйымдастырушылар", icon: Building2 }];
+// Главная батырмасын қосып, мәтіндерді орысшаладық
+const NAV_ITEMS = [
+  { href: "/", label: "Главная", icon: Home },
+  { href: "/super-admin", label: "Организации", icon: Building2 }
+];
 
 export default function SuperAdminLayout({ children }) {
   return (
-    <DashboardShell theme="dusk" eyebrow="Super Admin" title="Платформа басқару" navItems={NAV_ITEMS}>
+    <DashboardShell theme="dusk" eyebrow="Платформа" title="Панель владельца" navItems={NAV_ITEMS}>
       {children}
     </DashboardShell>
   );
