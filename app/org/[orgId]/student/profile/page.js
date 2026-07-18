@@ -7,7 +7,6 @@ import * as db from "@/lib/data";
 import { useData } from "@/context/DataContext";
 import { logout, getCurrentUser } from "@/lib/auth";
 import Card from "@/components/ui/Card";
-import LivesBadge from "@/components/ui/LivesBadge";
 import LoadingState from "@/components/ui/LoadingState";
 
 export default function ProfilePage({ params }) {
@@ -41,9 +40,8 @@ export default function ProfilePage({ params }) {
             <p className="text-xs text-white/60 mt-1">{marathon?.title}</p>
           </div>
         </div>
-        <div className="mt-4 flex items-center justify-between">
-          <span className="text-xs text-white/70">{student?.points} ұпай</span>
-          <LivesBadge lives={student?.lives ?? 0} size={16} />
+        <div className="mt-4">
+          <span className="text-xs text-white/70">{student?.points} баллов</span>
         </div>
       </Card>
 
@@ -57,7 +55,7 @@ export default function ProfilePage({ params }) {
 
       <Card>
         <p className="text-xs text-mist uppercase tracking-wide mb-3">
-          Демо ретінде көру (авторизация толық қосылғанша)
+          Просмотр в роли (до полного подключения авторизации)
         </p>
         <select
           value={currentStudentId || ""}
@@ -74,7 +72,7 @@ export default function ProfilePage({ params }) {
         onClick={handleLogout}
         className="flex items-center justify-center gap-2 text-sm font-medium text-ember py-3 rounded-xl border border-ember/20 bg-ember-light"
       >
-        <LogOut size={16} /> Шығу
+        <LogOut size={16} /> Выйти
       </button>
     </div>
   );
