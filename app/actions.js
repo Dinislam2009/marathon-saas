@@ -181,3 +181,9 @@ export async function getMaterialsForStudentAction(studentId) {
   const materials = await db.getMaterialsForStudent(studentId);
   return safeJson(materials);
 }
+
+// app/actions.js файлының ішінде болуы керек мысал:
+export async function verifyOtpAction(uid, code) {
+  // бұрынғы verifyOtp логикасы осында шақырылады
+  return verifyOtp(uid, code); 
+}

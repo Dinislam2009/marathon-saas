@@ -4,8 +4,14 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getPendingOtp, resendOtp, verifyOtp, getUser } from "@/lib/auth";
 import Button from "@/components/ui/Button";
+
+// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ (КЛИЕНТТІК ИМПОРТТАР ТАЗАЛАНДЫ) ---
+import { 
+  verifyOtpAction, 
+  resendOtpAction, 
+  getPendingOtpAction 
+} from "@/app/actions";
 
 function maskPhone(phone) {
   if (!phone) return "";
@@ -22,12 +28,16 @@ function VerifyOtpForm() {
   const [devCode, setDevCode] = useState("");
   const [phone, setPhone] = useState("");
 
+  // Күтудегі OTP мен телефон нөмірін серверден алу
   useEffect(() => {
-    const pending = getPendingOtp();
-    if (pending) {
-      setDevCode(pending.code);
-      setPhone(pending.phone);
+    async function loadPendingOtp() {
+      const pending = await getPendingOtpAction();
+      if (pending) {
+        setDevCode(pending.code);
+        setPhone(pending.phone);
+      }
     }
+    loadPendingOtp();
   }, []);
 
   useEffect(() => {
@@ -55,13 +65,19 @@ function VerifyOtpForm() {
     }
   }
 
-  function submit(code) {
-    const result = verifyOtp(uid, code);
+  // Серверлік Action арқылы кодты тексеру
+  async function submit(code) {
+    const result = await verifyOtpAction(uid, code);
     if (!result.ok) {
       setError(result.error);
       setDigits(Array(6).fill(""));
       inputsRef.current[0]?.focus();
       return;
+    }
+
+    // Сәтті өткенде пайдаланушы ID-ді сақтап, бағыттау
+    if (result.userId) {
+      localStorage.setItem("current_user_id", result.userId);
     }
 
     const grant = result.granted?.[0];
@@ -74,12 +90,16 @@ function VerifyOtpForm() {
     }
   }
 
-  function handleResend() {
+  // Кодты қайта жіберу
+  async function handleResend() {
     if (cooldown > 0) return;
-    const user = getUser(uid);
-    const code = resendOtp(uid, user?.phone || phone);
-    setDevCode(code);
-    setCooldown(60);
+    const result = await resendOtpAction(uid, phone);
+    if (result.ok) {
+      setDevCode(result.code);
+      setCooldown(60);
+    } else {
+      setError(result.error || "Ошибка при повторной отправке кода");
+    }
   }
 
   return (
