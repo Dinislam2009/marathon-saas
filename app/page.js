@@ -17,8 +17,14 @@ import {
   Palette,
   X,
 } from "lucide-react";
-import { getSession } from "@/lib/auth";
 import Button from "@/components/ui/Button";
+
+// --- СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ ОРАЛЫ ---
+import { 
+  loginUserAction, 
+  registerUserAction, 
+  getCurrentUserAction 
+} from "@/app/actions";
 
 // ---- Scroll-triggered visibility hook (IntersectionObserver) ----
 function useInView(threshold = 0.3) {
@@ -41,7 +47,6 @@ function useInView(threshold = 0.3) {
   }, [threshold]);
   return [ref, inView];
 }
-
 // ---- Animated count-up, starts only once the element is in view ----
 function useCountUp(target, inView, duration = 1200) {
   const [value, setValue] = useState(0);
@@ -237,10 +242,26 @@ export default function LandingPage() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
+  // --- ЖАҢА СЕРВЕРЛІК СЕССИЯНЫ ТЕКСЕРУ (Б НҰСҚАСЫ) ---
   useEffect(() => {
-    setLoggedIn(Boolean(getSession()));
+    async function checkAuth() {
+      const savedUserId = localStorage.getItem("current_user_id"); 
+      if (savedUserId) {
+        const user = await getCurrentUserAction(savedUserId);
+        setLoggedIn(Boolean(user));
+      } else {
+        setLoggedIn(false);
+      }
+    }
+    checkAuth();
   }, []);
 
+  // Логин сәтті өткенде ID-ді сақтау үшін қолданылатын көмекші функция
+  const handleLoginSuccess = (userId) => {
+    localStorage.setItem("current_user_id", userId);
+    setLoggedIn(true);
+  };
+  
   return (
     <div className="min-h-screen bg-paper overflow-x-hidden">
       {/* Header */}

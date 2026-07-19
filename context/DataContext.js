@@ -1,19 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 
 const DataContext = createContext(null);
 
-// Loads the demo dataset once, runs the deadline/lives check, and
-// exposes every mutation as an action that also triggers a re-render.
-//
-// Reads work differently: components call the lib/data.js query
-// functions (getStudentsByMarathon, getLeaderboard, ...) directly in
-// their render body — localStorage reads are synchronous, so this is
-// safe. Every consumer of this context re-renders whenever `tick`
-// changes, which is what makes those direct reads "reactive" without
-// duplicating every collection into React state as well.
 export function DataProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
@@ -21,24 +12,28 @@ export function DataProvider({ children }) {
 
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
+  // Алғашқы рет жүктелгенде серверден статус алу және дедлайндарды тексеру
   useEffect(() => {
-    db.initIfEmpty();
-    db.checkMissedDeadlines();
-
-    const org = db.getOrganizers()[0];
-    const marathon = org ? db.getMarathonsByOrg(org.id)[0] : null;
-    const firstStudent = marathon ? db.getStudentsByMarathon(marathon.id)[0] : null;
-    if (firstStudent) setCurrentStudentId(firstStudent.id);
-
-    setReady(true);
+    async function init() {
+      try {
+        await actions.runDeadlineCheck();
+        const initialState = await actions.fetchInitialState();
+        if (initialState.currentStudentId) {
+          setCurrentStudentId(initialState.currentStudentId);
+        }
+      } catch (err) {
+        console.error("Initialization error:", err);
+      } finally {
+        setReady(true);
+      }
+    }
+    init();
   }, []);
 
-  // Client-side stand-in for a server cron: re-checks deadlines every
-  // minute so a tab left open past 23:00 updates on its own. See the
-  // migration note above checkMissedDeadlines() in lib/data.js.
+  // Әр минут сайын дедлайндарды автоматты жаңарту (серверде орындалады)
   useEffect(() => {
-    const interval = setInterval(() => {
-      db.checkMissedDeadlines();
+    const interval = setInterval(async () => {
+      await actions.runDeadlineCheck();
       bump();
     }, 60000);
     return () => clearInterval(interval);
@@ -50,91 +45,91 @@ export function DataProvider({ children }) {
     currentStudentId,
     setCurrentStudentId,
 
-    addOrganizer: (fields) => {
-      const org = db.addOrganizer(fields);
+    addOrganizer: async (fields) => {
+      const org = await actions.addOrganizerAction(fields);
       bump();
       return org;
     },
-    setOrganizerSubscriptionStatus: (orgId, status) => {
-      db.setOrganizerSubscriptionStatus(orgId, status);
+    setOrganizerSubscriptionStatus: async (orgId, status) => {
+      await actions.setOrganizerSubscriptionStatusAction(orgId, status);
       bump();
     },
-    createMarathon: (orgId, fields) => {
-      const marathon = db.createMarathon(orgId, fields);
+    createMarathon: async (orgId, fields) => {
+      const marathon = await actions.createMarathonAction(orgId, fields);
       bump();
       return marathon;
     },
-    upsertTask: (marathonId, dayNumber, fields) => {
-      const task = db.upsertTask(marathonId, dayNumber, fields);
+    upsertTask: async (marathonId, dayNumber, fields) => {
+      const task = await actions.upsertTaskAction(marathonId, dayNumber, fields);
       bump();
       return task;
     },
-    setStudentStatus: (studentId, status) => {
-      db.setStudentStatus(studentId, status);
+    setStudentStatus: async (studentId, status) => {
+      await actions.setStudentStatusAction(studentId, status);
       bump();
     },
-    updateChecklist: (studentId, marathonId, dayNumber, patch) => {
-      const submission = db.updateChecklist(studentId, marathonId, dayNumber, patch);
+    updateChecklist: async (studentId, marathonId, dayNumber, patch) => {
+      const submission = await actions.updateChecklistAction(studentId, marathonId, dayNumber, patch);
       bump();
       return submission;
     },
     resetDemoData: () => {
-      db.resetDemoData();
+      // PostgreSQL-де демо мәліметтерді нөлдеу серверлік деңгейде немесе қолмен жасалады
       bump();
     },
 
-    addHabit: (studentId, title) => {
-      const habit = db.addHabit(studentId, title);
+    addHabit: async (studentId, title) => {
+      const habit = await actions.addHabitAction(studentId, title);
       bump();
       return habit;
     },
-    toggleHabitToday: (habitId) => {
-      db.toggleHabitToday(habitId);
+    toggleHabitToday: async (habitId) => {
+      await actions.toggleHabitTodayAction(habitId);
       bump();
     },
-    deleteHabit: (habitId) => {
-      db.deleteHabit(habitId);
+    deleteHabit: async (habitId) => {
+      await actions.deleteHabitAction(habitId);
       bump();
     },
-    addMatrixTask: (studentId, fields) => {
-      const task = db.addMatrixTask(studentId, fields);
+    addMatrixTask: async (studentId, fields) => {
+      const task = await actions.addMatrixTaskAction(studentId, fields);
       bump();
       return task;
     },
-    toggleMatrixTaskDone: (taskId) => {
-      db.toggleMatrixTaskDone(taskId);
+    toggleMatrixTaskDone: async (taskId) => {
+      await actions.toggleMatrixTaskDoneAction(taskId);
       bump();
     },
-    deleteMatrixTask: (taskId) => {
-      db.deleteMatrixTask(taskId);
+    deleteMatrixTask: async (taskId) => {
+      await actions.deleteMatrixTaskAction(taskId);
       bump();
     },
-    sendMessage: (orgId, studentId, studentName, text) => {
-      const message = db.sendMessage(orgId, studentId, studentName, text);
+    sendMessage: async (orgId, studentId, studentName, text) => {
+      const message = await actions.sendMessageAction(orgId, studentId, studentName, text);
       bump();
       return message;
     },
-    addMentor: (orgId, fields) => {
-      const mentor = db.addMentor(orgId, fields);
+    addMentor: async (orgId, fields) => {
+      const mentor = await actions.addMentorAction(orgId, fields);
       bump();
       return mentor;
     },
-    assignMentorToStudent: (studentId, mentorId) => {
-      db.assignMentorToStudent(studentId, mentorId);
+    assignMentorToStudent: async (studentId, mentorId) => {
+      await actions.assignMentorToStudentAction(studentId, mentorId);
       bump();
     },
-    addInvitation: (marathonId, orgId, role, fields) => {
-      const invite = db.addInvitation(marathonId, orgId, role, fields);
+    addInvitation: async (marathonId, orgId, role, fields) => {
+      const invite = await actions.addInvitationAction(marathonId, orgId, role, fields);
       bump();
       return invite;
     },
-    addStudentToMarathon: (marathonId, fields) => {
-      const student = db.addStudentToMarathon(marathonId, fields);
+    addStudentToMarathon: async (marathonId, fields) => {
+      const student = await actions.addStudentToMarathonAction(marathonId, fields);
       bump();
       return student;
     },
-    addStudentInvitationByMentor: (mentorId, marathonId, fields) => {
-      const invite = db.addStudentInvitationByMentor(mentorId, marathonId, fields);
+    addStudentInvitationByMentor: async (mentorId, marathonId, fields) => {
+      const invite = await actions.addStudentInvitationByMentorAction(mentorId, marathonId, fields);
       bump();
       return invite;
     },

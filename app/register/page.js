@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { registerUser, findUserByIdentifier } from "@/lib/auth";
+// 🚀 Сенің app/actions.js файлындағы дайын функцияны импорттаймыз:
+import { registerUserAction } from "@/app/actions"; 
 import { formatKzPhone, isValidKzPhone } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 
@@ -21,15 +22,17 @@ export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
+    // 1. Клиенттік валидациялар
     if (!isValidKzPhone(form.phone)) {
       setError("Введите полный номер телефона (+7 (7XX) XXX-XX-XX).");
       return;
@@ -42,13 +45,30 @@ export default function RegisterPage() {
       setError("Пароли не совпадают.");
       return;
     }
-    if (findUserByIdentifier(form.email) || findUserByIdentifier(form.phone)) {
-      setError("Аккаунт с таким email или номером телефона уже существует.");
-      return;
-    }
 
-    const { user } = registerUser(form);
-    router.push(`/verify-otp?uid=${user.id}`);
+    setLoading(true);
+
+    try {
+      // 2. Дайын Server Action арқылы тіркеу (Ішінде findUserByIdentifier тексерісі автоматты түрде орындалады)
+      const res = await registerUserAction(form);
+
+      setLoading(false);
+
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+
+      if (res.user && res.user.id) {
+        // Сәтті өтсе, OTP растау бетіне жібереміз
+        router.push(`/verify-otp?uid=${res.user.id}`);
+      } else {
+        setError("Не удалось получить данные пользователя.");
+      }
+    } catch (err) {
+      setLoading(false);
+      setError("Произошла ошибка при регистрации. Попробуйте еще раз.");
+    }
   }
 
   return (
@@ -139,8 +159,8 @@ export default function RegisterPage() {
 
           {error && <p className="text-xs text-ember bg-ember-light rounded-lg px-3 py-2">{error}</p>}
 
-          <Button type="submit" size="lg" className="mt-2 w-full">
-            Зарегистрироваться
+          <Button type="submit" size="lg" disabled={loading} className="mt-2 w-full">
+            {loading ? "Регистрация..." : "Зарегистрироваться"}
           </Button>
         </form>
       </div>

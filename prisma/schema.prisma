@@ -1,0 +1,94 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Пайдаланушылардың ортақ моделі (Аутентификация үшін)
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String?
+  role         Role       @default(PARTICIPANT)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Пайдаланушы рөлдеріне байланыстар
+  organizer    Organizer?
+  mentor       Mentor?
+  student      Student?
+}
+
+enum Role {
+  OWNER
+  ORGANIZER
+  CURATOR     // Тәлімгер (Mentor)
+  PARTICIPANT // Студент (Student)
+}
+
+// 2. Ұйымдастырушы (Organizer)
+model Organizer {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   String?
+  createdAt DateTime   @default(now())
+
+  marathons Marathon[]
+}
+
+// 3. Марафон (Marathon) - Мысалы: 21-күндік Shyraq марафоны
+model Marathon {
+  id           String         @id @default(uuid())
+  title        String    
+  description  String?
+  durationDays Int            @default(21) // 21 күндік формат
+  startDate    DateTime?
+  status       String         @default("active") // data.js файлындағы MARATHON_STATUS.ACTIVE іздеуі үшін
+  createdAt    DateTime       @default(now())
+
+  organizerId  String
+  organizer    Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  
+  mentors      Mentor[]
+  students     Student[]
+}
+
+// 4. Тәлімгер / Куратор (Mentor)
+model Mentor {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  marathonId String
+  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  students   Student[]
+}
+
+// 5. Студент / Қатысушы (Student)
+model Student {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  marathonId String
+  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  
+  mentorId   String?
+  mentor     Mentor?  @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+}
+
+// 6. Тіркелу және парольді қалпына келтіруге арналған OTP кодтар
+model PendingOtp {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
