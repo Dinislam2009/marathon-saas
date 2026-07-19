@@ -23,7 +23,7 @@ import Button from "@/components/ui/Button";
 import { 
   loginUser, 
   registerUser, 
-  getCurrentUser 
+  getCurrentUserAction // Атауын өзгерттік
 } from "@/app/actions";
 
 // ---- Scroll-triggered visibility hook (IntersectionObserver) ----
@@ -245,17 +245,17 @@ export default function LandingPage() {
 
   // --- ⚡ СЕССИЯНЫ ДҰРЫС ФУНКЦИЯМЕН ТЕКСЕРУ ---
   useEffect(() => {
-    async function checkAuth() {
-      const savedUserId = localStorage.getItem("current_user_id"); 
-      if (savedUserId) {
-        const user = await getCurrentUser(savedUserId);
-        setLoggedIn(Boolean(user));
-      } else {
-        setLoggedIn(false);
-      }
+  async function checkAuth() {
+    const savedUserId = localStorage.getItem("current_user_id"); 
+    if (savedUserId) {
+      const user = await getCurrentUserAction(savedUserId); // Осы жерді түзеттік
+      setLoggedIn(Boolean(user));
+    } else {
+      setLoggedIn(false);
     }
-    checkAuth();
-  }, []);
+  }
+  checkAuth();
+}, []);
 
   return (
     <div className="min-h-screen bg-paper overflow-x-hidden">

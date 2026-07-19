@@ -209,3 +209,12 @@ export async function addStudentInvitationByMentor(mentorId, marathonId, fields)
   revalidatePath("/");
   return safeJson(res);
 }
+
+export async function getOrganizersAction() {
+  try {
+    const organizers = await db.getOrganizers();
+    return { ok: true, organizers: safeJson(organizers) };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
