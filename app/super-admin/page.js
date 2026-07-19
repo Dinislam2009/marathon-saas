@@ -9,16 +9,12 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import LoadingState from "@/components/ui/LoadingState";
 
-// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ҚАУІПСІЗ ИМПОРТТАУ (ДЕРЕКТЕР ҚОРЫ ТАЗАЛАНДЫ) ---
+// --- ⚡ СЕРВЕРЛІК ACTION-ДАР (БҰЛ ФАЙЛДА ЕНДІ ЕШҚАНДАЙ БАЗА ИМПОРТЫ ЖОҚ!) ---
 import { 
   addOrganizer, 
-  setOrganizerSubscriptionStatus 
+  setOrganizerSubscriptionStatus,
+  getOrganizersAction 
 } from "@/app/actions";
-import * as db from "@/lib/data"; // Ескерту: Бұл тек тип немесе статикалық сілтемелерге кедергі келтірмеуі үшін серверлік амалға ауыстырылды. 
-
-// Деректерді серверден қауіпсіз оқу үшін жаңа Action импорттаймыз
-import { getProfileDataAction } from "@/app/actions"; 
-// Ескерту: Біз actions.js-ке жаңа ғана супер-админге арналған оқу функциясын қосамыз немесе төмендегідей арнайы action қолданамыз.
 
 const BADGE_TONE = {
   [SUBSCRIPTION_STATUS.ACTIVE]: "steppe",
@@ -35,32 +31,19 @@ export default function SuperAdminPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  // Ұйымдастырушылар тізімін серверден қауіпсіз алу
+  // Ұйымдастырушылар тізімін Server Action арқылы 100% қауіпсіз алу
   useEffect(() => {
     async function loadOrganizers() {
       setLoading(true);
-      try {
-        // actions.js-тегі бұрыннан бар базалық әдісті тікелей шақыру үшін
-        // Біз fetchInitialState немесе жаңа таза оқу функциясын қолданамыз
-        const res = await fetch("/api/super-admin-data").then(r => r.json()).catch(() => null);
-        if (res && res.organizers) {
-          setOrganizers(res.organizers);
-        } else {
-          // Баламалы түрде actions-тан тікелей оқу (егер API жоқ болса, actions-қа қосқан тиімді)
-          // Қазір build қатесін болдырмау үшін деректі қауіпсіз күйде ұстаймыз:
-          setOrganizers([]);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+      const res = await getOrganizersAction();
+      if (res && res.ok) {
+        setOrganizers(res.organizers);
       }
+      setLoading(false);
     }
     loadOrganizers();
   }, [refreshTick]);
 
-  // Егер жобада Context әлі белсенді болса, бірақ бұғаттауды бұзбау үшін локальді оқуды іске қосамыз:
-  // Бұл жерде db.* шақыруларын толық жойып, оны осылай алмастырдық:
   const activeCount = organizers.filter((o) => o.subscriptionStatus === SUBSCRIPTION_STATUS.ACTIVE).length;
   const mrr = organizers
     .filter((o) => o.subscriptionStatus === SUBSCRIPTION_STATUS.ACTIVE)
@@ -76,7 +59,7 @@ export default function SuperAdminPage() {
     if (res) {
       setForm(EMPTY_FORM);
       setShowForm(false);
-      setRefreshTick(prev => prev + 1); // Тізімді жаңарту
+      setRefreshTick(prev => prev + 1); // Тізімді автоматты түрде жаңарту
     }
   }
 
@@ -87,7 +70,7 @@ export default function SuperAdminPage() {
         : SUBSCRIPTION_STATUS.BLOCKED;
     
     await setOrganizerSubscriptionStatus(org.id, next);
-    setRefreshTick(prev => prev + 1); // Тізімді жаңарту
+    setRefreshTick(prev => prev + 1); // Тізімді автоматты түрде жаңарту
   }
 
   return (
