@@ -2,7 +2,6 @@
 
 import { use, useState, useEffect, useMemo } from "react";
 import { Users, Flag } from "lucide-react";
-import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { SUBMISSION_STATUS, MARATHON_STATUS, MARATHON_STATUS_LABELS } from "@/lib/constants";
 import { getTodayDayNumber, formatDate } from "@/lib/utils";
@@ -10,18 +9,25 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import LoadingState from "@/components/ui/LoadingState";
 
-function completionRate(student, marathon) {
+// Клиенттік деңгейде доводимость есептеу функциясы (state арқылы)
+function completionRate(student, marathon, allSubmissions = {}) {
   const todayDay = getTodayDayNumber(marathon) ?? 1;
   const possible = Math.max(todayDay - 1, 0);
   if (possible === 0) return 0;
-  const submissions = db.getSubmissionsByStudent(student.id);
-  const submitted = submissions.filter(
+  
+  const studentSubmissions = Object.values(allSubmissions).filter(
+    (s) => s.studentId === student.id
+  );
+  
+  const submitted = studentSubmissions.filter(
     (s) => s.status === SUBMISSION_STATUS.SUBMITTED && s.dayNumber <= possible
   ).length;
+  
   return Math.round((submitted / possible) * 100);
 }
 
-function last30DaysActivity(students) {
+// 30 күндік белсенділікті state арқылы есептеу
+function last30DaysActivity(students, allSubmissions = {}) {
   const counts = {};
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -33,7 +39,10 @@ function last30DaysActivity(students) {
   days.forEach((d) => (counts[d] = 0));
 
   students.forEach((student) => {
-    db.getSubmissionsByStudent(student.id).forEach((s) => {
+    const studentSubmissions = Object.values(allSubmissions).filter(
+      (s) => s.studentId === student.id
+    );
+    studentSubmissions.forEach((s) => {
       if (s.status === SUBMISSION_STATUS.SUBMITTED && s.submittedAt) {
         const key = s.submittedAt.slice(0, 10);
         if (key in counts) counts[key]++;
@@ -75,34 +84,50 @@ function ActivityChart({ data }) {
 
 export default function MentorDashboardPage({ params }) {
   const { orgId } = use(params);
-  const { ready, tick } = useData();
+  const { ready, tick, state } = useData();
   const [mentorId, setMentorId] = useState("");
 
-  const mentors = ready ? db.getMentorsByOrg(orgId) : [];
+  // Тікелей db шақыруларын DataContext мемлекетіне ауыстыру
+  const mentors = useMemo(() => {
+    if (!ready || !state?.mentors) return [];
+    return Object.values(state.mentors).filter((m) => m.orgId === orgId);
+  }, [ready, state?.mentors, orgId]);
 
   useEffect(() => {
     if (ready && !mentorId && mentors[0]) setMentorId(mentors[0].id);
-  }, [ready, mentors.length]);
+  }, [ready, mentors, mentorId]);
+
+  const students = useMemo(() => {
+    if (!mentorId || !state?.students) return [];
+    return Object.values(state.students).filter((s) => s.mentorId === mentorId);
+  }, [mentorId, state?.students]);
+
+  const marathons = useMemo(() => {
+    if (!ready || !state?.marathons) return [];
+    // Ұйымға байланысты барлық марафонды алу
+    return Object.values(state.marathons).filter((m) => m.orgId === orgId);
+  }, [ready, state?.marathons, orgId]);
 
   if (!ready) return <LoadingState />;
 
-  const students = mentorId ? db.getStudentsByMentor(mentorId) : [];
-  const marathons = mentorId ? db.getMarathonsForMentor(mentorId) : [];
   const activeMarathons = marathons.filter((m) => m.status === MARATHON_STATUS.ACTIVE);
 
   const avgCompletion = students.length
     ? Math.round(
-        students.reduce((sum, s) => sum + completionRate(s, db.getMarathon(s.marathonId)), 0) / students.length
+        students.reduce((sum, s) => {
+          const marathon = state?.marathons?.[s.marathonId] || {};
+          return sum + completionRate(s, marathon, state?.submissions || {});
+        }, 0) / students.length
       )
     : 0;
 
-  const activity = useMemo(() => last30DaysActivity(students), [students, tick]);
+  const activity = last30DaysActivity(students, state?.submissions || {});
 
   return (
-    <div key={tick} className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Статистика ментора</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">Статистика куратора</h1>
           <p className="text-mist text-sm mt-1">Бекітілген оқушылар мен марафондар бойынша аналитика.</p>
         </div>
         <label className="flex items-center gap-2 text-xs text-mist">
@@ -156,7 +181,7 @@ export default function MentorDashboardPage({ params }) {
             {marathons.map((m) => {
               const start = new Date(m.startDate);
               const end = new Date(m.startDate);
-              end.setDate(end.getDate() + m.durationDays - 1);
+              end.setDate(end.getDate() + (m.durationDays || 21) - 1);
               const count = students.filter((s) => s.marathonId === m.id).length;
               return (
                 <tr key={m.id} className="hover:bg-paper-dim/10">
@@ -167,7 +192,7 @@ export default function MentorDashboardPage({ params }) {
                   <td className="px-5 py-3.5 text-ink font-medium">{count}</td>
                   <td className="px-5 py-3.5">
                     <Badge tone={m.status === MARATHON_STATUS.ACTIVE ? "steppe" : "neutral"}>
-                      {MARATHON_STATUS_LABELS[m.status]}
+                      {MARATHON_STATUS_LABELS[m.status] || "Черновик"}
                     </Badge>
                   </td>
                 </tr>
