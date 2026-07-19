@@ -16,17 +16,17 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау және 8-ді бұғаттау логикасы
+  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау және 8-ді бұғаттау логикасы[cite: 4]
   const handleIdentifierChange = (e) => {
     let val = e.target.value;
 
-    // Егер енгізілген мән саннан басталса (телефон нөмірі терліп жатса)
+    // Егер енгізілген мән саннан басталса (телефон нөмірі терліп жатса)[cite: 4]
     if (/^\d/.test(val)) {
       if (val.startsWith("8")) {
-        // 8-ді басса, оны бірден +7-ге ауыстырамыз
+        // 8-ді басса, оны бірден +7-ге ауыстырамыз[cite: 4]
         val = "+7" + val.substring(1);
       } else if (!val.startsWith("+")) {
-        // Егер + белгісіз сан жазса, алдына +7 қосамыз
+        // Егер + белгісіз сан жазса, алдына +7 қосамыз[cite: 4]
         val = "+7" + val;
       }
     }
@@ -40,7 +40,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ⚡ Серверлік action-ды тура атымен шақырамыз
+      // ⚡ Серверлік action-ды тура атымен шақырамыз[cite: 4]
       const result = await loginUser(identifier, password);
       setLoading(false);
 
@@ -81,7 +81,7 @@ export default function LoginPage() {
                 required
                 autoFocus
                 value={identifier}
-                onChange={handleIdentifierChange} // ⚡ Өзгертілді: Жаңа қатаң валидация функциясы байланды
+                onChange={handleIdentifierChange} // ⚡ Қатаң валидация функциясы[cite: 4]
                 placeholder="email@mail.kz или +7..."
                 className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
               />
@@ -105,6 +105,13 @@ export default function LoginPage() {
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
+              </div>
+              
+              {/* 🔗 Құпия сөзді қалпына келтіру сілтемесі */}
+              <div className="text-right mt-1">
+                <Link href="/forgot-password" className="text-xs text-mist hover:text-horizon-dark transition-colors">
+                  Забыли пароль?
+                </Link>
               </div>
             </label>
 

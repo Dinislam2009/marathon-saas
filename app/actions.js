@@ -394,3 +394,14 @@ export async function getStudentProgressAction(studentId) {
     return { ok: false, error: error.message };
   }
 }
+
+export async function sendResetOtpAction(identifier) {
+  const res = await auth.sendResetOtp(identifier);
+  return safeJson(res);
+}
+
+export async function resetPasswordWithOtpAction(userId, code, newPassword) {
+  const res = await auth.resetPasswordWithOtp({ userId, code, newPassword });
+  revalidatePath("/");
+  return safeJson(res);
+}
