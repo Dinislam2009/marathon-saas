@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import * as db from "@/lib/data";
 import * as auth from "@/lib/auth";
+import { getTodayDayNumber } from "./utils";
 
-// Күрделі Prisma объектілерін Server Action шекарасынан қауіпсіз өткізуге арналған көмекші функция
+// Helper function to stringify complex DB objects safely across the server boundary
 function safeJson(data) {
   if (data === undefined || data === null) return null;
   return JSON.parse(JSON.stringify(data));
@@ -50,7 +51,7 @@ export async function getProfileDataAction(studentId, orgId) {
   try {
     const student = await db.getStudent(studentId);
     const marathon = await db.getMarathonForStudent(studentId);
-    const authUser = await auth.getCurrentUser(); // Немесе ішкі auth.getUser() логикасы бойынша
+    const authUser = await auth.getCurrentUser(); 
     const marathons = await db.getMarathonsByOrg(orgId);
     const students = marathons.flatMap((m) => db.getStudentsByMarathon(m.id));
 
@@ -83,7 +84,6 @@ export async function getCurrentUserAction(userId) {
   return safeJson(user);
 }
 
-// --- OTP растау құралдары ---
 export async function verifyOtpAction(uid, code) {
   const res = await auth.verifyOtp(uid, code);
   revalidatePath("/");
@@ -228,8 +228,7 @@ export async function getStudentDashboardAction(studentId) {
       return { ok: false, error: "Деректер табылмады" };
     }
 
-    // Бүгінгі күн нөмірін серверде есептеу немесе баламалы қауіпсіз шақыру
-    const todayDay = 1; // Немесе жобадағы есептеу логикасына сәйкес (мыс: getTodayDayNumber(marathon))
+    const todayDay = getTodayDayNumber(marathon) || 1;
     
     const task = await db.getTask(marathon.id, todayDay);
     const submission = await db.getSubmission(student.id, todayDay);
