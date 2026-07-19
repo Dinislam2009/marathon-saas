@@ -19,11 +19,11 @@ import {
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 
-// --- СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ ОРАЛЫ ---
+// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ДҰРЫС АТАУМЕН ИМПОРТТАУ (ТҮЗЕТІЛДІ) ---
 import { 
-  loginUserAction, 
-  registerUserAction, 
-  getCurrentUserAction 
+  loginUser, 
+  registerUser, 
+  getCurrentUser 
 } from "@/app/actions";
 
 // ---- Scroll-triggered visibility hook (IntersectionObserver) ----
@@ -47,6 +47,7 @@ function useInView(threshold = 0.3) {
   }, [threshold]);
   return [ref, inView];
 }
+
 // ---- Animated count-up, starts only once the element is in view ----
 function useCountUp(target, inView, duration = 1200) {
   const [value, setValue] = useState(0);
@@ -242,12 +243,12 @@ export default function LandingPage() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
-  // --- ЖАҢА СЕРВЕРЛІК СЕССИЯНЫ ТЕКСЕРУ (Б НҰСҚАСЫ) ---
+  // --- ⚡ СЕССИЯНЫ ДҰРЫС ФУНКЦИЯМЕН ТЕКСЕРУ ---
   useEffect(() => {
     async function checkAuth() {
       const savedUserId = localStorage.getItem("current_user_id"); 
       if (savedUserId) {
-        const user = await getCurrentUserAction(savedUserId);
+        const user = await getCurrentUser(savedUserId);
         setLoggedIn(Boolean(user));
       } else {
         setLoggedIn(false);
@@ -256,12 +257,6 @@ export default function LandingPage() {
     checkAuth();
   }, []);
 
-  // Логин сәтті өткенде ID-ді сақтау үшін қолданылатын көмекші функция
-  const handleLoginSuccess = (userId) => {
-    localStorage.setItem("current_user_id", userId);
-    setLoggedIn(true);
-  };
-  
   return (
     <div className="min-h-screen bg-paper overflow-x-hidden">
       {/* Header */}
@@ -389,7 +384,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Metrics — framed as methodology targets, not verified results (product is pre-launch) */}
+      {/* Metrics */}
       <section className="relative overflow-hidden bg-dusk py-20">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">

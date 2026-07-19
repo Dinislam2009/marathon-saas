@@ -4,9 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-// ❌ Ескі import { loginUser } from "@/lib/auth" өшірілді
-// ✅ Жаңа Серверлік Action импортталды:
-import { loginUserAction } from "@/app/actions";
+// ⚡ Жаңа қауіпсіз Серверлік Action атауымен сәйкестендірілді:
+import { loginUser } from "@/app/actions";
 import Button from "@/components/ui/Button";
 
 export default function LoginPage() {
@@ -17,28 +16,25 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Серверлік action асинхронды болғандықтан, функцияға async қостық
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      // Серверлік action-ды шақырамыз және жауабын күтеміз (await)
-      const result = await loginUserAction(identifier, password);
+      // ⚡ Серверлік action-ды тура атымен шақырамыз
+      const result = await loginUser(identifier, password);
       setLoading(false);
 
-      if (!result.ok) {
-        setError(result.error || "Қате орын алды");
+      if (!result || result.error) {
+        setError(result?.error || "Қате орын алды");
         return;
       }
 
-      // ✅ ЛОГИН СӘТТІ ӨТКЕН ТҰС: Пайдаланушы ID-ін сақтаймыз
       if (result.user && result.user.id) {
         localStorage.setItem("current_user_id", result.user.id);
       }
 
-      // Сәтті кірген соң келесі бетке бағыттау
       router.push("/start");
     } catch (err) {
       setLoading(false);

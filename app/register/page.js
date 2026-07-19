@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-// 🚀 Сенің app/actions.js файлындағы дайын функцияны импорттаймыз:
-import { registerUserAction } from "@/app/actions"; 
+// ⚡ Түзетілген Серверлік Action импорты:
+import { registerUser } from "@/app/actions"; 
 import { formatKzPhone, isValidKzPhone } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 
@@ -32,7 +32,6 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
 
-    // 1. Клиенттік валидациялар
     if (!isValidKzPhone(form.phone)) {
       setError("Введите полный номер телефона (+7 (7XX) XXX-XX-XX).");
       return;
@@ -49,18 +48,17 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // 2. Дайын Server Action арқылы тіркеу (Ішінде findUserByIdentifier тексерісі автоматты түрде орындалады)
-      const res = await registerUserAction(form);
+      // ⚡ Серверлік Action-ды тура атымен шақыру
+      const res = await registerUser(form);
 
       setLoading(false);
 
-      if (res.error) {
-        setError(res.error);
+      if (!res || res.error) {
+        setError(res?.error || "Произошла ошибка при регистрации.");
         return;
       }
 
       if (res.user && res.user.id) {
-        // Сәтті өтсе, OTP растау бетіне жібереміз
         router.push(`/verify-otp?uid=${res.user.id}`);
       } else {
         setError("Не удалось получить данные пользователя.");
