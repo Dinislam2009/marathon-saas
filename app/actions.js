@@ -227,7 +227,6 @@ export async function addHabit(studentId, title) {
 
 export async function toggleHabitToday(habitId) {
   await validateSession();
-  // Ішкі деректер қауіпсіздігі үшін db деңгейінде habit.studentId тексерілуі тиіс
   await db.toggleHabitToday(habitId);
   revalidatePath("/");
 }
@@ -347,7 +346,7 @@ export async function getStudentDashboardAction(studentId) {
     const marathon = await db.getMarathonForStudent(studentId);
     
     if (!student || !marathon) {
-      return { ok: false, error: "Деректер табылмады" };
+      return { ok: false, error: "Деректер табылдады" };
     }
 
     const todayDay = getTodayDayNumber(marathon) || 1;
@@ -394,6 +393,10 @@ export async function getStudentProgressAction(studentId) {
     return { ok: false, error: error.message };
   }
 }
+
+// ==========================================
+// --- Парольді қалпына келтіру әрекеттері ---
+// ==========================================
 
 export async function sendResetOtpAction(identifier) {
   const res = await auth.sendResetOtp(identifier);

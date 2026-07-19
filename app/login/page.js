@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-// ⚡ Жаңа қауіпсіз Серверлік Action атауымен сәйкестендірілді:
+// ⚡ Серверлік Action:
 import { loginUser } from "@/app/actions";
 import Button from "@/components/ui/Button";
 
@@ -16,17 +16,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау және 8-ді бұғаттау логикасы[cite: 4]
+  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау және 8-ді бұғаттау логикасы
   const handleIdentifierChange = (e) => {
     let val = e.target.value;
 
-    // Егер енгізілген мән саннан басталса (телефон нөмірі терліп жатса)[cite: 4]
     if (/^\d/.test(val)) {
       if (val.startsWith("8")) {
-        // 8-ді басса, оны бірден +7-ге ауыстырамыз[cite: 4]
         val = "+7" + val.substring(1);
       } else if (!val.startsWith("+")) {
-        // Егер + белгісіз сан жазса, алдына +7 қосамыз[cite: 4]
         val = "+7" + val;
       }
     }
@@ -40,7 +37,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ⚡ Серверлік action-ды тура атымен шақырамыз[cite: 4]
       const result = await loginUser(identifier, password);
       setLoading(false);
 
@@ -49,11 +45,34 @@ export default function LoginPage() {
         return;
       }
 
+      // Пайдаланушы ID мен рөлін сақтау
       if (result.user && result.user.id) {
         localStorage.setItem("current_user_id", result.user.id);
+        if (result.user.role) {
+          localStorage.setItem("user_role", result.user.role);
+        }
       }
 
-      router.push("/start");
+      // ⚡ РӨЛГЕ БАЙЛАНЫСТЫ АВТОМАТТЫ БАҒЫТТАУ (РЕДИРЕКТ)
+      const role = result.user?.role;
+
+      switch (role) {
+        case "SUPER_ADMIN":
+          router.push("/admin"); // Супер Админ кабинеті
+          break;
+        case "ADMIN":
+        case "ORGANIZER":
+          router.push("/organizer"); // Ұйымдастырушы кабинеті
+          break;
+        case "MENTOR":
+          router.push("/mentor"); // Ментор кабинеті
+          break;
+        case "PARTICIPANT":
+        default:
+          router.push("/dashboard"); // Оқушы (Қатысушы) кабинеті
+          break;
+      }
+
     } catch (err) {
       setLoading(false);
       setError("Сервермен байланыс үзілді немесе қате шықты.");
@@ -81,7 +100,7 @@ export default function LoginPage() {
                 required
                 autoFocus
                 value={identifier}
-                onChange={handleIdentifierChange} // ⚡ Қатаң валидация функциясы[cite: 4]
+                onChange={handleIdentifierChange}
                 placeholder="email@mail.kz или +7..."
                 className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
               />
