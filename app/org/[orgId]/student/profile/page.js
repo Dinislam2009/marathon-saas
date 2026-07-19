@@ -1,30 +1,53 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
-import * as db from "@/lib/data";
 import { useData } from "@/context/DataContext";
-import { logout, getCurrentUser } from "@/lib/auth";
 import Card from "@/components/ui/Card";
 import LoadingState from "@/components/ui/LoadingState";
+
+// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ (ДЕРЕКТЕР ҚОРЫМЕН ТІКЕЛЕЙ БАЙЛАНЫС ТАЗАЛАНДЫ) ---
+import { 
+  logoutAction, 
+  getProfileDataAction 
+} from "@/app/actions";
 
 export default function ProfilePage({ params }) {
   const { orgId } = use(params);
   const router = useRouter();
   const { ready, tick, currentStudentId, setCurrentStudentId } = useData();
 
-  if (!ready || !currentStudentId) return <LoadingState />;
+  // Серверден келетін деректерді сақтау күйі (State)
+  const [profileData, setProfileData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const student = db.getStudent(currentStudentId);
-  const marathon = db.getMarathonForStudent(currentStudentId);
-  const authUser = getCurrentUser();
-  const students = db.getMarathonsByOrg(orgId).flatMap((m) => db.getStudentsByMarathon(m.id));
+  // Студент өзгергенде немесе бет жүктелгенде деректерді серверден қауіпсіз алу
+  useEffect(() => {
+    if (!ready || !currentStudentId) return;
 
-  function handleLogout() {
-    logout();
+    async function fetchProfileData() {
+      setLoading(true);
+      const res = await getProfileDataAction(currentStudentId, orgId);
+      if (res.ok) {
+        setProfileData(res.data);
+      }
+      setLoading(false);
+    }
+
+    fetchProfileData();
+  }, [ready, currentStudentId, orgId]);
+
+  // Серверлік Action арқылы жүйеден шығу
+  async function handleLogout() {
+    await logoutAction();
+    localStorage.removeItem("current_user_id"); // Сессияны тазалау
     router.push("/login");
   }
+
+  if (!ready || !currentStudentId || loading) return <LoadingState />;
+
+  const { student, marathon, authUser, students = [] } = profileData || {};
 
   return (
     <div key={tick} className="flex flex-col gap-6">
@@ -70,7 +93,7 @@ export default function ProfilePage({ params }) {
 
       <button
         onClick={handleLogout}
-        className="flex items-center justify-center gap-2 text-sm font-medium text-ember py-3 rounded-xl border border-ember/20 bg-ember-light"
+        className="flex items-center justify-center gap-2 text-sm font-medium text-ember py-3 rounded-xl border border-ember/20 bg-ember-light w-full"
       >
         <LogOut size={16} /> Выйти
       </button>

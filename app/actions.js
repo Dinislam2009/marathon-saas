@@ -1,10 +1,8 @@
 "use server";
 
-import { verifyOtp, resendOtp, getPendingOtp } from "@/lib/auth";
-// ... қалған импорттар мен кодтар
+import { revalidatePath } from "next/cache";
 import * as db from "@/lib/data";
 import * as auth from "@/lib/auth";
-import { revalidatePath } from "next/cache";
 
 // Күрделі Prisma объектілерін Server Action шекарасынан қауіпсіз өткізуге арналған көмекші функция
 function safeJson(data) {
@@ -42,6 +40,29 @@ export async function runDeadlineCheck() {
   return { success: true };
 }
 
+export async function getMaterialsForStudentAction(studentId) {
+  if (!studentId) return [];
+  const materials = await db.getMaterialsForStudent(studentId);
+  return safeJson(materials);
+}
+
+export async function getProfileDataAction(studentId, orgId) {
+  try {
+    const student = await db.getStudent(studentId);
+    const marathon = await db.getMarathonForStudent(studentId);
+    const authUser = await auth.getCurrentUser(); // Немесе ішкі auth.getUser() логикасы бойынша
+    const marathons = await db.getMarathonsByOrg(orgId);
+    const students = marathons.flatMap((m) => db.getStudentsByMarathon(m.id));
+
+    return {
+      ok: true,
+      data: safeJson({ student, marathon, authUser, students })
+    };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
 // ==========================================
 // --- Анықтамалық (Auth) Амалдары --------
 // ==========================================
@@ -51,19 +72,36 @@ export async function registerUser(fields) {
   return safeJson(res);
 }
 
-export async function verifyOtp(userId, code) {
-  const res = await auth.verifyOtp(userId, code);
-  revalidatePath("/");
-  return safeJson(res);
-}
-
 export async function loginUser(identifier, password) {
   const res = await auth.loginUser(identifier, password);
   return safeJson(res);
 }
 
-export async function resendOtp(userId, phone) {
-  const res = await auth.resendOtp(userId, phone);
+export async function getCurrentUserAction(userId) {
+  if (!userId) return null;
+  const user = await auth.getUser(userId);
+  return safeJson(user);
+}
+
+// --- OTP растау құралдары ---
+export async function verifyOtpAction(uid, code) {
+  const res = await auth.verifyOtp(uid, code);
+  revalidatePath("/");
+  return safeJson(res);
+}
+
+export async function resendOtpAction(uid, phone) {
+  const res = await auth.resendOtp(uid, phone);
+  return safeJson(res);
+}
+
+export async function getPendingOtpAction() {
+  const res = await auth.getPendingOtp();
+  return safeJson(res);
+}
+
+export async function logoutAction() {
+  const res = await auth.logout();
   return safeJson(res);
 }
 
@@ -170,35 +208,4 @@ export async function addStudentInvitationByMentor(mentorId, marathonId, fields)
   const res = await db.addStudentInvitationByMentor(mentorId, marathonId, fields);
   revalidatePath("/");
   return safeJson(res);
-}
-
-export async function getCurrentUser(userId) {
-  if (!userId) return null;
-  const user = await auth.getUser(userId);
-  return safeJson(user);
-}
-
-export async function getMaterialsForStudentAction(studentId) {
-  if (!studentId) return [];
-  const materials = await db.getMaterialsForStudent(studentId);
-  return safeJson(materials);
-}
-
-// app/actions.js файлының ішінде болуы керек мысал:
-export async function verifyOtpAction(uid, code) {
-  // бұрынғы verifyOtp логикасы осында шақырылады
-  return verifyOtp(uid, code); 
-}
-
-export async function verifyOtpAction(uid, code) {
-  // Сенің lib/auth ішіндегі түпнұсқа функцияңды шақыру
-  return verifyOtp(uid, code);
-}
-
-export async function resendOtpAction(uid, phone) {
-  return resendOtp(uid, phone);
-}
-
-export async function getPendingOtpAction() {
-  return getPendingOtp();
 }
