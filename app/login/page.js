@@ -57,12 +57,13 @@ export default function LoginPage() {
       const role = result.user?.role;
 
       switch (role) {
-        case "OWNER":
-          router.push("/admin"); // Владелец (Супер Админ) беті
-          break;
-        case "ORGANIZER":
-          router.push("/organizer"); // Ұйымдастырушы кабинеті
-          break;
+  case "OWNER":
+    router.push("/start"); // 👈 Егер басты бетің әлі де "/start" болса, осылай ауыстыр
+    break;
+  case "ORGANIZER":
+    router.push("/organizer");
+    break;
+  
         case "CURATOR":
           router.push("/mentor"); // Куратор (Ментор) кабинеті
           break;
