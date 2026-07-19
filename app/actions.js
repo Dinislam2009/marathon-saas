@@ -1,5 +1,7 @@
 "use server";
 
+import { verifyOtp, resendOtp, getPendingOtp } from "@/lib/auth";
+// ... қалған импорттар мен кодтар
 import * as db from "@/lib/data";
 import * as auth from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -186,4 +188,17 @@ export async function getMaterialsForStudentAction(studentId) {
 export async function verifyOtpAction(uid, code) {
   // бұрынғы verifyOtp логикасы осында шақырылады
   return verifyOtp(uid, code); 
+}
+
+export async function verifyOtpAction(uid, code) {
+  // Сенің lib/auth ішіндегі түпнұсқа функцияңды шақыру
+  return verifyOtp(uid, code);
+}
+
+export async function resendOtpAction(uid, phone) {
+  return resendOtp(uid, phone);
+}
+
+export async function getPendingOtpAction() {
+  return getPendingOtp();
 }
