@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау логикасы
+  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау логикасы[cite: 3]
   const handleIdentifierChange = (e) => {
     let val = e.target.value;
 
@@ -45,7 +45,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Пайдаланушы мәліметтерін сақтау
+      // Пайдаланушы мәліметтерін сақтау[cite: 3]
       if (result.user && result.user.id) {
         localStorage.setItem("current_user_id", result.user.id);
         if (result.user.role) {
@@ -53,25 +53,8 @@ export default function LoginPage() {
         }
       }
 
-      // ⚡ Базадағы нақты рөлдерге байланысты бағыттау
-      const role = result.user?.role;
-
-      switch (role) {
-  case "OWNER":
-    router.push("/start"); // 👈 Егер басты бетің әлі де "/start" болса, осылай ауыстыр
-    break;
-  case "ORGANIZER":
-    router.push("/organizer");
-    break;
-  
-        case "CURATOR":
-          router.push("/mentor"); // Куратор (Ментор) кабинеті
-          break;
-        case "PARTICIPANT":
-        default:
-          router.push("/dashboard"); // Қатысушы (Оқушы) кабинеті
-          break;
-      }
+      // ⚡ Шатасу болмас үшін барлық рөлді бірден авто-редирект жасайтын /start бетіне жібереміз
+      router.push("/start");
 
     } catch (err) {
       setLoading(false);
@@ -126,7 +109,6 @@ export default function LoginPage() {
                 </button>
               </div>
               
-              {/* 🔗 Құпия сөзді қалпына келтіру сілтемесі */}
               <div className="text-right mt-1">
                 <Link href="/forgot-password" className="text-xs text-mist hover:text-horizon-dark transition-colors">
                   Забыли пароль?
