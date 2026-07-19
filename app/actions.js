@@ -4,6 +4,12 @@ import * as db from "@/lib/data";
 import * as auth from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+// Күрделі Prisma объектілерін Server Action шекарасынан қауіпсіз өткізуге арналған көмекші функция
+function safeJson(data) {
+  if (data === undefined || data === null) return null;
+  return JSON.parse(JSON.stringify(data));
+}
+
 // ==========================================
 // --- Мәліметтерді Оқу (Read) Амалдары ---
 // ==========================================
@@ -30,6 +36,7 @@ export async function fetchInitialState() {
 
 export async function runDeadlineCheck() {
   await db.checkMissedDeadlines();
+  revalidatePath("/");
   return { success: true };
 }
 
@@ -37,122 +44,134 @@ export async function runDeadlineCheck() {
 // --- Анықтамалық (Auth) Амалдары --------
 // ==========================================
 
-export async function registerUserAction(fields) {
+export async function registerUser(fields) {
   const res = await auth.registerUser(fields);
-  return JSON.parse(JSON.stringify(res));
+  return safeJson(res);
 }
 
-export async function verifyOtpAction(userId, code) {
+export async function verifyOtp(userId, code) {
   const res = await auth.verifyOtp(userId, code);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function loginUserAction(identifier, password) {
+export async function loginUser(identifier, password) {
   const res = await auth.loginUser(identifier, password);
-  return JSON.parse(JSON.stringify(res));
+  return safeJson(res);
 }
 
-export async function resendOtpAction(userId, phone) {
+export async function resendOtp(userId, phone) {
   const res = await auth.resendOtp(userId, phone);
-  return JSON.parse(JSON.stringify(res));
+  return safeJson(res);
 }
 
 // ==========================================
 // --- Өзгерту (Mutation) Амалдары ---------
 // ==========================================
 
-export async function addOrganizerAction(fields) {
+export async function addOrganizer(fields) {
   const res = await db.addOrganizer(fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function setOrganizerSubscriptionStatusAction(orgId, status) {
+export async function setOrganizerSubscriptionStatus(orgId, status) {
   await db.setOrganizerSubscriptionStatus(orgId, status);
   revalidatePath("/");
 }
 
-export async function createMarathonAction(orgId, fields) {
+export async function createMarathon(orgId, fields) {
   const res = await db.createMarathon(orgId, fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function upsertTaskAction(marathonId, dayNumber, fields) {
+export async function upsertTask(marathonId, dayNumber, fields) {
   const res = await db.upsertTask(marathonId, dayNumber, fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function setStudentStatusAction(studentId, status) {
+export async function setStudentStatus(studentId, status) {
   await db.setStudentStatus(studentId, status);
   revalidatePath("/");
 }
 
-export async function updateChecklistAction(studentId, marathonId, dayNumber, patch) {
+export async function updateChecklist(studentId, marathonId, dayNumber, patch) {
   const res = await db.updateChecklist(studentId, marathonId, dayNumber, patch);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function addHabitAction(studentId, title) {
+export async function addHabit(studentId, title) {
   const res = await db.addHabit(studentId, title);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function toggleHabitTodayAction(habitId) {
+export async function toggleHabitToday(habitId) {
   await db.toggleHabitToday(habitId);
   revalidatePath("/");
 }
 
-export async function deleteHabitAction(habitId) {
+export async function deleteHabit(habitId) {
   await db.deleteHabit(habitId);
   revalidatePath("/");
 }
 
-export async function addMatrixTaskAction(studentId, fields) {
+export async function addMatrixTask(studentId, fields) {
   const res = await db.addMatrixTask(studentId, fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function toggleMatrixTaskDoneAction(taskId) {
+export async function toggleMatrixTaskDone(taskId) {
   await db.toggleMatrixTaskDone(taskId);
   revalidatePath("/");
 }
 
-export async function deleteMatrixTaskAction(taskId) {
+export async function deleteMatrixTask(taskId) {
   await db.deleteMatrixTask(taskId);
   revalidatePath("/");
 }
 
-export async function sendMessageAction(orgId, studentId, studentName, text) {
+export async function sendMessage(orgId, studentId, studentName, text) {
   const res = await db.sendMessage(orgId, studentId, studentName, text);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function addMentorAction(orgId, fields) {
+export async function addMentor(orgId, fields) {
   const res = await db.addMentor(orgId, fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function assignMentorToStudentAction(studentId, mentorId) {
+export async function assignMentorToStudent(studentId, mentorId) {
   await db.assignMentorToStudent(studentId, mentorId);
   revalidatePath("/");
 }
 
-export async function addInvitationAction(marathonId, orgId, role, fields) {
+export async function addInvitation(marathonId, orgId, role, fields) {
   const res = await db.addInvitation(marathonId, orgId, role, fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function addStudentToMarathonAction(marathonId, fields) {
+export async function addStudentToMarathon(marathonId, fields) {
   const res = await db.addStudentToMarathon(marathonId, fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function addStudentInvitationByMentorAction(mentorId, marathonId, fields) {
+export async function addStudentInvitationByMentor(mentorId, marathonId, fields) {
   const res = await db.addStudentInvitationByMentor(mentorId, marathonId, fields);
-  return JSON.parse(JSON.stringify(res));
+  revalidatePath("/");
+  return safeJson(res);
 }
 
-export async function getCurrentUserAction(userId) {
+export async function getCurrentUser(userId) {
   if (!userId) return null;
   const user = await auth.getUser(userId);
-  return JSON.parse(JSON.stringify(user));
+  return safeJson(user);
 }
