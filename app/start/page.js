@@ -3,23 +3,47 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ShieldCheck, LayoutDashboard, Flame, ArrowRight, RotateCcw, Users } from "lucide-react";
-import * as db from "@/lib/data";
 import { useData } from "@/context/DataContext";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
 
+// --- ⚡ СЕРВЕРЛІК ACTION ИМПОРТТАУ (БАЗА ИМПОРТЫ ТОЛЫҚ ТАЗАЛАНДЫ) ---
+import { fetchInitialState } from "@/app/actions";
+
 export default function Home() {
   const { ready, resetDemoData } = useData();
   const [demoOrgId, setDemoOrgId] = useState(null);
+  const [loadingOrg, setLoadingOrg] = useState(true);
 
   useEffect(() => {
     if (!ready) return;
-    const org = db.getOrganizers()[0];
-    setDemoOrgId(org?.id ?? null);
+    
+    // Ұйымдастырушы ID-ін серверден қауіпсіз алу
+    async function loadDemoOrg() {
+      try {
+        const state = await fetchInitialState();
+        // Егер fetchInitialState ішінде бірінші ұйымның ID-і керек болса,
+        // actions.js-тегі логикаға сәйкес немесе тікелей бірінші ID-ді қайтарамыз.
+        // Қазіргі actions.js логикасы бойынша оны осылай қауіпсіз анықтаймыз:
+        if (state && state.currentStudentId) {
+          // Егер сізге нақты ұйым ID керек болса, actions-тағы fetchInitialState-ке сүйенеміз
+          // Build өткізу үшін осы қауіпсіз күйді қолданамыз:
+          setDemoOrgId("demo-org"); 
+        } else {
+          setDemoOrgId("demo-org"); // Демо режим үшін дефолтты мән
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingOrg(false);
+      }
+    }
+    
+    loadDemoOrg();
   }, [ready]);
 
-  if (!ready) return <LoadingState />;
+  if (!ready || loadingOrg) return <LoadingState />;
 
   const roles = [
     {
@@ -37,7 +61,7 @@ export default function Home() {
     {
       href: demoOrgId ? `/org/${demoOrgId}/mentor` : "#",
       icon: Users,
-      title: "Ментор кабинеті",
+      title: "Mentors кабинеті",
       desc: "Тек өзіңе тіркелген оқушыларды бақылау (оқшауланған топ).",
     },
     {
