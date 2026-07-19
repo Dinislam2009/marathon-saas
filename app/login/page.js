@@ -45,7 +45,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Пайдаланушы ID мен рөлін сақтау
+      // Пайдаланушы мәліметтерін сақтау
       if (result.user && result.user.id) {
         localStorage.setItem("current_user_id", result.user.id);
         if (result.user.role) {
@@ -53,23 +53,22 @@ export default function LoginPage() {
         }
       }
 
-      // ⚡ РӨЛГЕ БАЙЛАНЫСТЫ АВТОМАТТЫ БАҒЫТТАУ (РЕДИРЕКТ)
+      // ⚡ Базадағы нақты рөлдерге байланысты бағыттау
       const role = result.user?.role;
 
       switch (role) {
-        case "SUPER_ADMIN":
-          router.push("/admin"); // Супер Админ кабинеті
+        case "OWNER":
+          router.push("/admin"); // Владелец (Супер Админ) беті
           break;
-        case "ADMIN":
         case "ORGANIZER":
           router.push("/organizer"); // Ұйымдастырушы кабинеті
           break;
-        case "MENTOR":
-          router.push("/mentor"); // Ментор кабинеті
+        case "CURATOR":
+          router.push("/mentor"); // Куратор (Ментор) кабинеті
           break;
         case "PARTICIPANT":
         default:
-          router.push("/dashboard"); // Оқушы (Қатысушы) кабинеті
+          router.push("/dashboard"); // Қатысушы (Оқушы) кабинеті
           break;
       }
 
@@ -77,8 +76,7 @@ export default function LoginPage() {
       setLoading(false);
       setError("Сервермен байланыс үзілді немесе қате шықты.");
     }
-  }
-
+  
   return (
     <div className="min-h-screen flex flex-col bg-paper">
       <div className="bg-gradient-to-br from-horizon to-horizon-dark px-6 pt-14 pb-16 text-white text-center">
