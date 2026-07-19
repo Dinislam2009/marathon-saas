@@ -45,91 +45,91 @@ export function DataProvider({ children }) {
     currentStudentId,
     setCurrentStudentId,
 
+    // ⚡ Функция атаулары жаңа app/actions.js файлына сәйкестендірілді
     addOrganizer: async (fields) => {
-      const org = await actions.addOrganizerAction(fields);
+      const org = await actions.addOrganizer(fields);
       bump();
       return org;
     },
     setOrganizerSubscriptionStatus: async (orgId, status) => {
-      await actions.setOrganizerSubscriptionStatusAction(orgId, status);
+      await actions.setOrganizerSubscriptionStatus(orgId, status);
       bump();
     },
     createMarathon: async (orgId, fields) => {
-      const marathon = await actions.createMarathonAction(orgId, fields);
+      const marathon = await actions.createMarathon(orgId, fields);
       bump();
       return marathon;
     },
     upsertTask: async (marathonId, dayNumber, fields) => {
-      const task = await actions.upsertTaskAction(marathonId, dayNumber, fields);
+      const task = await actions.upsertTask(marathonId, dayNumber, fields);
       bump();
       return task;
     },
     setStudentStatus: async (studentId, status) => {
-      await actions.setStudentStatusAction(studentId, status);
+      await actions.setStudentStatus(studentId, status);
       bump();
     },
     updateChecklist: async (studentId, marathonId, dayNumber, patch) => {
-      const submission = await actions.updateChecklistAction(studentId, marathonId, dayNumber, patch);
+      const submission = await actions.updateChecklist(studentId, marathonId, dayNumber, patch);
       bump();
       return submission;
     },
     resetDemoData: () => {
-      // PostgreSQL-де демо мәліметтерді нөлдеу серверлік деңгейде немесе қолмен жасалады
       bump();
     },
 
     addHabit: async (studentId, title) => {
-      const habit = await actions.addHabitAction(studentId, title);
+      const habit = await actions.addHabit(studentId, title);
       bump();
       return habit;
     },
     toggleHabitToday: async (habitId) => {
-      await actions.toggleHabitTodayAction(habitId);
+      await actions.toggleHabitToday(habitId);
       bump();
     },
     deleteHabit: async (habitId) => {
-      await actions.deleteHabitAction(habitId);
+      await actions.deleteHabit(habitId);
       bump();
     },
     addMatrixTask: async (studentId, fields) => {
-      const task = await actions.addMatrixTaskAction(studentId, fields);
+      const task = await actions.addMatrixTask(studentId, fields);
       bump();
       return task;
     },
     toggleMatrixTaskDone: async (taskId) => {
-      await actions.toggleMatrixTaskDoneAction(taskId);
+      await actions.toggleMatrixTaskDone(taskId);
       bump();
     },
     deleteMatrixTask: async (taskId) => {
-      await actions.deleteMatrixTaskAction(taskId);
+      await actions.deleteMatrixTask(taskId);
       bump();
     },
     sendMessage: async (orgId, studentId, studentName, text) => {
-      const message = await actions.sendMessageAction(orgId, studentId, studentName, text);
+      const message = await actions.sendMessage(orgId, studentId, studentName, text);
       bump();
       return message;
     },
     addMentor: async (orgId, fields) => {
-      const mentor = await actions.addMentorAction(orgId, fields);
+      const mentor = await actions.addMentor(orgId, fields);
       bump();
       return mentor;
     },
     assignMentorToStudent: async (studentId, mentorId) => {
-      await actions.assignMentorToStudentAction(studentId, mentorId);
+      await actions.assignMentorToStudent(studentId, mentorId);
       bump();
     },
     addInvitation: async (marathonId, orgId, role, fields) => {
-      const invite = await actions.addInvitationAction(marathonId, orgId, role, fields);
+      const invite = await actions.addInvitation(marathonId, orgId, role, fields);
       bump();
       return invite;
     },
     addStudentToMarathon: async (marathonId, fields) => {
-      const student = await actions.addStudentToMarathonAction(marathonId, fields);
+      const student = await actions.addStudentToMarathon(marathonId, fields);
       bump();
       return student;
     },
     addStudentInvitationByMentor: async (mentorId, marathonId, fields) => {
-      const invite = await actions.addStudentInvitationByMentorAction(mentorId, marathonId, fields);
+      const invite = await actions.addStudentInvitationByMentor(mentorId, marathonId, fields);
       bump();
       return invite;
     },

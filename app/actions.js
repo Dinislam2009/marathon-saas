@@ -175,3 +175,9 @@ export async function getCurrentUser(userId) {
   const user = await auth.getUser(userId);
   return safeJson(user);
 }
+
+export async function getMaterialsForStudentAction(studentId) {
+  if (!studentId) return [];
+  const materials = await db.getMaterialsForStudent(studentId);
+  return safeJson(materials);
+}

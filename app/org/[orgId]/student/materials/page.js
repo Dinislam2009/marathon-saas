@@ -1,19 +1,40 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { BookOpen, ExternalLink } from "lucide-react";
-import * as db from "@/lib/data";
 import { useData } from "@/context/DataContext";
+import { getMaterialsForStudentAction } from "@/app/actions";
 import Card from "@/components/ui/Card";
 import LoadingState from "@/components/ui/LoadingState";
 
 export default function MaterialsPage() {
   const { ready, tick, currentStudentId } = useData();
-  if (!ready || !currentStudentId) return <LoadingState />;
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const materials = db.getMaterialsForStudent(currentStudentId);
+  useEffect(() => {
+    async function loadMaterials() {
+      if (currentStudentId) {
+        setLoading(true);
+        try {
+          const data = await getMaterialsForStudentAction(currentStudentId);
+          setMaterials(data || []);
+        } catch (err) {
+          console.error("Материалдарды жүктеу қатесі:", err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+    if (ready) {
+      loadMaterials();
+    }
+  }, [currentStudentId, ready, tick]); // tick өзгергенде де мәліметтер жаңарып отырады
+
+  if (!ready || loading) return <LoadingState />;
 
   return (
-    <div key={tick} className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center gap-2">
         <BookOpen size={20} className="text-horizon-dark" />
         <h1 className="font-display text-2xl font-semibold text-ink">Материалдар</h1>
