@@ -30,15 +30,15 @@ function VerifyOtpForm() {
 
   // Күтудегі OTP мен телефон нөмірін серверден алу
   useEffect(() => {
-    async function loadPendingOtp() {
-      const pending = await getPendingOtpAction();
-      if (pending) {
-        setDevCode(pending.code);
-        setPhone(pending.phone);
-      }
+  async function loadPendingOtp() {
+    const pending = await getPendingOtpAction(uid);
+    if (pending) {
+      setDevCode(pending.code);
+      setPhone(pending.phone);
     }
-    loadPendingOtp();
-  }, []);
+  }
+  loadPendingOtp();
+}, [uid]);
 
   useEffect(() => {
     if (cooldown <= 0) return;

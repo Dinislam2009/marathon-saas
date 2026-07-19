@@ -95,8 +95,8 @@ export async function resendOtpAction(uid, phone) {
   return safeJson(res);
 }
 
-export async function getPendingOtpAction() {
-  const res = await auth.getPendingOtp();
+export async function getPendingOtpAction(userId) {
+  const res = await auth.getPendingOtp(userId);
   return safeJson(res);
 }
 

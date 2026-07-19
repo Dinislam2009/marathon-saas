@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Phase 2: when the data layer moves to Firebase/PostgreSQL, add
-  // remote image domains, redirects/rewrites and cache config here.
-  reactStrictMode: true,
+  experimental: {
+    // Turbopack пен Server Actions Prisma клиентін ішкі chunk-тарға бөлмей, 
+    // тікелей node_modules ішінен таза оқуы үшін міндетті баптау
+    serverComponentsExternalPackages: ['@prisma/client'],
+  },
 };
 
 export default nextConfig;
