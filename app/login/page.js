@@ -16,6 +16,24 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау және 8-ді бұғаттау логикасы
+  const handleIdentifierChange = (e) => {
+    let val = e.target.value;
+
+    // Егер енгізілген мән саннан басталса (телефон нөмірі терліп жатса)
+    if (/^\d/.test(val)) {
+      if (val.startsWith("8")) {
+        // 8-ді басса, оны бірден +7-ге ауыстырамыз
+        val = "+7" + val.substring(1);
+      } else if (!val.startsWith("+")) {
+        // Егер + белгісіз сан жазса, алдына +7 қосамыз
+        val = "+7" + val;
+      }
+    }
+
+    setIdentifier(val);
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -63,7 +81,7 @@ export default function LoginPage() {
                 required
                 autoFocus
                 value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                onChange={handleIdentifierChange} // ⚡ Өзгертілді: Жаңа қатаң валидация функциясы байланды
                 placeholder="email@mail.kz или +7..."
                 className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
               />
