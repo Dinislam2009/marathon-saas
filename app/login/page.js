@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау және 8-ді бұғаттау логикасы
+  // ⚡ Телефон нөмірін қатаң +7 форматында ұстау логикасы
   const handleIdentifierChange = (e) => {
     let val = e.target.value;
 
@@ -51,6 +51,7 @@ export default function LoginPage() {
         if (result.user.role) {
           localStorage.setItem("user_role", result.user.role);
         }
+      }
 
       // ⚡ Базадағы нақты рөлдерге байланысты бағыттау
       const role = result.user?.role;
@@ -75,7 +76,8 @@ export default function LoginPage() {
       setLoading(false);
       setError("Сервермен байланыс үзілді немесе қате шықты.");
     }
-  
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-paper">
       <div className="bg-gradient-to-br from-horizon to-horizon-dark px-6 pt-14 pb-16 text-white text-center">
