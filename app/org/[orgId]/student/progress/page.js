@@ -1,22 +1,44 @@
 "use client";
 
-import * as db from "@/lib/data";
+import { useEffect, useState } from "react";
 import { useData } from "@/context/DataContext";
 import { getTodayDayNumber } from "@/lib/utils";
 import Card from "@/components/ui/Card";
 import ProgressGrid from "@/components/ui/ProgressGrid";
 import LoadingState from "@/components/ui/LoadingState";
 
+// --- ⚡ СЕРВЕРЛІК ACTION ИМПОРТТАУ (db ИМПОРТЫ ТОЛЫҚ ТАЗАЛАНДЫ) ---
+import { getStudentProgressAction } from "@/app/actions";
+
 export default function StudentProgressPage() {
   const { ready, tick, currentStudentId } = useData();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!ready || !currentStudentId) return <LoadingState />;
+  useEffect(() => {
+    if (!ready || !currentStudentId) return;
 
-  const student = db.getStudent(currentStudentId);
-  const marathon = db.getMarathonForStudent(currentStudentId);
+    async function loadData() {
+      try {
+        const res = await getStudentProgressAction(currentStudentId);
+        if (res && res.ok) {
+          setData(res.data);
+        }
+      } catch (err) {
+        console.error("Прогресті жүктеу қатесі:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [ready, currentStudentId, tick]);
+
+  if (!ready || !currentStudentId || loading || !data) return <LoadingState />;
+
+  const { student, marathon, allSubmissions: submissions } = data;
   if (!student || !marathon) return <LoadingState />;
 
-  const submissions = db.getSubmissionsByStudent(student.id);
   const submissionsByDay = Object.fromEntries(submissions.map((s) => [s.dayNumber, s]));
   const todayDay = getTodayDayNumber(marathon);
   const submittedCount = submissions.filter((s) => s.status === "submitted").length;

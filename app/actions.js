@@ -249,3 +249,22 @@ export async function getStudentDashboardAction(studentId) {
     return { ok: false, error: error.message };
   }
 }
+
+export async function getStudentProgressAction(studentId) {
+  try {
+    const student = await db.getStudent(studentId);
+    const marathon = await db.getMarathonForStudent(studentId);
+    const allSubmissions = await db.getSubmissionsByStudent(studentId);
+
+    return {
+      ok: true,
+      data: safeJson({
+        student,
+        marathon,
+        allSubmissions
+      })
+    };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
