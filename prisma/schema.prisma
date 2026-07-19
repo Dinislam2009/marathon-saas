@@ -7,88 +7,240 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// 1. Пайдаланушылардың ортақ моделі (Аутентификация үшін)
 model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
+  id           String   @id @default(uuid())
+  email        String   @unique
+  phone        String   @unique
   passwordHash String
-  name         String?
-  role         Role       @default(PARTICIPANT)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  firstName    String
+  lastName     String
+  verified     Boolean  @default(false)
+  role         Role     @default(PARTICIPANT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  // Пайдаланушы рөлдеріне байланыстар
-  organizer    Organizer?
-  mentor       Mentor?
-  student      Student?
+  organizer Organizer?
+  mentor    Mentor?
+  student   Student?
+  pendingOtp PendingOtp?
 }
 
 enum Role {
   OWNER
   ORGANIZER
-  CURATOR     // Тәлімгер (Mentor)
-  PARTICIPANT // Студент (Student)
+  CURATOR
+  PARTICIPANT
 }
 
-// 2. Ұйымдастырушы (Organizer)
 model Organizer {
-  id        String     @id @default(uuid())
-  userId    String     @unique
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company   String?
-  createdAt DateTime   @default(now())
+  id     String  @id @default(uuid())
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  company             String
+  ownerName           String
+  email               String
+  subscriptionStatus  SubscriptionStatus @default(TRIAL)
+  subscriptionPlan    String              @default("Сынақ мерзімі")
+  monthlyFee          Int                 @default(0)
+  nextPaymentDate     DateTime?
+  createdAt           DateTime            @default(now())
 
   marathons Marathon[]
+  mentors   Mentor[]
+  invitations Invitation[]
+  chatMessages ChatMessage[]
 }
 
-// 3. Марафон (Marathon) - Мысалы: 21-күндік Shyraq марафоны
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  BLOCKED
+}
+
 model Marathon {
   id           String         @id @default(uuid())
-  title        String    
+  title        String
   description  String?
-  durationDays Int            @default(21) // 21 күндік формат
-  startDate    DateTime?
-  status       String         @default("active") // data.js файлындағы MARATHON_STATUS.ACTIVE іздеуі үшін
+  durationDays Int            @default(21)
+  startDate    DateTime
+  status       MarathonStatus @default(ACTIVE)
   createdAt    DateTime       @default(now())
 
-  organizerId  String
-  organizer    Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  
-  mentors      Mentor[]
-  students     Student[]
+  organizerId String
+  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  tasks       Task[]
+  students    Student[]
+  invitations Invitation[]
 }
 
-// 4. Тәлімгер / Куратор (Mentor)
+enum MarathonStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+}
+
 model Mentor {
-  id         String   @id @default(uuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  id     String  @id @default(uuid())
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  marathonId String
-  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-  students   Student[]
+  name      String
+  email     String
+  phone     String
+  createdAt DateTime @default(now())
+
+  organizerId String
+  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  students Student[]
 }
 
-// 5. Студент / Қатысушы (Student)
 model Student {
-  id         String   @id @default(uuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  id     String  @id @default(uuid())
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  name      String
+  email     String
+  phone     String?
+  points    Int           @default(0)
+  status    StudentStatus @default(ACTIVE)
+  joinedAt  DateTime      @default(now())
 
   marathonId String
   marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-  
-  mentorId   String?
-  mentor     Mentor?  @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+
+  mentorId String?
+  mentor   Mentor? @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+
+  submissions Submission[]
+  habits      Habit[]
+  matrixTasks MatrixTask[]
+  chatMessages ChatMessage[]
 }
 
-// 6. Тіркелу және парольді қалпына келтіруге арналған OTP кодтар
+enum StudentStatus {
+  ACTIVE
+  BLOCKED
+}
+
+model Task {
+  id               String            @id @default(uuid())
+  dayNumber        Int
+  title            String
+  videoUrl         String?
+  content          String?
+  verificationType VerificationType  @default(TEST)
+  status           TaskStatus        @default(DRAFT)
+  createdAt        DateTime          @default(now())
+
+  marathonId String
+  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+
+  @@unique([marathonId, dayNumber])
+}
+
+enum VerificationType {
+  TEST
+  SCREENSHOT
+}
+
+enum TaskStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+model Submission {
+  id          String           @id @default(uuid())
+  dayNumber   Int
+  status      SubmissionStatus @default(PENDING)
+  checklist   Json             @default("{\"routine\":false,\"video\":false,\"homework\":false}")
+  submittedAt DateTime?
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, dayNumber])
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  MISSED
+}
+
+model Invitation {
+  id       String         @id @default(uuid())
+  role     InvitationRole
+  fullName String
+  phone    String
+  email    String
+  status   InviteStatus   @default(PENDING)
+  claimedByUserId String?
+  createdAt DateTime      @default(now())
+
+  marathonId String
+  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+
+  organizerId String
+  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+}
+
+enum InvitationRole {
+  STUDENT
+  MENTOR
+}
+
+enum InviteStatus {
+  PENDING
+  CLAIMED
+}
+
+model Habit {
+  id        String   @id @default(uuid())
+  title     String
+  doneDates Json     @default("[]")
+  createdAt DateTime @default(now())
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model MatrixTask {
+  id        String   @id @default(uuid())
+  title     String
+  urgent    Boolean  @default(false)
+  important Boolean  @default(false)
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  studentName String
+  text        String
+  createdAt   DateTime @default(now())
+
+  organizerId String
+  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+}
+
 model PendingOtp {
   id        String   @id @default(uuid())
-  email     String   @unique
   code      String
+  phone     String
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
