@@ -65,7 +65,7 @@ function VerifyOtpForm() {
     }
   }
 
-  // ✅ ТҮЗЕТІЛГЕН СЕРВЕРГЕ ЖІБЕРУ ЖӘНЕ БАҒЫТТАУ ЛОГИКАСЫ
+  // ✅ СЕРВЕРГЕ ЖІБЕРУ ЖӘНЕ ҚАУІПСІЗ БАҒЫТТАУ ЛОГИКАСЫ
   async function submit(code) {
     const result = await verifyOtpAction(uid, code);
     if (!result.ok) {
@@ -83,12 +83,12 @@ function VerifyOtpForm() {
 
     const grant = result.granted?.[0];
     
-    // 1. Егер пайдаланушы марафон сілтемесі арқылы келсе (Invited Role)
+    // 1. Егер пайдаланушы марафон сілтемесі (шақыру) арқылы келсе
     if (grant) {
-      const gRole = grant.role?.toLowerCase();
-      if (gRole === "student") {
+      const gRole = grant.role?.toUpperCase();
+      if (gRole === "STUDENT") {
         router.push(`/org/${grant.orgId}/student`);
-      } else if (gRole === "mentor" || gRole === "curator") {
+      } else if (gRole === "MENTOR" || gRole === "CURATOR") {
         router.push(`/org/${grant.orgId}/mentor`);
       } else {
         router.push("/start");
@@ -96,18 +96,16 @@ function VerifyOtpForm() {
       return;
     }
 
-    // 2. ⚡ ТҮЗЕТІЛДІ: Егер сырттан сілтемесіз тіркелген жаңа адам болса (grant жоқ)
-    // Оның базадағы негізгі рөліне (STUDENT) қарап дұрыс кабинетке бағыттаймыз
-   // app/verify-otp/page.js ішіндегі submit функциясының соңы:
-const userRole = result.user?.role;
-
-if (userRole === "student" || userRole === "STUDENT") {
-  router.push("/start"); 
-} else if (userRole === "mentor" || userRole === "curator" || userRole === "CURATOR") {
-  router.push("/mentor/dashboard"); 
-} else {
-  router.push("/start");
-}
+    // 2. ⚡ ТҮЗЕТІЛДІ: Сырттан келген бейтаныс адамдар үшін (Enum регистрінен қорғалған)
+    const userRole = result.user?.role?.toUpperCase();
+    
+    if (userRole === "STUDENT") {
+      router.push("/start"); 
+    } else if (userRole === "CURATOR" || userRole === "MENTOR") {
+      router.push("/mentor/dashboard"); 
+    } else {
+      router.push("/start");
+    }
   }
 
   // Кодты қайта жіберу
@@ -168,7 +166,7 @@ if (userRole === "student" || userRole === "STUDENT") {
         {devCode && (
           <div className="mt-8 rounded-xl border border-dashed border-horizon/40 bg-horizon/5 px-4 py-3 text-xs text-horizon-dark">
             <strong>Демо-режим:</strong> код — <span className="font-mono font-bold">{devCode}</span>.
-            После подключения smsc.kz этот block исчезнет, код будет приходить по SMS/WhatsApp.
+            После подключения smsc.kz этот блок исчезнет, код будет приходить по SMS/WhatsApp.
           </div>
         )}
       </div>
