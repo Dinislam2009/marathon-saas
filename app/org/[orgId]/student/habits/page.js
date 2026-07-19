@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Target, Plus, Check, Trash2 } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
 import Card from "@/components/ui/Card";

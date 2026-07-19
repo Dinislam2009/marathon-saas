@@ -3,7 +3,7 @@
 import { use } from "react";
 import Link from "next/link";
 import { Plus, Users, ArrowRight } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { MARATHON_STATUS_LABELS, MARATHON_STATUS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";

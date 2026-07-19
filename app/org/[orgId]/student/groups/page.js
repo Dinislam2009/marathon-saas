@@ -1,7 +1,7 @@
 "use client";
 
 import { Users } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import Card from "@/components/ui/Card";
 import LoadingState from "@/components/ui/LoadingState";

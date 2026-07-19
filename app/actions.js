@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import * as auth from "@/lib/auth";
-import { getTodayDayNumber } from "./utils";
+import { getTodayDayNumber } from "@/lib/utils"; // ✅ ТҮЗЕТІЛДІ: Абсолютті жол қойылды
 
 // Helper function to stringify complex DB objects safely across the server boundary
 function safeJson(data) {
@@ -138,7 +138,7 @@ export async function setStudentStatus(studentId, status) {
 }
 
 export async function updateChecklist(studentId, marathonId, dayNumber, patch) {
-  const res = await db.updateChecklist(studentId, marathonId, dayNumber, patch);
+  const res = await actions.updateChecklist(studentId, marathonId, dayNumber, patch);
   revalidatePath("/");
   return safeJson(res);
 }

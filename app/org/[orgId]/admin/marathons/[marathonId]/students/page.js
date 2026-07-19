@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, UserPlus, Clock, X } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { STUDENT_STATUS, ROLES } from "@/lib/constants";
 import { formatKzPhone } from "@/lib/utils";

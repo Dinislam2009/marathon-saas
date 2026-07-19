@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LayoutGrid, Plus, X } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { MATRIX_QUADRANTS } from "@/lib/constants";
 import { cn } from "@/lib/utils";

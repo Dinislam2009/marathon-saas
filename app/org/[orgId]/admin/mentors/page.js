@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { UserCog, Plus, Users } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { formatKzPhone } from "@/lib/utils";
 import Card, { CardHeader } from "@/components/ui/Card";

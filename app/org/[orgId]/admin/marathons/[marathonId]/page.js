@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Users, ChevronDown, CircleCheck, Circle } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { VERIFICATION_TYPE, VERIFICATION_TYPE_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";

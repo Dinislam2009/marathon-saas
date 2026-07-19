@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { Search, Users, Trophy, GraduationCap, Plus, X } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";

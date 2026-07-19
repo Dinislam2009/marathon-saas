@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useMemo } from "react";
 import { Users, Flag } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { SUBMISSION_STATUS, MARATHON_STATUS, MARATHON_STATUS_LABELS } from "@/lib/constants";
 import { getTodayDayNumber, formatDate } from "@/lib/utils";

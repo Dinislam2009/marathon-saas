@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Hourglass } from "lucide-react";
-import * as db from "@/lib/data";
+import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { getDayDate, getDeadline, getTodayDayNumber } from "@/lib/utils";
 import Card from "@/components/ui/Card";
