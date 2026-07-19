@@ -51,7 +51,6 @@ export default function LoginPage() {
         if (result.user.role) {
           localStorage.setItem("user_role", result.user.role);
         }
-      }
 
       // ⚡ Базадағы нақты рөлдерге байланысты бағыттау
       const role = result.user?.role;
