@@ -2,11 +2,11 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import Link from "react-nav";
 import { ArrowLeft } from "lucide-react";
 import Button from "@/components/ui/Button";
 
-// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ (КЛИЕНТТІК ИМПОРТТАР ТАЗАЛАНДЫ) ---
+// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ ---
 import { 
   verifyOtpAction, 
   resendOtpAction, 
@@ -30,15 +30,15 @@ function VerifyOtpForm() {
 
   // Күтудегі OTP мен телефон нөмірін серверден алу
   useEffect(() => {
-  async function loadPendingOtp() {
-    const pending = await getPendingOtpAction(uid);
-    if (pending) {
-      setDevCode(pending.code);
-      setPhone(pending.phone);
+    async function loadPendingOtp() {
+      const pending = await getPendingOtpAction(uid);
+      if (pending) {
+        setDevCode(pending.code);
+        setPhone(pending.phone);
+      }
     }
-  }
-  loadPendingOtp();
-}, [uid]);
+    loadPendingOtp();
+  }, [uid]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -65,7 +65,7 @@ function VerifyOtpForm() {
     }
   }
 
-  // Серверлік Action арқылы кодты тексеру
+  // ✅ ТҮЗЕТІЛГЕН СЕРВЕРГЕ ЖІБЕРУ ЖӘНЕ БАҒЫТТАУ ЛОГИКАСЫ
   async function submit(code) {
     const result = await verifyOtpAction(uid, code);
     if (!result.ok) {
@@ -75,16 +75,35 @@ function VerifyOtpForm() {
       return;
     }
 
-    // Сәтті өткенде пайдаланушы ID-ді сақтап, бағыттау
-    if (result.userId) {
-      localStorage.setItem("current_user_id", result.userId);
+    // Пайдаланушы сессиясын localSession-ға толық жазу
+    if (result.user) {
+      localStorage.setItem("currentUser", JSON.stringify(result.user));
+      localStorage.setItem("current_user_id", result.user.id);
     }
 
     const grant = result.granted?.[0];
-    if (grant?.role === "student") {
-      router.push(`/org/${grant.orgId}/student`);
-    } else if (grant?.role === "mentor") {
-      router.push(`/org/${grant.orgId}/mentor`);
+    
+    // 1. Егер пайдаланушы марафон сілтемесі арқылы келсе (Invited Role)
+    if (grant) {
+      const gRole = grant.role?.toLowerCase();
+      if (gRole === "student") {
+        router.push(`/org/${grant.orgId}/student`);
+      } else if (gRole === "mentor" || gRole === "curator") {
+        router.push(`/org/${grant.orgId}/mentor`);
+      } else {
+        router.push("/start");
+      }
+      return;
+    }
+
+    // 2. ⚡ ТҮЗЕТІЛДІ: Егер сырттан сілтемесіз тіркелген жаңа адам болса (grant жоқ)
+    // Оның базадағы негізгі рөліне (STUDENT) қарап дұрыс кабинетке бағыттаймыз
+    const userRole = result.user?.role;
+    
+    if (userRole === "STUDENT") {
+      router.push("/start"); // Оқушы марафон таңдау немесе басты оқушы кабинетіне өтеді
+    } else if (userRole === "CURATOR") {
+      router.push("/mentor/dashboard"); // Егер куратор болса, өз панеліне
     } else {
       router.push("/start");
     }
@@ -148,7 +167,7 @@ function VerifyOtpForm() {
         {devCode && (
           <div className="mt-8 rounded-xl border border-dashed border-horizon/40 bg-horizon/5 px-4 py-3 text-xs text-horizon-dark">
             <strong>Демо-режим:</strong> код — <span className="font-mono font-bold">{devCode}</span>.
-            После подключения smsc.kz этот блок исчезнет, код будет приходить по SMS/WhatsApp.
+            После подключения smsc.kz этот block исчезнет, код будет приходить по SMS/WhatsApp.
           </div>
         )}
       </div>
