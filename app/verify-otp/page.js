@@ -86,23 +86,21 @@ function VerifyOtpForm() {
     // 1. Егер пайдаланушы марафон сілтемесі (шақыру) арқылы келсе
     if (grant) {
       const gRole = grant.role?.toUpperCase();
-      if (gRole === "STUDENT") {
+      if (gRole === "PARTICIPANT") { // Енді "PARTICIPANT" деп тексереміз
         router.push(`/org/${grant.orgId}/student`);
-      } else if (gRole === "MENTOR" || gRole === "CURATOR") {
+      } else if (gRole === "CURATOR" || gRole === "OWNER" || gRole === "ORGANIZER") {
         router.push(`/org/${grant.orgId}/mentor`);
-      } else {
-        router.push("/start");
       }
       return;
     }
 
     // 2. ⚡ ТҮЗЕТІЛДІ: Сырттан келген бейтаныс адамдар үшін (Enum регистрінен қорғалған)
-    const userRole = result.user?.role?.toUpperCase();
+    const userRole = result.user?.role;
     
-    if (userRole === "STUDENT") {
-      router.push("/start"); 
-    } else if (userRole === "CURATOR" || userRole === "MENTOR") {
-      router.push("/mentor/dashboard"); 
+    if (userRole === "PARTICIPANT") {
+      router.push("/start"); // Оқушы кабинеті
+    } else if (userRole === "CURATOR" || userRole === "OWNER" || userRole === "ORGANIZER") {
+      router.push("/mentor/dashboard"); // Куратор/Админ кабинеті
     } else {
       router.push("/start");
     }
