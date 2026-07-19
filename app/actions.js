@@ -52,8 +52,8 @@ export async function fetchInitialState() {
 export async function runDeadlineCheck() {
   const user = await validateSession();
   
-  // Крон немесе дедлайн тексерісін тек Админ немесе Супер Админ ғана іске қоса алуы керек
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+  // ⚡ Тексерісті тек OWNER немесе ORGANIZER іске қоса алады
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER") {
     throw new Error("Бұл амалды орындауға құқығыңыз жеткіліксіз.");
   }
 
@@ -66,8 +66,8 @@ export async function getMaterialsForStudentAction(studentId) {
   if (!studentId) return [];
   const user = await validateSession();
 
-  // Қауіпсіздік: Студент тек өзінің материалдарын, ал Админ кез келген студенттікін көре алады
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.id !== studentId) {
+  // ⚡ Қауіпсіздік: Материалды иесі, Ұйымдастырушы (ORGANIZER) немесе Куратор (CURATOR) көре алады
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId) {
     throw new Error("Басқа қатысушының материалдарын көруге рұқсат жоқ.");
   }
 
@@ -79,8 +79,8 @@ export async function getProfileDataAction(studentId, orgId) {
   try {
     const authUser = await validateSession();
 
-    // Қауіпсіздік сүзгісі
-    if (authUser.role !== "ADMIN" && authUser.role !== "SUPER_ADMIN" && authUser.id !== studentId) {
+    // ⚡ Профиль деректерін оқу сүзгісін жаңа рөлдерге бейімдеу
+    if (authUser.role !== "ORGANIZER" && authUser.role !== "OWNER" && authUser.role !== "CURATOR" && authUser.id !== studentId) {
       throw new Error("Бұл профиль деректерін оқуға рұқсатыңыз жоқ.");
     }
 
@@ -116,8 +116,8 @@ export async function getCurrentUserAction(userId) {
   if (!userId) return null;
   const authUser = await validateSession();
 
-  // Өзгенің ID-і арқылы инспекция жасаудан қорғау
-  if (authUser.role !== "ADMIN" && authUser.role !== "SUPER_ADMIN" && authUser.id !== userId) {
+  // ⚡ Өзгенің ID-і арқылы инспекция жасаудан қорғауды жаңа рөлдерге сәйкестендіру
+  if (authUser.role !== "ORGANIZER" && authUser.role !== "OWNER" && authUser.role !== "CURATOR" && authUser.id !== userId) {
     return null;
   }
 
@@ -152,8 +152,8 @@ export async function logoutAction() {
 
 export async function addOrganizer(fields) {
   const user = await validateSession();
-  if (user.role !== "SUPER_ADMIN") {
-    throw new Error("Жаңа ұйымдастырушыны тек супер админ қоса алады.");
+  if (user.role !== "OWNER") {
+    throw new Error("Жаңа ұйымдастырушыны тек супер админ (OWNER) қоса алады.");
   }
 
   const res = await db.addOrganizer(fields);
@@ -163,8 +163,8 @@ export async function addOrganizer(fields) {
 
 export async function setOrganizerSubscriptionStatus(orgId, status) {
   const user = await validateSession();
-  if (user.role !== "SUPER_ADMIN") {
-    throw new Error("Жазылым статусын тек супер админ басқара алады.");
+  if (user.role !== "OWNER") {
+    throw new Error("Жазылым статусын тек супер админ (OWNER) басқара алады.");
   }
 
   await db.setOrganizerSubscriptionStatus(orgId, status);
@@ -173,8 +173,8 @@ export async function setOrganizerSubscriptionStatus(orgId, status) {
 
 export async function createMarathon(orgId, fields) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-    throw new Error("Марафон құру құқығы тек админде бар.");
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER") {
+    throw new Error("Марафон құру құқығы тек ұйымдастырушыда бар.");
   }
 
   const res = await db.createMarathon(orgId, fields);
@@ -184,8 +184,8 @@ export async function createMarathon(orgId, fields) {
 
 export async function upsertTask(marathonId, dayNumber, fields) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-    throw new Error("Марафон тапсырмаларын тек әкімші өзгерте алады.");
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER") {
+    throw new Error("Марафон тапсырмаларын тек ұйымдастырушы өзгерте алады.");
   }
 
   const res = await db.upsertTask(marathonId, dayNumber, fields);
@@ -195,7 +195,7 @@ export async function upsertTask(marathonId, dayNumber, fields) {
 
 export async function setStudentStatus(studentId, status) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR") {
     throw new Error("Студент статусын өзгертуге рұқсатыңыз жоқ.");
   }
 
@@ -205,7 +205,7 @@ export async function setStudentStatus(studentId, status) {
 
 export async function updateChecklist(studentId, marathonId, dayNumber, patch) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.id !== studentId) {
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId) {
     throw new Error("Бұл чеклистті өзгертуге рұқсатыңыз жоқ.");
   }
 
@@ -262,7 +262,7 @@ export async function deleteMatrixTask(taskId) {
 
 export async function sendMessage(orgId, studentId, studentName, text) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.id !== studentId) {
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId) {
     throw new Error("Хабарлама жіберуге рұқсат жоқ.");
   }
 
@@ -273,8 +273,8 @@ export async function sendMessage(orgId, studentId, studentName, text) {
 
 export async function addMentor(orgId, fields) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-    throw new Error("Менторды тек админ қоса алады.");
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER") {
+    throw new Error("Менторды тек ұйымдастырушы қоса алады.");
   }
 
   const res = await db.addMentor(orgId, fields);
@@ -284,7 +284,7 @@ export async function addMentor(orgId, fields) {
 
 export async function assignMentorToStudent(studentId, mentorId) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER") {
     throw new Error("Менторды бекіту құқығы сізде жоқ.");
   }
 
@@ -294,7 +294,7 @@ export async function assignMentorToStudent(studentId, mentorId) {
 
 export async function addInvitation(marathonId, orgId, role, fields) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER") {
     throw new Error("Шақыру сілтемесін тек әкімші жасай алады.");
   }
 
@@ -312,7 +312,7 @@ export async function addStudentToMarathon(marathonId, fields) {
 
 export async function addStudentInvitationByMentor(mentorId, marathonId, fields) {
   const user = await validateSession();
-  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.id !== mentorId) {
+  if (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== mentorId) {
     throw new Error("Бұл шақыруды жіберуге құқығыңыз жоқ.");
   }
 
@@ -324,8 +324,8 @@ export async function addStudentInvitationByMentor(mentorId, marathonId, fields)
 export async function getOrganizersAction() {
   try {
     const user = await validateSession();
-    if (user.role !== "SUPER_ADMIN") {
-      throw new Error("Ұйымдастырушылар тізімін тек супер админ көре алады.");
+    if (user.role !== "OWNER") {
+      throw new Error("Ұйымдастырушылар тізімін тек супер админ (OWNER) көре алады.");
     }
 
     const organizers = await db.getOrganizers();
@@ -338,7 +338,7 @@ export async function getOrganizersAction() {
 export async function getStudentDashboardAction(studentId) {
   try {
     const user = await validateSession();
-    if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.id !== studentId) {
+    if (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId) {
       throw new Error("Бақылау панелін көруге рұқсатыңыз жоқ.");
     }
 
@@ -346,7 +346,7 @@ export async function getStudentDashboardAction(studentId) {
     const marathon = await db.getMarathonForStudent(studentId);
     
     if (!student || !marathon) {
-      return { ok: false, error: "Деректер табылдады" };
+      return { ok: false, error: "Деректер табылмады" };
     }
 
     const todayDay = getTodayDayNumber(marathon) || 1;
@@ -373,7 +373,7 @@ export async function getStudentDashboardAction(studentId) {
 export async function getStudentProgressAction(studentId) {
   try {
     const user = await validateSession();
-    if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.id !== studentId) {
+    if (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId) {
       throw new Error("Прогресті көруге рұқсатыңыз жоқ.");
     }
 
