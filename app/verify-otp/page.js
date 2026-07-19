@@ -98,15 +98,16 @@ function VerifyOtpForm() {
 
     // 2. ⚡ ТҮЗЕТІЛДІ: Егер сырттан сілтемесіз тіркелген жаңа адам болса (grant жоқ)
     // Оның базадағы негізгі рөліне (STUDENT) қарап дұрыс кабинетке бағыттаймыз
-    const userRole = result.user?.role;
-    
-    if (userRole === "STUDENT") {
-      router.push("/start"); // Оқушы марафон таңдау немесе басты оқушы кабинетіне өтеді
-    } else if (userRole === "CURATOR") {
-      router.push("/mentor/dashboard"); // Егер куратор болса, өз панеліне
-    } else {
-      router.push("/start");
-    }
+   // app/verify-otp/page.js ішіндегі submit функциясының соңы:
+const userRole = result.user?.role;
+
+if (userRole === "student" || userRole === "STUDENT") {
+  router.push("/start"); 
+} else if (userRole === "mentor" || userRole === "curator" || userRole === "CURATOR") {
+  router.push("/mentor/dashboard"); 
+} else {
+  router.push("/start");
+}
   }
 
   // Кодты қайта жіберу
