@@ -218,3 +218,34 @@ export async function getOrganizersAction() {
     return { ok: false, error: error.message };
   }
 }
+
+export async function getStudentDashboardAction(studentId) {
+  try {
+    const student = await db.getStudent(studentId);
+    const marathon = await db.getMarathonForStudent(studentId);
+    
+    if (!student || !marathon) {
+      return { ok: false, error: "Деректер табылмады" };
+    }
+
+    // Бүгінгі күн нөмірін серверде есептеу немесе баламалы қауіпсіз шақыру
+    const todayDay = 1; // Немесе жобадағы есептеу логикасына сәйкес (мыс: getTodayDayNumber(marathon))
+    
+    const task = await db.getTask(marathon.id, todayDay);
+    const submission = await db.getSubmission(student.id, todayDay);
+    const allSubmissions = await db.getSubmissionsByStudent(student.id);
+
+    return {
+      ok: true,
+      data: safeJson({
+        student,
+        marathon,
+        task,
+        submission,
+        allSubmissions
+      })
+    };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}

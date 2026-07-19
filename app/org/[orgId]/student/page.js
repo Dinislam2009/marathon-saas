@@ -1,14 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Flame, PlayCircle, Lock, ExternalLink, Check } from "lucide-react";
-import * as db from "@/lib/data";
 import { useData } from "@/context/DataContext";
 import { DAILY_CHECKLIST_ITEMS, STUDENT_STATUS, SUBMISSION_STATUS } from "@/lib/constants";
 import { getTodayDayNumber, cn } from "@/lib/utils";
 import Card from "@/components/ui/Card";
 import LoadingState from "@/components/ui/LoadingState";
 
+// --- ⚡ СЕРВЕРЛІК ACTION ИМПОРТТАУ (БАЗА ИМПОРТЫ ТОЛЫҚ ТАЗАЛАНДЫ) ---
+import { getStudentDashboardAction } from "@/app/actions";
+
 function computeStreak(submissions, todayDay) {
+  if (!submissions) return 0;
   let streak = 0;
   for (let day = todayDay - 1; day >= 1; day--) {
     const s = submissions.find((x) => x.dayNumber === day);
@@ -20,11 +24,35 @@ function computeStreak(submissions, todayDay) {
 
 export default function StudentHomePage() {
   const { ready, tick, currentStudentId, updateChecklist } = useData();
+  
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  if (!ready || !currentStudentId) return <LoadingState />;
+  // Деректерді серверден қауіпсіз, бір жиынтықпен оқу
+  useEffect(() => {
+    if (!ready || !currentStudentId) return;
 
-  const student = db.getStudent(currentStudentId);
-  const marathon = db.getMarathonForStudent(currentStudentId);
+    async function loadDashboard() {
+      try {
+        const res = await getStudentDashboardAction(currentStudentId);
+        if (res && res.ok) {
+          setDashboardData(res.data);
+        }
+      } catch (err) {
+        console.error("Dashboard оқу қатесі:", err);
+      } finally {
+        setLoadingData(false);
+      }
+    }
+
+    loadDashboard();
+  }, [ready, currentStudentId, refreshTick, tick]);
+
+  if (!ready || !currentStudentId || loadingData || !dashboardData) return <LoadingState />;
+
+  const { student, marathon, task, submission, allSubmissions } = dashboardData;
+
   if (!student || !marathon) return <LoadingState />;
 
   const todayDay = getTodayDayNumber(marathon);
@@ -47,19 +75,16 @@ export default function StudentHomePage() {
     );
   }
 
-  const task = db.getTask(marathon.id, todayDay);
-  const submission = db.getSubmission(student.id, todayDay);
   const checklist = submission?.checklist || { routine: false, video: false, homework: false };
   const locked = submission && submission.status !== SUBMISSION_STATUS.PENDING;
   const doneCount = Object.values(checklist).filter(Boolean).length;
   const percent = Math.round((doneCount / DAILY_CHECKLIST_ITEMS.length) * 100);
-
-  const allSubmissions = db.getSubmissionsByStudent(student.id);
   const streak = computeStreak(allSubmissions, todayDay);
 
-  function toggle(key) {
+  async function toggle(key) {
     if (locked) return;
-    updateChecklist(student.id, marathon.id, todayDay, { [key]: !checklist[key] });
+    await updateChecklist(student.id, marathon.id, todayDay, { [key]: !checklist[key] });
+    setRefreshTick((prev) => prev + 1); // Деректерді қайта синхрондау
   }
 
   return (
