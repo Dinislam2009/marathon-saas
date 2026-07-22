@@ -1,4 +1,5 @@
 import { Unbounded, Golos_Text } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import { DataProvider } from "@/context/DataContext";
 import "./globals.css";
 
@@ -23,7 +24,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="kk" className={`${unbounded.variable} ${golos.variable}`}>
       <body>
-        <DataProvider>{children}</DataProvider>
+        <DataProvider>
+          {children}
+        </DataProvider>
+        {/* ⚡ Қолданушылар трафигі мен кіріп-шығуын бақылайтын Vercel Analytics */}
+        <Analytics />
       </body>
     </html>
   );
