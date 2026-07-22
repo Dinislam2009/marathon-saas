@@ -185,7 +185,7 @@ export default function SuperAdminPage() {
             {organizers.map((org) => (
               <tr key={org.id} className="border-b border-mist-light last:border-0">
                 <td className="px-5 py-3.5">
-                  <p className="font-medium text-ink">{org.name}</p>
+                  <p className="font-medium text-ink">{org.company}</p>
                   <p className="text-mist text-xs">{org.ownerName} · {org.email}</p>
                 </td>
                 <td className="px-5 py-3.5 text-ink">
