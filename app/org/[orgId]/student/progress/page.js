@@ -7,7 +7,7 @@ import Card from "@/components/ui/Card";
 import ProgressGrid from "@/components/ui/ProgressGrid";
 import LoadingState from "@/components/ui/LoadingState";
 
-// --- ⚡ СЕРВЕРЛІК ACTION ИМПОРТТАУ (db ИМПОРТЫ ТОЛЫҚ ТАЗАЛАНДЫ) ---
+// --- ⚡ СЕРВЕРЛІК ACTION ---
 import { getStudentProgressAction } from "@/app/actions";
 
 export default function StudentProgressPage() {
@@ -16,31 +16,53 @@ export default function StudentProgressPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!ready || !currentStudentId) return;
+    let isMounted = true;
 
     async function loadData() {
+      if (!ready) return;
+      
+      if (!currentStudentId) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       try {
+        if (isMounted) setLoading(true);
         const res = await getStudentProgressAction(currentStudentId);
-        if (res && res.ok) {
-          setData(res.data);
+        
+        if (isMounted) {
+          if (res && res.ok) {
+            setData(res.data);
+          }
         }
       } catch (err) {
         console.error("Прогресті жүктеу қатесі:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [ready, currentStudentId, tick]);
 
-  if (!ready || !currentStudentId || loading || !data) return <LoadingState />;
+  if (!ready || loading) return <LoadingState />;
 
-  const { student, marathon, allSubmissions: submissions } = data;
-  if (!student || !marathon) return <LoadingState />;
+  if (!currentStudentId || !data || !data.student || !data.marathon) {
+    return (
+      <Card className="text-center py-10">
+        <p className="text-mist text-sm">Прогресс мәліметтерін жүктеу мүмкін болмады. Бетті қайта жаңартып көріңіз.</p>
+      </Card>
+    );
+  }
 
+  const { student, marathon, allSubmissions } = data;
+  const submissions = allSubmissions || [];
   const submissionsByDay = Object.fromEntries(submissions.map((s) => [s.dayNumber, s]));
-  const todayDay = getTodayDayNumber(marathon);
+  const todayDay = getTodayDayNumber(marathon) || 1;
   const submittedCount = submissions.filter((s) => s.status === "submitted").length;
   const percent = Math.round((submittedCount / (marathon.durationDays || 1)) * 100);
 
@@ -88,7 +110,7 @@ export default function StudentProgressPage() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center py-2 border-b border-mist-light/50">
                 <span className="text-mist">Пройдено:</span>
-                <span className="font-bold text-ink">{todayDay || 1} день</span>
+                <span className="font-bold text-ink">{todayDay} день</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-mist-light/50">
                 <span className="text-mist">Сдано отчетов:</span>
