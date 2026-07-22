@@ -1,238 +1,155 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Flame, PlayCircle, Lock, ExternalLink, Check } from "lucide-react";
+import { 
+  User, 
+  ChevronRight, 
+  CreditCard, 
+  Edit3, 
+  Youtube, 
+  Send, 
+  Instagram, 
+  HelpCircle, 
+  FileText 
+} from "lucide-react";
 import { useData } from "@/context/DataContext";
-import { DAILY_CHECKLIST_ITEMS, STUDENT_STATUS, SUBMISSION_STATUS } from "@/lib/constants";
-import { getTodayDayNumber, cn } from "@/lib/utils";
 import Card from "@/components/ui/Card";
 import LoadingState from "@/components/ui/LoadingState";
 
-// --- ⚡ СЕРВЕРЛІК ACTION ИМПОРТТАУ ---
-import { getStudentDashboardAction } from "@/app/actions";
+export default function StudentProfilePage() {
+  const { ready, currentStudentId, studentData } = useData();
+  const [profile, setProfile] = useState(null);
 
-function computeStreak(submissions, todayDay) {
-  if (!submissions || !Array.isArray(submissions)) return 0;
-  let streak = 0;
-  for (let day = todayDay - 1; day >= 1; day--) {
-    const s = submissions.find((x) => x.dayNumber === day);
-    if (s?.status === SUBMISSION_STATUS.SUBMITTED) streak++;
-    else break;
-  }
-  return streak;
-}
-
-export default function StudentHomePage() {
-  const { ready, tick, currentStudentId, updateChecklist } = useData();
-  
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loadingData, setLoadingData] = useState(true);
-  const [refreshTick, setRefreshTick] = useState(0);
-
-  // Деректерді серверден қауіпсіз оқу
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadDashboard() {
-      if (!ready) return;
-
-      if (!currentStudentId) {
-        if (isMounted) setLoadingData(false);
-        return;
-      }
-
-      try {
-        if (isMounted) setLoadingData(true);
-        const res = await getStudentDashboardAction(currentStudentId);
-        
-        if (isMounted) {
-          if (res && res.ok) {
-            setDashboardData(res.data);
-          } else {
-            console.warn("Dashboard деректерін оқу сәтсіз:", res?.error);
-          }
-        }
-      } catch (err) {
-        console.error("Dashboard оқу қатесі:", err);
-      } finally {
-        if (isMounted) setLoadingData(false);
-      }
+    if (ready && studentData) {
+      setProfile(studentData);
     }
+  }, [ready, studentData]);
 
-    loadDashboard();
+  if (!ready || !profile) return <LoadingState />;
 
-    return () => {
-      isMounted = false;
-    };
-  }, [ready, currentStudentId, refreshTick, tick]);
-
-  // 1. Жүктелу режимі
-  if (!ready || loadingData) return <LoadingState />;
-
-  // 2. Дерек немесе студент табылмаған жағдайда
-  if (!currentStudentId || !dashboardData) {
-    return (
-      <Card className="text-center py-14">
-        <p className="text-mist text-sm">Қатысушы мәліметтері жүктелмеді. Қайта жүктеп көріңіз.</p>
-      </Card>
-    );
-  }
-
-  const { student, marathon, task, submission, allSubmissions } = dashboardData;
-
-  if (!student || !marathon) return <LoadingState />;
-
-  const todayDay = getTodayDayNumber(marathon);
-
-  // 3. Аккаунт бұғатталған жағдайда
-  if (student.status === STUDENT_STATUS.BLOCKED) {
-    return (
-      <Card className="text-center py-14">
-        <Lock size={28} className="mx-auto text-ember mb-4" />
-        <h1 className="font-display text-xl font-semibold text-ink mb-2">Аккаунт бұғатталған</h1>
-        <p className="text-mist text-sm">Барлық жандарың бітті. Ұйымдастырушыға хабарласыңыз.</p>
-      </Card>
-    );
-  }
-
-  // 4. Марафон басталмаған жағдайда
-  if (!todayDay) {
-    return (
-      <Card className="text-center py-14">
-        <p className="text-mist">Марафон әлі басталған жоқ. Ертерек қайта кел!</p>
-      </Card>
-    );
-  }
-
-  const checklist = submission?.checklist || { routine: false, video: false, homework: false };
-  const locked = submission && submission.status !== SUBMISSION_STATUS.PENDING;
-  const doneCount = Object.values(checklist).filter(Boolean).length;
-  const percent = Math.round((doneCount / (DAILY_CHECKLIST_ITEMS?.length || 1)) * 100);
-  const streak = computeStreak(allSubmissions, todayDay);
-
-  async function toggle(key) {
-    if (locked) return;
-    await updateChecklist(student.id, marathon.id, todayDay, { [key]: !checklist[key] });
-    setRefreshTick((prev) => prev + 1); // Деректерді қайта синхрондау
-  }
+  const studentName = profile.fullName || profile.name || "Қатысушы";
+  const studentEmail = profile.email || "email@example.com";
+  const studentId = profile.id ? `ID${profile.id.slice(0, 8).toUpperCase()}` : "ID251040147";
+  const grade = profile.grade || "11";
+  const subject1 = profile.subject1 || "Информатика";
+  const subject2 = profile.subject2 || "Математика";
+  const phone = profile.phone || "+7 707 000 00 00";
 
   return (
-    <div key={tick} className="flex flex-col gap-6">
-      {/* Шапка / Жұмыс кеңістігі */}
-      <div className="flex justify-between items-center">
-        <div>
-          <p className="text-xs text-mist font-bold uppercase tracking-wider">Жұмыс кеңістігі</p>
-          <h1 className="font-display text-2xl font-extrabold text-horizon-dark tracking-tight">LOOPIT</h1>
-        </div>
-        <div className="flex items-center gap-1 bg-horizon/10 border border-horizon/20 px-3 py-1.5 rounded-full">
-          <Flame size={16} className="text-horizon" />
-          <span className="text-sm font-bold text-horizon-dark">{streak} күн</span>
-        </div>
-      </div>
-
-      {/* Компьютерде 2 бағанға бөлу (Мобилкада 1 баған болып қала береді) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Сол жақ: Марафон банері & Чеклист (2 Колонка) */}
-        <div className="md:col-span-2 flex flex-col gap-6">
-          {/* Марафон карточкасы */}
-          <div className="bg-gradient-to-br from-horizon to-horizon-dark p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
-            <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-xl" />
-            <p className="font-bold text-xs tracking-wider uppercase opacity-90 mb-2">
-              Марафон «{marathon.title}» • {todayDay}-күн
-            </p>
-            <p className="text-sm leading-relaxed text-white/85 font-medium">
-              Тапсырмаларды уақытында орында, дедлайнға дейін белгіле — жаныңды сақта!
-            </p>
-          </div>
-
-          {/* Бейнесабақ / Тапсырма */}
-          {task && (
-            <Card className="flex items-start gap-3">
-              <PlayCircle size={20} className="text-horizon-dark shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-ink text-sm">{task.title}</p>
-                {task.videoUrl && (
-                  <a
-                    href={task.videoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-horizon-dark font-medium mt-2"
-                  >
-                    Бейнесабақты көру <ExternalLink size={12} />
-                  </a>
-                )}
+    <div className="w-full max-w-4xl mx-auto flex flex-col gap-5 py-4">
+      
+      {/* 1. БАСТЫ ИНФО КАРТОЧКАСЫ */}
+      <Card className="!p-6 bg-white rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex items-start justify-between pb-6 border-b border-slate-100">
+          <div className="flex items-center gap-4">
+            {/* Аватар / Инициал */}
+            <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-2xl shrink-0">
+              {studentName.charAt(0)}
+            </div>
+            
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-slate-900">{studentName}</h1>
               </div>
-            </Card>
-          )}
-
-          {/* Бүгінгі Чеклист */}
-          <div>
-            <h3 className="text-xs font-extrabold text-mist uppercase tracking-wider mb-3">
-              Бүгінгі тапсырмалар
-            </h3>
-            <div className="flex flex-col gap-3">
-              {DAILY_CHECKLIST_ITEMS.map((item) => {
-                const done = checklist[item.key];
-                return (
-                  <Card key={item.key} padded className="flex items-center justify-between !p-4">
-                    <span className="text-sm font-bold text-ink">{item.label}</span>
-                    <button
-                      onClick={() => toggle(item.key)}
-                      disabled={locked}
-                      className={cn(
-                        "text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shrink-0 ml-3",
-                        done
-                          ? "bg-steppe-light text-steppe"
-                          : "bg-horizon text-white hover:bg-horizon-dark",
-                        locked && "opacity-60 cursor-not-allowed"
-                      )}
-                    >
-                      {done ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Check size={12} strokeWidth={3} /> Тапсырылды
-                        </span>
-                      ) : (
-                        "Белгілеу"
-                      )}
-                    </button>
-                  </Card>
-                );
-              })}
+              <p className="text-sm text-slate-500 mt-0.5">{studentEmail}</p>
+              
+              <div className="inline-block mt-2 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-600 text-xs font-semibold rounded-full">
+                {studentId}
+              </div>
             </div>
           </div>
+
+          <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">
+            <Edit3 size={20} />
+          </button>
         </div>
 
-        {/* Оң жақ: Прогресс бар & Дедлайн ескертуі (1 Колонка) */}
-        <div className="flex flex-col gap-6">
-          {/* Прогресс-бар */}
-          <Card>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-mist uppercase tracking-wider">Бүгінгі прогресс</span>
-              <span className="text-xs font-bold text-steppe bg-steppe-light px-2.5 py-1 rounded-full">
-                {percent}% орындалды
-              </span>
-            </div>
-            <div className="w-full h-2.5 bg-paper-dim rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-steppe rounded-full transition-all duration-500" 
-                style={{ width: `${percent}%` }} 
-              />
-            </div>
-          </Card>
-
-          {/* Ескерту карточкасы */}
-          <Card className="bg-paper-dim/50 border border-mist-light">
-            <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-              Дедлайн ескертпесі
-            </h4>
-            <p className="text-xs text-mist leading-relaxed">
-              Бүгін 23:00-ге дейін тапсырмаларды белгілеп үлгеріңіз. Уақытында белгілемесеңіз — 1 жаныңыз күйеді.
-            </p>
-          </Card>
+        {/* 4 Бағандық ақпарат панелі */}
+        <div className="grid grid-cols-4 gap-4 pt-5 text-sm">
+          <div>
+            <p className="text-xs text-slate-400 font-medium mb-1">Оқу сыныбы</p>
+            <p className="font-bold text-slate-800">{grade}</p>
+          </div>
+          <div className="border-l border-slate-100 pl-4">
+            <p className="text-xs text-slate-400 font-medium mb-1">1-ші пән</p>
+            <p className="font-bold text-slate-800">{subject1}</p>
+          </div>
+          <div className="border-l border-slate-100 pl-4">
+            <p className="text-xs text-slate-400 font-medium mb-1">2-ші пән</p>
+            <p className="font-bold text-slate-800">{subject2}</p>
+          </div>
+          <div className="border-l border-slate-100 pl-4">
+            <p className="text-xs text-slate-400 font-medium mb-1">Телефон нөмері (WhatsApp)</p>
+            <p className="font-bold text-slate-800">{phone}</p>
+          </div>
         </div>
+      </Card>
 
-      </div>
+      {/* 2. ЕРЕЖЕЛЕР МЕН FAQ */}
+      <Card className="!p-0 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-100">
+        <a href="#" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-800">Ережелер мен келісімдер</span>
+          </div>
+          <ChevronRight size={18} className="text-slate-400" />
+        </a>
+        <a href="#" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-800">FAQ</span>
+          </div>
+          <ChevronRight size={18} className="text-slate-400" />
+        </a>
+      </Card>
+
+      {/* 3. ТӨЛЕМ ТАРИХЫ */}
+      <Card className="!p-0 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <a href="#" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <CreditCard size={18} className="text-slate-500" />
+            <span className="text-sm font-medium text-slate-800">Төлем тарихы</span>
+          </div>
+          <ChevronRight size={18} className="text-slate-400" />
+        </a>
+      </Card>
+
+      {/* 4. БІЗ ӘЛЕУМЕТТІК ЖЕЛІЛЕРДЕ */}
+      <Card className="!p-5 bg-white rounded-3xl shadow-sm border border-slate-100">
+        <p className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">
+          БІЗ ӘЛЕУМЕТТІК ЖЕЛІЛЕРДЕ
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
+            <div className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
+              <Youtube size={16} />
+            </div>
+            <span>Бізді YouTube-тен қараңыз</span>
+          </a>
+
+          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
+            <div className="w-7 h-7 rounded-full bg-sky-500 text-white flex items-center justify-center shrink-0">
+              <Send size={14} className="-ml-0.5" />
+            </div>
+            <span>Біздің Telegram арнамыз</span>
+          </a>
+
+          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shrink-0">
+              <Instagram size={16} />
+            </div>
+            <span>Біз Instagram - дамыз</span>
+          </a>
+
+          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
+            <div className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center shrink-0 font-bold text-xs">
+              🎵
+            </div>
+            <span>Біздің TikTok</span>
+          </a>
+        </div>
+      </Card>
+
     </div>
   );
 }
