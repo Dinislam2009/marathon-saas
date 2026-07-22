@@ -6,21 +6,21 @@ import { cn } from "@/lib/utils";
 
 const THEME = {
   dusk: {
-    aside: "bg-dusk text-white",
+    aside: "bg-dusk text-white border-r border-white/5",
     link: "text-white/60 hover:text-white hover:bg-white/5",
-    linkActive: "bg-white/10 text-white",
+    linkActive: "bg-white/10 text-white font-bold",
     eyebrow: "text-white/40",
   },
   ink: {
-    aside: "bg-white border-r border-mist-light text-ink",
+    aside: "bg-white border-r border-mist-light/60 text-ink",
     link: "text-mist hover:text-ink hover:bg-paper-dim",
-    linkActive: "bg-horizon/10 text-horizon-dark",
+    linkActive: "bg-horizon/10 text-horizon-dark font-bold",
     eyebrow: "text-mist",
   },
   paper: {
-    aside: "bg-paper-dim/60 border-r border-mist-light text-ink",
+    aside: "bg-paper-dim/60 border-r border-mist-light/60 text-ink",
     link: "text-mist hover:text-ink hover:bg-white",
-    linkActive: "bg-white text-horizon-dark shadow-sm",
+    linkActive: "bg-white text-horizon-dark shadow-sm font-bold",
     eyebrow: "text-mist",
   },
 };
@@ -29,31 +29,37 @@ export default function DashboardShell({
   theme = "ink",
   eyebrow,
   title,
-  navItems,
+  navItems = [],
   headerRight,
   children,
 }) {
   const pathname = usePathname();
-  const t = THEME[theme];
+  const t = THEME[theme] || THEME.ink;
 
   return (
     <div className="min-h-screen flex bg-paper">
+      
+      {/* 💻 КОМПЬЮТЕРЛІК САЙДБАР (Мобилкада жасырын 'hidden md:flex', десктопта 256px) */}
       <aside
         className={cn(
-          "w-16 sm:w-60 shrink-0 flex flex-col py-5 px-2 sm:px-4 gap-6",
+          "hidden md:flex w-64 shrink-0 flex-col py-6 px-4 gap-8 sticky top-0 h-screen",
           t.aside
         )}
       >
-        <div className="px-2">
-          <p className={cn("hidden sm:block text-xs uppercase tracking-wider", t.eyebrow)}>
-            {eyebrow}
-          </p>
-          <h1 className="hidden sm:block font-display font-semibold text-lg mt-0.5 leading-tight">
-            {title}
+        {/* Шапка / Логотип & Тақырып */}
+        <div className="px-3">
+          {eyebrow && (
+            <p className={cn("text-[11px] font-bold uppercase tracking-wider mb-1", t.eyebrow)}>
+              {eyebrow}
+            </p>
+          )}
+          <h1 className="font-display font-extrabold text-xl text-horizon-dark tracking-tight leading-none">
+            {title || "LOOPIT"}
           </h1>
         </div>
 
-        <nav className="flex flex-col gap-1">
+        {/* Навигациялық пункттер */}
+        <nav className="flex flex-col gap-1.5 flex-1">
           {navItems.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
@@ -62,25 +68,30 @@ export default function DashboardShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3.5 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-150",
                   active ? t.linkActive : t.link
                 )}
               >
-                <Icon size={18} className="shrink-0" />
-                <span className="hidden sm:inline">{item.label}</span>
+                {Icon && <Icon size={20} className="shrink-0" />}
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
       </aside>
 
-      <div className="flex-1 min-w-0">
+      {/* 📱 / 💻 НЕГІЗГІ КОНТЕНТ АЙМАҒЫ */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
         {headerRight && (
-          <div className="flex justify-end items-center gap-3 px-4 sm:px-8 py-4 border-b border-mist-light bg-white/60 backdrop-blur">
+          <header className="flex justify-end items-center gap-3 px-4 sm:px-8 py-4 border-b border-mist-light/60 bg-white/80 backdrop-blur sticky top-0 z-10">
             {headerRight}
-          </div>
+          </header>
         )}
-        <main className="p-4 sm:p-8 max-w-5xl mx-auto">{children}</main>
+        
+        {/* Контент компьютерде кеңірек (max-w-6xl) болып ортаға орналасады */}
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-6xl w-full mx-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

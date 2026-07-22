@@ -130,92 +130,109 @@ export default function StudentHomePage() {
         </div>
       </div>
 
-      {/* Марафон карточкасы */}
-      <div className="bg-gradient-to-br from-horizon to-horizon-dark p-5 rounded-3xl text-white shadow-lg relative overflow-hidden">
-        <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-xl" />
-        <p className="font-bold text-xs tracking-wider uppercase opacity-90 mb-2">
-          Марафон «{marathon.title}» • {todayDay}-күн
-        </p>
-        <p className="text-sm leading-relaxed text-white/85 font-medium">
-          Тапсырмаларды уақытында орында, дедлайнға дейін белгіле — жаныңды сақта!
-        </p>
-      </div>
-
-      {/* Прогресс-бар */}
-      <Card>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-xs font-bold text-mist uppercase tracking-wider">Бүгінгі прогресс</span>
-          <span className="text-xs font-bold text-steppe bg-steppe-light px-2.5 py-1 rounded-full">
-            {percent}% орындалды
-          </span>
-        </div>
-        <div className="w-full h-2.5 bg-paper-dim rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-steppe rounded-full transition-all duration-500" 
-            style={{ width: `${percent}%` }} 
-          />
-        </div>
-      </Card>
-
-      {/* Бейнесабақ / Тапсырма */}
-      {task && (
-        <Card className="flex items-start gap-3">
-          <PlayCircle size={20} className="text-horizon-dark shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-ink text-sm">{task.title}</p>
-            {task.videoUrl && (
-              <a
-                href={task.videoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-horizon-dark font-medium mt-2"
-              >
-                Бейнесабақты көру <ExternalLink size={12} />
-              </a>
-            )}
+      {/* Компьютерде 2 бағанға бөлу (Мобилкада 1 баған болып қала береді) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Сол жақ: Марафон банері & Чеклист (2 Колонка) */}
+        <div className="md:col-span-2 flex flex-col gap-6">
+          {/* Марафон карточкасы */}
+          <div className="bg-gradient-to-br from-horizon to-horizon-dark p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+            <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-xl" />
+            <p className="font-bold text-xs tracking-wider uppercase opacity-90 mb-2">
+              Марафон «{marathon.title}» • {todayDay}-күн
+            </p>
+            <p className="text-sm leading-relaxed text-white/85 font-medium">
+              Тапсырмаларды уақытында орында, дедлайнға дейін белгіле — жаныңды сақта!
+            </p>
           </div>
-        </Card>
-      )}
 
-      {/* Бүгінгі Чеклист */}
-      <div>
-        <h3 className="text-xs font-extrabold text-mist uppercase tracking-wider mb-3">
-          Бүгінгі тапсырмалар
-        </h3>
-        <div className="flex flex-col gap-3">
-          {DAILY_CHECKLIST_ITEMS.map((item) => {
-            const done = checklist[item.key];
-            return (
-              <Card key={item.key} padded className="flex items-center justify-between !p-4">
-                <span className="text-sm font-bold text-ink">{item.label}</span>
-                <button
-                  onClick={() => toggle(item.key)}
-                  disabled={locked}
-                  className={cn(
-                    "text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shrink-0 ml-3",
-                    done
-                      ? "bg-steppe-light text-steppe"
-                      : "bg-horizon text-white hover:bg-horizon-dark",
-                    locked && "opacity-60 cursor-not-allowed"
-                  )}
-                >
-                  {done ? (
-                    <span className="inline-flex items-center gap-1">
-                      <Check size={12} strokeWidth={3} /> Тапсырылды
-                    </span>
-                  ) : (
-                    "Белгілеу"
-                  )}
-                </button>
-              </Card>
-            );
-          })}
+          {/* Бейнесабақ / Тапсырма */}
+          {task && (
+            <Card className="flex items-start gap-3">
+              <PlayCircle size={20} className="text-horizon-dark shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-ink text-sm">{task.title}</p>
+                {task.videoUrl && (
+                  <a
+                    href={task.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-horizon-dark font-medium mt-2"
+                  >
+                    Бейнесабақты көру <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Бүгінгі Чеклист */}
+          <div>
+            <h3 className="text-xs font-extrabold text-mist uppercase tracking-wider mb-3">
+              Бүгінгі тапсырмалар
+            </h3>
+            <div className="flex flex-col gap-3">
+              {DAILY_CHECKLIST_ITEMS.map((item) => {
+                const done = checklist[item.key];
+                return (
+                  <Card key={item.key} padded className="flex items-center justify-between !p-4">
+                    <span className="text-sm font-bold text-ink">{item.label}</span>
+                    <button
+                      onClick={() => toggle(item.key)}
+                      disabled={locked}
+                      className={cn(
+                        "text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shrink-0 ml-3",
+                        done
+                          ? "bg-steppe-light text-steppe"
+                          : "bg-horizon text-white hover:bg-horizon-dark",
+                        locked && "opacity-60 cursor-not-allowed"
+                      )}
+                    >
+                      {done ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Check size={12} strokeWidth={3} /> Тапсырылды
+                        </span>
+                      ) : (
+                        "Белгілеу"
+                      )}
+                    </button>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
 
-      <p className="text-xs text-mist text-center">
-        Дедлайн: бүгін 23:00-ге дейін. Уақытында белгілемесең — 1 жаның күйеді.
-      </p>
+        {/* Оң жақ: Прогресс бар & Дедлайн ескертуі (1 Колонка) */}
+        <div className="flex flex-col gap-6">
+          {/* Прогресс-бар */}
+          <Card>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-mist uppercase tracking-wider">Бүгінгі прогресс</span>
+              <span className="text-xs font-bold text-steppe bg-steppe-light px-2.5 py-1 rounded-full">
+                {percent}% орындалды
+              </span>
+            </div>
+            <div className="w-full h-2.5 bg-paper-dim rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-steppe rounded-full transition-all duration-500" 
+                style={{ width: `${percent}%` }} 
+              />
+            </div>
+          </Card>
+
+          {/* Ескерту карточкасы */}
+          <Card className="bg-paper-dim/50 border border-mist-light">
+            <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+              Дедлайн ескертпесі
+            </h4>
+            <p className="text-xs text-mist leading-relaxed">
+              Бүгін 23:00-ге дейін тапсырмаларды белгілеп үлгеріңіз. Уақытында белгілемесеңіз — 1 жаныңыз күйеді.
+            </p>
+          </Card>
+        </div>
+
+      </div>
     </div>
   );
 }
