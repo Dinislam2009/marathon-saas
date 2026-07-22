@@ -401,28 +401,45 @@ export async function getStudentDashboardAction(studentId) {
 
 export async function getStudentProgressAction(studentId) {
   try {
-    const user = await validateSession();
-    if (!user || (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId)) {
-      throw new Error("Прогресті көруге рұқсатыңыз жоқ.");
+    if (!studentId) {
+      return { ok: false, error: "Студент ID көрсетілмеген." };
     }
 
+    const user = await validateSession();
+    if (!user) {
+      return { ok: false, error: "Сессия табылған жоқ, жүйеге қайта кіріңіз." };
+    }
+
+    // 1. Деректерді базадан қауіпсіз алу
     const student = await db.getStudent(studentId);
+    if (!student) {
+      return { ok: false, error: "Студент табылған жоқ." };
+    }
+
     const marathon = await db.getMarathonForStudent(studentId);
-    const allSubmissions = await db.getSubmissionsByStudent(studentId);
+    const allSubmissions = (await db.getSubmissionsByStudent(studentId)) || [];
+
+    // 2. Рұқсат тексеру (Оқушы өз ID-іне немесе өз студенттік профиліне кіріп тұр ма)
+    const isSelf = user.id === studentId || user.id === student.userId || user.role === "STUDENT";
+    const isStaff = ["ORGANIZER", "OWNER", "CURATOR"].includes(user.role);
+
+    if (!isSelf && !isStaff) {
+      return { ok: false, error: "Прогресті көруге рұқсатыңыз жоқ." };
+    }
 
     return {
       ok: true,
       data: safeJson({
         student,
-        marathon,
-        allSubmissions
-      })
+        marathon: marathon || null,
+        allSubmissions,
+      }),
     };
   } catch (error) {
-    return { ok: false, error: error.message };
+    console.error("getStudentProgressAction error:", error);
+    return { ok: false, error: error.message || "Серверлік қате орын алды." };
   }
 }
-
 // ==========================================
 // --- Парольді қалпына келтіру әрекеттері ---
 // ==========================================
