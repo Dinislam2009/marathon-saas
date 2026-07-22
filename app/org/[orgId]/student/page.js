@@ -8,11 +8,11 @@ import { getTodayDayNumber, cn } from "@/lib/utils";
 import Card from "@/components/ui/Card";
 import LoadingState from "@/components/ui/LoadingState";
 
-// --- ⚡ СЕРВЕРЛІК ACTION ИМПОРТТАУ (БАЗА ИМПОРТЫ ТОЛЫҚ ТАЗАЛАНДЫ) ---
+// --- ⚡ СЕРВЕРЛІК ACTION ИМПОРТТАУ ---
 import { getStudentDashboardAction } from "@/app/actions";
 
 function computeStreak(submissions, todayDay) {
-  if (!submissions) return 0;
+  if (!submissions || !Array.isArray(submissions)) return 0;
   let streak = 0;
   for (let day = todayDay - 1; day >= 1; day--) {
     const s = submissions.find((x) => x.dayNumber === day);
@@ -29,27 +29,54 @@ export default function StudentHomePage() {
   const [loadingData, setLoadingData] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  // Деректерді серверден қауіпсіз, бір жиынтықпен оқу
+  // Деректерді серверден қауіпсіз оқу
   useEffect(() => {
-    if (!ready || !currentStudentId) return;
+    let isMounted = true;
 
     async function loadDashboard() {
+      if (!ready) return;
+
+      if (!currentStudentId) {
+        if (isMounted) setLoadingData(false);
+        return;
+      }
+
       try {
+        if (isMounted) setLoadingData(true);
         const res = await getStudentDashboardAction(currentStudentId);
-        if (res && res.ok) {
-          setDashboardData(res.data);
+        
+        if (isMounted) {
+          if (res && res.ok) {
+            setDashboardData(res.data);
+          } else {
+            console.warn("Dashboard деректерін оқу сәтсіз:", res?.error);
+          }
         }
       } catch (err) {
         console.error("Dashboard оқу қатесі:", err);
       } finally {
-        setLoadingData(false);
+        if (isMounted) setLoadingData(false);
       }
     }
 
     loadDashboard();
+
+    return () => {
+      isMounted = false;
+    };
   }, [ready, currentStudentId, refreshTick, tick]);
 
-  if (!ready || !currentStudentId || loadingData || !dashboardData) return <LoadingState />;
+  // 1. Жүктелу режимі
+  if (!ready || loadingData) return <LoadingState />;
+
+  // 2. Дерек немесе студент табылмаған жағдайда
+  if (!currentStudentId || !dashboardData) {
+    return (
+      <Card className="text-center py-14">
+        <p className="text-mist text-sm">Қатысушы мәліметтері жүктелмеді. Қайта жүктеп көріңіз.</p>
+      </Card>
+    );
+  }
 
   const { student, marathon, task, submission, allSubmissions } = dashboardData;
 
@@ -57,6 +84,7 @@ export default function StudentHomePage() {
 
   const todayDay = getTodayDayNumber(marathon);
 
+  // 3. Аккаунт бұғатталған жағдайда
   if (student.status === STUDENT_STATUS.BLOCKED) {
     return (
       <Card className="text-center py-14">
@@ -67,6 +95,7 @@ export default function StudentHomePage() {
     );
   }
 
+  // 4. Марафон басталмаған жағдайда
   if (!todayDay) {
     return (
       <Card className="text-center py-14">
@@ -78,7 +107,7 @@ export default function StudentHomePage() {
   const checklist = submission?.checklist || { routine: false, video: false, homework: false };
   const locked = submission && submission.status !== SUBMISSION_STATUS.PENDING;
   const doneCount = Object.values(checklist).filter(Boolean).length;
-  const percent = Math.round((doneCount / DAILY_CHECKLIST_ITEMS.length) * 100);
+  const percent = Math.round((doneCount / (DAILY_CHECKLIST_ITEMS?.length || 1)) * 100);
   const streak = computeStreak(allSubmissions, todayDay);
 
   async function toggle(key) {
@@ -89,6 +118,7 @@ export default function StudentHomePage() {
 
   return (
     <div key={tick} className="flex flex-col gap-6">
+      {/* Шапка / Жұмыс кеңістігі */}
       <div className="flex justify-between items-center">
         <div>
           <p className="text-xs text-mist font-bold uppercase tracking-wider">Жұмыс кеңістігі</p>
@@ -100,6 +130,7 @@ export default function StudentHomePage() {
         </div>
       </div>
 
+      {/* Марафон карточкасы */}
       <div className="bg-gradient-to-br from-horizon to-horizon-dark p-5 rounded-3xl text-white shadow-lg relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-xl" />
         <p className="font-bold text-xs tracking-wider uppercase opacity-90 mb-2">
@@ -110,6 +141,7 @@ export default function StudentHomePage() {
         </p>
       </div>
 
+      {/* Прогресс-бар */}
       <Card>
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-mist uppercase tracking-wider">Бүгінгі прогресс</span>
@@ -118,10 +150,14 @@ export default function StudentHomePage() {
           </span>
         </div>
         <div className="w-full h-2.5 bg-paper-dim rounded-full overflow-hidden">
-          <div className="h-full bg-steppe rounded-full transition-all duration-500" style={{ width: `${percent}%` }} />
+          <div 
+            className="h-full bg-steppe rounded-full transition-all duration-500" 
+            style={{ width: `${percent}%` }} 
+          />
         </div>
       </Card>
 
+      {/* Бейнесабақ / Тапсырма */}
       {task && (
         <Card className="flex items-start gap-3">
           <PlayCircle size={20} className="text-horizon-dark shrink-0 mt-0.5" />
@@ -141,6 +177,7 @@ export default function StudentHomePage() {
         </Card>
       )}
 
+      {/* Бүгінгі Чеклист */}
       <div>
         <h3 className="text-xs font-extrabold text-mist uppercase tracking-wider mb-3">
           Бүгінгі тапсырмалар
@@ -164,7 +201,7 @@ export default function StudentHomePage() {
                 >
                   {done ? (
                     <span className="inline-flex items-center gap-1">
-                      <Check size={12} strokeWidth={3} /> Сдано
+                      <Check size={12} strokeWidth={3} /> Тапсырылды
                     </span>
                   ) : (
                     "Белгілеу"
