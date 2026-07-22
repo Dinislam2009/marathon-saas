@@ -9,7 +9,6 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import LoadingState from "@/components/ui/LoadingState";
 
-// --- ⚡ СЕРВЕРЛІК ACTION-ДАР (БҰЛ ФАЙЛДА ЕНДІ ЕШҚАНДАЙ БАЗА ИМПОРТЫ ЖОҚ!) ---
 import { 
   addOrganizer, 
   setOrganizerSubscriptionStatus,
@@ -27,19 +26,24 @@ const EMPTY_FORM = { name: "", ownerName: "", email: "", subscriptionPlan: "Ст
 export default function SuperAdminPage() {
   const [organizers, setOrganizers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false); // ⚡ Қосылу барысын бақылау
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  // Ұйымдастырушылар тізімін Server Action арқылы 100% қауіпсіз алу
   useEffect(() => {
     async function loadOrganizers() {
       setLoading(true);
-      const res = await getOrganizersAction();
-      if (res && res.ok) {
-        setOrganizers(res.organizers);
+      try {
+        const res = await getOrganizersAction();
+        if (res && res.ok) {
+          setOrganizers(res.organizers || []);
+        }
+      } catch (err) {
+        console.error("Органайзерлерді жүктеу қатесі:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadOrganizers();
   }, [refreshTick]);
@@ -47,19 +51,30 @@ export default function SuperAdminPage() {
   const activeCount = organizers.filter((o) => o.subscriptionStatus === SUBSCRIPTION_STATUS.ACTIVE).length;
   const mrr = organizers
     .filter((o) => o.subscriptionStatus === SUBSCRIPTION_STATUS.ACTIVE)
-    .reduce((sum, o) => sum + o.monthlyFee, 0);
+    .reduce((sum, o) => sum + (Number(o.monthlyFee) || 0), 0);
 
-  if (loading) return <LoadingState />;
-
+  // ⚡ ЖӨНДЕЛГЕН SUBMIT ФУНКЦИЯСЫ
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.name.trim() || !form.ownerName.trim()) return;
+    if (!form.name.trim() || !form.ownerName.trim() || submitting) return;
     
-    const res = await addOrganizer({ ...form, monthlyFee: Number(form.monthlyFee) || 0 });
-    if (res) {
-      setForm(EMPTY_FORM);
-      setShowForm(false);
-      setRefreshTick(prev => prev + 1); // Тізімді автоматты түрде жаңарту
+    try {
+      setSubmitting(true);
+      const res = await addOrganizer({ ...form, monthlyFee: Number(form.monthlyFee) || 0 });
+      
+      // Серверлік жауапты дұрыс тексеру
+      if (res && (res.ok || res.id || res.success)) {
+        setForm(EMPTY_FORM);
+        setShowForm(false);
+        setRefreshTick((prev) => prev + 1); // Тізімді жаңарту
+      } else {
+        alert(res?.error || "Ұйымдастырушыны қосу мүмкін болмады.");
+      }
+    } catch (err) {
+      console.error("Қосу қатесі:", err);
+      alert("Серверлік қате орын алды: " + err.message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -70,8 +85,10 @@ export default function SuperAdminPage() {
         : SUBSCRIPTION_STATUS.BLOCKED;
     
     await setOrganizerSubscriptionStatus(org.id, next);
-    setRefreshTick(prev => prev + 1); // Тізімді автоматты түрде жаңарту
+    setRefreshTick((prev) => prev + 1);
   }
+
+  if (loading) return <LoadingState />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -144,7 +161,10 @@ export default function SuperAdminPage() {
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                 Бас тарту
               </Button>
-              <Button type="submit">Қосу</Button>
+              {/* ⚡ type="submit" және disabled қасиеттері қосылды */}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Қосылуда..." : "Қосу"}
+              </Button>
             </div>
           </form>
         </Card>
@@ -170,7 +190,7 @@ export default function SuperAdminPage() {
                 </td>
                 <td className="px-5 py-3.5 text-ink">
                   {org.subscriptionPlan}
-                  <span className="text-mist"> · {org.monthlyFee.toLocaleString("kk-KZ")} ₸</span>
+                  <span className="text-mist"> · {(org.monthlyFee || 0).toLocaleString("kk-KZ")} ₸</span>
                 </td>
                 <td className="px-5 py-3.5 text-mist">{formatDate(org.nextPaymentDate)}</td>
                 <td className="px-5 py-3.5">
