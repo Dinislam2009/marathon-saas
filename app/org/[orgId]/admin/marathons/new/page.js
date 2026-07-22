@@ -17,6 +17,7 @@ export default function NewMarathonPage({ params }) {
   const router = useRouter();
   const { createMarathon } = useData();
 
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -24,15 +25,32 @@ export default function NewMarathonPage({ params }) {
     startDate: todayIso(),
   });
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.title.trim()) return;
-    const marathon = createMarathon(orgId, {
-      ...form,
-      durationDays: Number(form.durationDays) || DEFAULT_DURATION_DAYS,
-      startDate: new Date(form.startDate).toISOString(),
-    });
-    router.push(`/org/${orgId}/admin/marathons/${marathon.id}`);
+    if (!form.title.trim() || loading) return;
+
+    try {
+      setLoading(true);
+
+      // async/await қосып, базаға сақталуын күтеміз
+      const marathon = await createMarathon(orgId, {
+        ...form,
+        durationDays: Number(form.durationDays) || DEFAULT_DURATION_DAYS,
+        startDate: new Date(form.startDate).toISOString(),
+      });
+
+      // marathon дұрыс оралғанын және ID бар екенін тексереміз
+      if (marathon && marathon.id) {
+        router.push(`/org/${orgId}/admin/marathons/${marathon.id}`);
+      } else {
+        alert("Марафонды құру кезінде қате кетті. Тағы қайталап көріңіз.");
+      }
+    } catch (error) {
+      console.error("Марафон құру қатесі:", error);
+      alert(error.message || "Серверлік қате орын алды.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -97,7 +115,9 @@ export default function NewMarathonPage({ params }) {
             <Button type="button" variant="secondary" onClick={() => router.back()}>
               Бас тарту
             </Button>
-            <Button type="submit">Марафонды құру</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Құрылуда..." : "Марафонды құру"}
+            </Button>
           </div>
         </form>
       </Card>
