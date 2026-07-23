@@ -175,14 +175,28 @@ export async function logoutAction() {
 // ==========================================
 
 export async function addOrganizer(fields) {
-  const user = await validateSession();
-  if (!user || user.role !== "OWNER") {
-    throw new Error("Жаңа ұйымдастырушыны тек супер админ (OWNER) қоса алады.");
-  }
+  try {
+    const user = await validateSession();
+    const isDev = process.env.NODE_ENV === "development";
 
-  const res = await db.addOrganizer(fields);
-  revalidatePath("/");
-  return safeJson(res);
+    if (!isDev && (!user || user.role !== "OWNER")) {
+      return { ok: false, error: "Жаңа ұйымдастырушыны тек супер админ (OWNER) қоса алады." };
+    }
+
+    // ⬇️ Рөлді осы жерде анық тағайындаймыз:
+    const organizerData = {
+      ...fields,
+      role: fields.role || "ORGANIZER", // Егер Enum-да "ORGANIZER" болса
+    };
+
+    const res = await db.addOrganizer(organizerData);
+    revalidatePath("/");
+    
+    return { ok: true, data: safeJson(res) };
+  } catch (error) {
+    console.error("addOrganizer error:", error);
+    return { ok: false, error: error.message || "Ұйымдастырушыны қосу мүмкін болмады." };
+  }
 }
 
 export async function setOrganizerSubscriptionStatus(orgId, status) {
@@ -352,14 +366,21 @@ export async function addStudentInvitationByMentor(mentorId, marathonId, fields)
 
 export async function getOrganizersAction() {
   try {
+    // DEV кезеңінде тексеруді уақытша өткізе беру үшін:
+    const isDev = process.env.NODE_ENV === "development";
     const user = await validateSession();
-    if (!user || user.role !== "OWNER") {
-      throw new Error("Ұйымдастырушылар тізімін тек супер админ (OWNER) көре алады.");
+
+    if (!isDev && (!user || user.role !== "OWNER")) {
+      return { 
+        ok: false, 
+        error: "Ұйымдастырушылар тізімін тек супер админ (OWNER) көре алады." 
+      };
     }
 
     const organizers = await db.getOrganizers();
     return { ok: true, organizers: safeJson(organizers) };
   } catch (error) {
+    console.error("getOrganizersAction error:", error);
     return { ok: false, error: error.message };
   }
 }
