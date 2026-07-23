@@ -9,18 +9,31 @@ export function DataProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
   const [currentStudentId, setCurrentStudentId] = useState(null);
+  const [marathons, setMarathons] = useState([]);
 
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
-  // Алғашқы рет жүктелгенде серверден статус алу және дедлайндарды тексеру
+  // Марафондар тізімін жүктеу функциясы
+  const refreshData = useCallback(async () => {
+    try {
+      if (actions.getMarathons) {
+        const list = await actions.getMarathons();
+        setMarathons(list || []);
+      }
+    } catch (err) {
+      console.error("Fetch marathons error:", err);
+    }
+  }, []);
+
   useEffect(() => {
     async function init() {
       try {
         await actions.runDeadlineCheck();
         const initialState = await actions.fetchInitialState();
-        if (initialState.currentStudentId) {
+        if (initialState?.currentStudentId) {
           setCurrentStudentId(initialState.currentStudentId);
         }
+        await refreshData();
       } catch (err) {
         console.error("Initialization error:", err);
       } finally {
@@ -28,24 +41,18 @@ export function DataProvider({ children }) {
       }
     }
     init();
-  }, []);
-
-  // Әр минут сайын дедлайндарды автоматты жаңарту (серверде орындалады)
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      await actions.runDeadlineCheck();
-      bump();
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [bump]);
+  }, [refreshData, tick]);
 
   const value = {
     ready,
     tick,
     currentStudentId,
     setCurrentStudentId,
+    marathons,
+    refreshData,
 
-    // ⚡ Функция атаулары жаңа app/actions.js файлына сәйкестендірілді
+    getMarathon: (id) => marathons.find((m) => String(m.id) === String(id)),
+
     addOrganizer: async (fields) => {
       const org = await actions.addOrganizer(fields);
       bump();
@@ -77,7 +84,6 @@ export function DataProvider({ children }) {
     resetDemoData: () => {
       bump();
     },
-
     addHabit: async (studentId, title) => {
       const habit = await actions.addHabit(studentId, title);
       bump();

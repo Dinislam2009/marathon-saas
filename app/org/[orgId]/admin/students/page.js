@@ -1,12 +1,12 @@
 "use client";
 
-import { use, useState } from "react";
-import { Search, Users, Trophy, GraduationCap, Plus, X } from "lucide-react";
+import { use, useState, useEffect } from "react";
+import { Search, Users, Trophy, GraduationCap, Plus, X, Loader2 } from "lucide-react";
 import * as actions from "@/app/actions";
-import { useData } from "@/context/DataContext";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
+import AddStudentModal from "@/components/ui/AddStudentModal";
 
 function KpiCard({ icon: Icon, label, value }) {
   return (
@@ -22,31 +22,49 @@ function KpiCard({ icon: Icon, label, value }) {
   );
 }
 
-const EMPTY_FORM = { name: "", email: "", phone: "", marathonId: "" };
-
 export default function AdminAllStudentsPage({ params }) {
-  const { orgId } = use(params);
-  const { ready, tick, addStudentToMarathon } = useData();
+  const resolvedParams = use(params);
+  const orgId = resolvedParams.orgId;
+
+  const [marathons, setMarathons] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [error, setError] = useState("");
 
-  if (!ready) return <LoadingState />;
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const mList = await actions.getMarathonsByOrgId(orgId);
+      setMarathons(mList || []);
 
-  const marathons = db.getMarathonsByOrg(orgId);
-  const allStudents = marathons.flatMap((m) =>
-    db.getStudentsByMarathon(m.id).map((s) => ({ ...s, marathonTitle: m.title }))
-  );
+      if ("getAllStudentsByOrg" in actions) {
+        const sList = await actions.getAllStudentsByOrg(orgId);
+        setAllStudents(sList || []);
+      } else {
+        setAllStudents([]);
+      }
+    } catch (err) {
+      console.error("Data load error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [orgId]);
+
+  if (isLoading) return <LoadingState />;
 
   const filteredStudents = allStudents.filter((s) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (
-      s.name.toLowerCase().includes(q) ||
+      s.name?.toLowerCase().includes(q) ||
       (s.email && s.email.toLowerCase().includes(q)) ||
       (s.phone && s.phone.includes(q)) ||
-      s.marathonTitle.toLowerCase().includes(q)
+      (s.marathonTitle && s.marathonTitle.toLowerCase().includes(q))
     );
   });
 
@@ -54,28 +72,20 @@ export default function AdminAllStudentsPage({ params }) {
   const totalPoints = allStudents.reduce((sum, s) => sum + (s.points || 0), 0);
   const avgPoints = totalStudents ? Math.round(totalPoints / totalStudents) : 0;
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    if (!form.name.trim() || !form.phone.trim() || !form.marathonId) {
-      setError("Имя, телефон и марафон — обязательные поля.");
-      return;
+  // Студентті марафонға қосу функциясы
+  async function handleAddStudent(marathonId, studentData) {
+    if (actions.addStudentToMarathon) {
+      await actions.addStudentToMarathon(marathonId, studentData);
     }
-    addStudentToMarathon(form.marathonId, {
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-    });
-    setForm(EMPTY_FORM);
-    setIsModalOpen(false);
+    await loadData(); // Тізімді жаңарту
   }
 
   return (
-    <div key={tick} className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Все участники</h1>
-          <p className="text-mist text-sm mt-1">Участники всех марафонов организации в одном месте.</p>
+          <h1 className="font-display text-2xl font-semibold text-ink">Барлық қатысушылар</h1>
+          <p className="text-mist text-sm mt-1">Ұйымның барлық марафондарының қатысушылары бір жерде.</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -84,20 +94,20 @@ export default function AdminAllStudentsPage({ params }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск участника..."
+              placeholder="Қатысушыны іздеу..."
               className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-mist-light text-sm bg-white"
             />
           </div>
           <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
-            <Plus size={16} /> Добавить участника
+            <Plus size={16} /> Қатысушы қосу
           </Button>
         </div>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
-        <KpiCard icon={Users} label="Всего участников" value={totalStudents} />
-        <KpiCard icon={Trophy} label="Всего баллов" value={totalPoints} />
-        <KpiCard icon={GraduationCap} label="Средний балл" value={avgPoints} />
+        <KpiCard icon={Users} label="Барлық қатысушы" value={totalStudents} />
+        <KpiCard icon={Trophy} label="Жалпы балл" value={totalPoints} />
+        <KpiCard icon={GraduationCap} label="Орташа балл" value={avgPoints} />
       </div>
 
       <Card padded={false} className="overflow-hidden">
@@ -105,14 +115,18 @@ export default function AdminAllStudentsPage({ params }) {
           <table className="w-full text-sm text-left whitespace-nowrap">
             <thead>
               <tr className="border-b border-mist-light text-xs uppercase text-mist tracking-wide">
-                <th className="px-5 py-3 font-medium">Имя / Контакт</th>
+                <th className="px-5 py-3 font-medium">Аты-жөні / Байланыс</th>
                 <th className="px-5 py-3 font-medium">Марафон</th>
-                <th className="px-5 py-3 font-medium text-right">Баллы</th>
+                <th className="px-5 py-3 font-medium text-right">Баллдар</th>
               </tr>
             </thead>
             <tbody>
               {filteredStudents.length === 0 && (
-                <tr><td colSpan={3} className="px-5 py-10 text-center text-mist">Участники не найдены.</td></tr>
+                <tr>
+                  <td colSpan={3} className="px-5 py-10 text-center text-mist">
+                    Қатысушылар табылмады.
+                  </td>
+                </tr>
               )}
               {filteredStudents.map((student) => (
                 <tr key={student.id} className="border-b border-mist-light last:border-0">
@@ -122,10 +136,10 @@ export default function AdminAllStudentsPage({ params }) {
                   </td>
                   <td className="px-5 py-3.5">
                     <span className="inline-block bg-paper-dim px-2.5 py-1 rounded-lg text-xs font-medium text-ink">
-                      {student.marathonTitle}
+                      {student.marathonTitle || "Марафон"}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-right font-medium text-ink">{student.points}</td>
+                  <td className="px-5 py-3.5 text-right font-medium text-ink">{student.points || 0}</td>
                 </tr>
               ))}
             </tbody>
@@ -133,71 +147,40 @@ export default function AdminAllStudentsPage({ params }) {
         </div>
       </Card>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="relative bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-display text-lg font-semibold text-ink">Добавить участника</h3>
-              <button onClick={() => setIsModalOpen(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-mist hover:bg-paper-dim">
-                <X size={16} />
-              </button>
-            </div>
+      {/* Жаңа бөлек компонент түріндегі модалка */}
+ <AddStudentModal
+  isOpen={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+  marathons={marathons}
+  onAdd={handleAddStudent}
+  onCheckStudent={async (value, isEmail, marathonId) => {
+    // 1. Жалпы базадан студентті табамыз
+    const existingStudent = allStudents.find((s) => 
+      isEmail ? s.email?.toLowerCase() === value.toLowerCase() : s.phone === value
+    );
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1.5 text-sm">
-                <span className="font-medium text-ink">Марафон</span>
-                <select
-                  required
-                  value={form.marathonId}
-                  onChange={(e) => setForm({ ...form, marathonId: e.target.value })}
-                  className="rounded-xl border border-mist-light px-3.5 py-2.5 text-sm bg-white"
-                >
-                  <option value="">Выберите марафон</option>
-                  {marathons.map((m) => (
-                    <option key={m.id} value={m.id}>{m.title}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1.5 text-sm">
-                <span className="font-medium text-ink">Имя</span>
-                <input
-                  required
-                  autoFocus
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="rounded-xl border border-mist-light px-3.5 py-2.5 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-sm">
-                <span className="font-medium text-ink">Телефон</span>
-                <input
-                  required
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="+7 (7XX) XXX-XX-XX"
-                  className="rounded-xl border border-mist-light px-3.5 py-2.5 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-sm">
-                <span className="font-medium text-ink">Email</span>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="rounded-xl border border-mist-light px-3.5 py-2.5 text-sm"
-                />
-              </label>
+    // Егер базада мүлде жоқ болса
+    if (!existingStudent) {
+      return { student: null, status: "not_found" };
+    }
 
-              {error && <p className="text-xs text-ember bg-ember-light rounded-lg px-3 py-2">{error}</p>}
+    // 2. Дәл осы марафонға тіркеліп қойғанын тексереміз
+    // (Егер студенттің марафоны сәйкес келсе немесе қатысушылар тізімінде осы марафон көрсетілсе)
+    const isOwnerOfThisMarathon = existingStudent.marathonId === marathonId || existingStudent.marathon_id === marathonId;
+    if (isOwnerOfThisMarathon) {
+      return { student: existingStudent, status: "already_in_this_marathon" };
+    }
 
-              <Button type="submit" size="lg" className="mt-2 w-full">
-                Добавить
-              </Button>
-            </form>
-          </div>
-        </div>
-      )}
+    // 3. Басқа марафонда бар екенін тексереміз
+    const isInAnotherMarathon = Boolean(existingStudent.marathonId || existingStudent.marathon_id);
+    if (isInAnotherMarathon) {
+      return { student: existingStudent, status: "in_another_marathon" };
+    }
+
+    // 4. Базада бар, бірақ ешқандай марафонға қосылмаған (таза оқушы)
+    return { student: existingStudent, status: "found" };
+  }}
+/>
     </div>
   );
 }

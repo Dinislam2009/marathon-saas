@@ -10,6 +10,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
+import * as actions from "@/app/actions";
 
 const BADGE_TONE = {
   [MARATHON_STATUS.ACTIVE]: "steppe",
@@ -19,19 +20,39 @@ const BADGE_TONE = {
 
 export default function TenantAdminHome({ params }) {
   const { orgId } = use(params);
-  const { ready, tick, state } = useData();
+  const { ready, tick } = useData();
   const [marathons, setMarathons] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (ready && state?.marathons) {
-      const filtered = Object.values(state.marathons).filter(
-        (m) => m.orgId === orgId
-      );
-      setMarathons(filtered);
+    async function loadMarathons() {
+      try {
+        setLoading(true);
+        // Базадан осы ұйымның марафондарын оқып алу
+        if (actions.getMarathonsByOrgId) {
+          const res = await actions.getMarathonsByOrgId(orgId);
+          setMarathons(res || []);
+        } else if (actions.getMarathons) {
+          // Егер арнайы orgId арқылы оқитын функция болмаса, барлығын алып фильтрлейміз
+          const all = await actions.getMarathons();
+          const filtered = (all || []).filter(
+            (m) => String(m.orgId) === String(orgId) || String(m.organizerId) === String(orgId)
+          );
+          setMarathons(filtered);
+        }
+      } catch (err) {
+        console.error("Failed to fetch marathons:", err);
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [ready, state, orgId, tick]);
 
-  if (!ready) return <LoadingState />;
+    if (ready) {
+      loadMarathons();
+    }
+  }, [ready, orgId, tick]);
+
+  if (!ready || loading) return <LoadingState />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,12 +76,8 @@ export default function TenantAdminHome({ params }) {
 
       <div className="grid sm:grid-cols-2 gap-4">
         {marathons.map((marathon) => {
-          const studentsCount = state?.students 
-            ? Object.values(state.students).filter(s => s.marathonId === marathon.id).length 
-            : 0;
-          const tasksCount = state?.tasks 
-            ? Object.values(state.tasks).filter(t => t.marathonId === marathon.id).length 
-            : 0;
+          const studentsCount = marathon.students?.length || 0;
+          const tasksCount = marathon.tasks?.length || 0;
 
           return (
             <Link key={marathon.id} href={`/org/${orgId}/admin/marathons/${marathon.id}`}>

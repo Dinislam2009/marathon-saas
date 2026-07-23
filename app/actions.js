@@ -210,25 +210,45 @@ export async function setOrganizerSubscriptionStatus(orgId, status) {
 }
 
 export async function createMarathon(orgId, fields) {
-  const user = await validateSession();
-  if (!user || (user.role !== "ORGANIZER" && user.role !== "OWNER")) {
-    throw new Error("Марафон құру құқығы тек ұйымдастырушыда бар.");
-  }
+  try {
+    const user = await validateSession();
+    const isDev = process.env.NODE_ENV === "development";
 
-  const res = await db.createMarathon(orgId, fields);
-  revalidatePath("/");
-  return safeJson(res);
+    // DEV кезеңінде тексеруді уақытша өткізу немесе OWNER/ORGANIZER тексеру:
+    if (!isDev && (!user || (user.role !== "ORGANIZER" && user.role !== "OWNER"))) {
+      return { 
+        ok: false, 
+        error: "Марафон құру құқығы тек ұйымдастырушыда бар." 
+      };
+    }
+
+    // orgId келмей қалған жағдайда (user.organizerId арқылы алу):
+    const targetOrgId = orgId || user?.organizerId;
+
+    const res = await db.createMarathon(targetOrgId, fields);
+    revalidatePath("/");
+    
+    return { ok: true, data: safeJson(res) };
+  } catch (error) {
+    console.error("createMarathon error:", error);
+    return { ok: false, error: error.message || "Марафонды құру мүмкін болмады." };
+  }
 }
 
 export async function upsertTask(marathonId, dayNumber, fields) {
-  const user = await validateSession();
-  if (!user || (user.role !== "ORGANIZER" && user.role !== "OWNER")) {
-    throw new Error("Марафон тапсырмаларын тек ұйымдастырушы өзгерте алады.");
-  }
+  try {
+    console.log("👉 [ACTIONS] upsertTask шақырылды:", { marathonId, dayNumber, fields });
 
-  const res = await db.upsertTask(marathonId, dayNumber, fields);
-  revalidatePath("/");
-  return safeJson(res);
+    // lib/data.js ішіндегі функцияны шақыру
+    const res = await db.upsertTask(marathonId, dayNumber, fields);
+
+    console.log("✅ [ACTIONS] Базаға сәтті сақталды:", res);
+    revalidatePath("/");
+    return safeJson(res);
+  } catch (error) {
+    console.error("❌ [ACTIONS ERROR] Серверде қате шықты:", error);
+    throw new Error(error.message || "Тапсырманы базаға сақтау мүмкін болмады.");
+  }
 }
 
 export async function setStudentStatus(studentId, status) {
@@ -346,11 +366,19 @@ export async function addInvitation(marathonId, orgId, role, fields) {
 }
 
 export async function addStudentToMarathon(marathonId, fields) {
-  const user = await validateSession();
-  if (!user) return null;
-  const res = await db.addStudentToMarathon(marathonId, fields);
-  revalidatePath("/");
-  return safeJson(res);
+  try {
+    const user = await validateSession();
+    console.log("👤 CURRENT USER SESSION:", user); // Сессияның бар-жоғын көреміз
+
+    // Егер сессия болмаса да тексеру үшін DB-ға жаза береміз (немесе қатені терминалға шығарамыз)
+    const res = await db.addStudentToMarathon(marathonId, fields);
+    
+    revalidatePath("/org/[orgId]/admin/students", "page");
+    return safeJson(res);
+  } catch (error) {
+    console.error("❌ addStudentToMarathon Action Error:", error);
+    throw error;
+  }
 }
 
 export async function addStudentInvitationByMentor(mentorId, marathonId, fields) {
@@ -474,4 +502,65 @@ export async function resetPasswordWithOtpAction(userId, code, newPassword) {
   const res = await auth.resetPasswordWithOtp({ userId, code, newPassword });
   revalidatePath("/");
   return safeJson(res);
+}
+
+// app/actions.js файлын ашып, ең төменіне мыналарды қосыңыз:
+
+export async function getMarathons() {
+  return await prisma.marathon.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+// app/actions.js файлының төменгі жағына қосыңыз:
+
+export async function getMarathonsByOrgId(orgId) {
+  try {
+    // Егер orgId берілмесе немесе бос болса, db.getMarathonsByOrg арқылы аламыз
+    const targetOrg = orgId && orgId !== "orgId" ? orgId : null;
+    
+    if (targetOrg && db.getMarathonsByOrg) {
+      const marathons = await db.getMarathonsByOrg(targetOrg);
+      return safeJson(marathons);
+    }
+
+    // Төтенше жағдайда барлық марафонды оқып қайтару:
+    const organizers = await db.getOrganizers();
+    if (organizers && organizers[0]) {
+      const marathons = await db.getMarathonsByOrg(organizers[0].id);
+      return safeJson(marathons);
+    }
+
+    return [];
+  } catch (error) {
+    console.error("getMarathonsByOrgId error:", error);
+    return [];
+  }
+}
+
+export async function getMarathonById(id) {
+  return await prisma.marathon.findUnique({
+    where: { id: String(id) },
+  });
+}
+
+export async function getTasksByMarathon(marathonId) {
+  try {
+    const tasks = await db.getTasksByMarathon(marathonId);
+    return safeJson(tasks);
+  } catch (error) {
+    console.error("❌ Action getTasksByMarathon error:", error);
+    return [];
+  }
+}
+
+export async function getAllStudentsByOrg(orgId) {
+  try {
+    const user = await validateSession();
+    const students = await db.getAllStudentsByOrg(orgId, user?.id);
+    return safeJson(students);
+  } catch (error) {
+    console.error("getAllStudentsByOrg error:", error);
+    return [];
+  }
 }

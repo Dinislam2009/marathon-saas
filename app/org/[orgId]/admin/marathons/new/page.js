@@ -32,18 +32,26 @@ export default function NewMarathonPage({ params }) {
     try {
       setLoading(true);
 
-      // async/await қосып, базаға сақталуын күтеміз
-      const marathon = await createMarathon(orgId, {
+      // Server Action шақыру
+      const res = await createMarathon(orgId, {
         ...form,
         durationDays: Number(form.durationDays) || DEFAULT_DURATION_DAYS,
         startDate: new Date(form.startDate).toISOString(),
       });
 
-      // marathon дұрыс оралғанын және ID бар екенін тексереміз
-      if (marathon && marathon.id) {
-        router.push(`/org/${orgId}/admin/marathons/${marathon.id}`);
+      // 1. Егер Server Action { ok: false, error: "..." } қайтарған болса
+      if (res && res.ok === false) {
+        alert(res.error || "Марафонды құру құқығыңыз жоқ немесе серверлік қате кетті.");
+        return;
+      }
+
+      // 2. Дерек res.data немесе тікелей res нысанында болуы мүмкін
+      const marathonData = res?.data || res;
+
+      if (marathonData && marathonData.id) {
+        router.push(`/org/${orgId}/admin/marathons/${marathonData.id}`);
       } else {
-        alert("Марафонды құру кезінде қате кетті. Тағы қайталап көріңіз.");
+        alert("Марафон сақталды, бірақ ID алынбады. Бетті жаңартып көріңіз.");
       }
     } catch (error) {
       console.error("Марафон құру қатесі:", error);
@@ -56,14 +64,18 @@ export default function NewMarathonPage({ params }) {
   return (
     <div className="flex flex-col gap-6 max-w-xl">
       <button
+        type="button"
         onClick={() => router.back()}
-        className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-ink w-fit"
+        className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-ink w-fit cursor-pointer transition-colors"
       >
         <ArrowLeft size={14} /> Артқа
       </button>
 
       <Card>
-        <CardHeader title="Жаңа марафон құру" subtitle="Негізгі ақпаратты толтыр — тапсырмаларды кейін қосасың." />
+        <CardHeader
+          title="Жаңа марафон құру"
+          subtitle="Негізгі ақпаратты толтыр — тапсырмаларды кейін қосасың."
+        />
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium text-ink">Марафон атауы</span>
@@ -73,7 +85,7 @@ export default function NewMarathonPage({ params }) {
               placeholder="мыс. 21 күндік дисциплина марафоны"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="rounded-xl border border-mist-light px-3 py-2.5 text-sm"
+              className="rounded-xl border border-mist-light px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </label>
 
@@ -84,7 +96,7 @@ export default function NewMarathonPage({ params }) {
               placeholder="Марафон не туралы, оқушылар не үйренеді?"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="rounded-xl border border-mist-light px-3 py-2.5 text-sm resize-none"
+              className="rounded-xl border border-mist-light px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </label>
 
@@ -97,7 +109,7 @@ export default function NewMarathonPage({ params }) {
                 max={90}
                 value={form.durationDays}
                 onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
-                className="rounded-xl border border-mist-light px-3 py-2.5 text-sm"
+                className="rounded-xl border border-mist-light px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
@@ -106,7 +118,7 @@ export default function NewMarathonPage({ params }) {
                 type="date"
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                className="rounded-xl border border-mist-light px-3 py-2.5 text-sm"
+                className="rounded-xl border border-mist-light px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </label>
           </div>

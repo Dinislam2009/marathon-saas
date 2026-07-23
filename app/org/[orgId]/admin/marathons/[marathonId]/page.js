@@ -1,8 +1,9 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Users, ChevronDown, CircleCheck, Circle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Users, ChevronDown, CircleCheck, Circle, Loader2 } from "lucide-react";
 import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { VERIFICATION_TYPE, VERIFICATION_TYPE_LABELS } from "@/lib/constants";
@@ -20,18 +21,44 @@ const EMPTY_TASK = {
 
 export default function MarathonDetailPage({ params }) {
   const { orgId, marathonId } = use(params);
-  const { ready, tick, upsertTask } = useData();
+  const router = useRouter();
+  
+  const { ready, getMarathon } = useData();
+  
   const [openDay, setOpenDay] = useState(null);
   const [draft, setDraft] = useState(EMPTY_TASK);
+  const [dbTasks, setDbTasks] = useState([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [isPending, startTransition] = useTransition();
 
-  if (!ready) return <LoadingState />;
+  // 1. Тапсырмаларды тікелей серверден (actions арқылы) жүктеп алу
+  const fetchServerTasks = async () => {
+    try {
+      setIsLoadingTasks(true);
+      // actions.js ішінде getTasksByMarathon болса немесе actions-тан сұрау:
+      const tasksData = await actions.getTasksByMarathon(marathonId);
+      if (Array.isArray(tasksData)) {
+        setDbTasks(tasksData);
+      }
+    } catch (err) {
+      console.error("Fetch tasks error:", err);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
 
-  const marathon = db.getMarathon(marathonId);
-  if (!marathon) return <p className="text-mist">Марафон табылмады.</p>;
+  useEffect(() => {
+    fetchServerTasks();
+  }, [marathonId]);
 
-  const tasks = db.getTasksByMarathon(marathonId);
-  const taskByDay = Object.fromEntries(tasks.map((t) => [t.dayNumber, t]));
-  const days = Array.from({ length: marathon.durationDays }, (_, i) => i + 1);
+  if (!ready || isLoadingTasks) return <LoadingState />;
+
+  const marathon = getMarathon ? getMarathon(marathonId) : null;
+  if (!marathon) return <p className="p-6 text-mist">Марафон табылмады.</p>;
+
+  // Context-ті емес, тікелей серверден келген dbTasks тізімін қолданамыз:
+  const taskByDay = Object.fromEntries(dbTasks.map((t) => [t.dayNumber, t]));
+  const days = Array.from({ length: marathon.durationDays || 21 }, (_, i) => i + 1);
 
   function openEditor(day) {
     setOpenDay(openDay === day ? null : day);
@@ -39,13 +66,29 @@ export default function MarathonDetailPage({ params }) {
   }
 
   function handleSave(day) {
-    if (!draft.title.trim()) return;
-    upsertTask(marathonId, day, draft);
-    setOpenDay(null);
+    if (!draft.title || !draft.title.trim()) {
+      alert("Өтініш, тапсырма атауын енгізіңіз!");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await actions.upsertTask(marathonId, day, draft);
+
+        if (res) {
+          // Базаға сақталған бойда серверден жаңа тізімді қайта тартып аламыз:
+          await fetchServerTasks();
+          setOpenDay(null);
+        }
+      } catch (error) {
+        console.error("Save error:", error);
+        alert("Тапсырманы сақтау кезінде қате шықты: " + (error.message || "Сервер қатесі"));
+      }
+    });
   }
 
   return (
-    <div key={tick} className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div>
         <Link
           href={`/org/${orgId}/admin`}
@@ -57,7 +100,7 @@ export default function MarathonDetailPage({ params }) {
           <div>
             <h1 className="font-display text-2xl font-semibold text-ink">{marathon.title}</h1>
             <p className="text-mist text-sm mt-1">
-              {tasks.length}/{marathon.durationDays} күн дайын
+              {dbTasks.length}/{marathon.durationDays} күн дайын
             </p>
           </div>
           <Link href={`/org/${orgId}/admin/marathons/${marathonId}/students`}>
@@ -75,8 +118,9 @@ export default function MarathonDetailPage({ params }) {
           return (
             <Card key={day} padded={false} className="overflow-hidden">
               <button
+                type="button"
                 onClick={() => openEditor(day)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-paper-dim transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-paper-dim transition-colors cursor-pointer"
               >
                 {task ? (
                   <CircleCheck size={18} className="text-steppe shrink-0" />
@@ -100,20 +144,20 @@ export default function MarathonDetailPage({ params }) {
                     placeholder="Тапсырма атауы"
                     value={draft.title}
                     onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                    className="rounded-xl border border-mist-light px-3 py-2 text-sm"
+                    className="rounded-xl border border-mist-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                   <input
                     placeholder="Видео сілтемесі (YouTube, Google Drive...)"
-                    value={draft.videoUrl}
+                    value={draft.videoUrl || ""}
                     onChange={(e) => setDraft({ ...draft, videoUrl: e.target.value })}
-                    className="rounded-xl border border-mist-light px-3 py-2 text-sm"
+                    className="rounded-xl border border-mist-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                   <textarea
                     rows={3}
                     placeholder="Тапсырма мәтіні"
-                    value={draft.content}
+                    value={draft.content || ""}
                     onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-                    className="rounded-xl border border-mist-light px-3 py-2 text-sm resize-none"
+                    className="rounded-xl border border-mist-light px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                   <div>
                     <p className="text-xs font-medium text-mist mb-2">Тексеру форматы</p>
@@ -124,7 +168,7 @@ export default function MarathonDetailPage({ params }) {
                           type="button"
                           onClick={() => setDraft({ ...draft, verificationType: type })}
                           className={cn(
-                            "rounded-full px-3 py-1.5 text-xs font-medium border transition-colors",
+                            "rounded-full px-3 py-1.5 text-xs font-medium border transition-colors cursor-pointer",
                             draft.verificationType === type
                               ? "bg-horizon text-white border-horizon"
                               : "border-mist-light text-mist hover:border-mist"
@@ -142,11 +186,20 @@ export default function MarathonDetailPage({ params }) {
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 pt-1">
-                    <Button variant="secondary" size="sm" onClick={() => setOpenDay(null)}>
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => setOpenDay(null)}
+                      disabled={isPending}
+                    >
                       Бас тарту
                     </Button>
-                    <Button size="sm" onClick={() => handleSave(day)}>
-                      Сақтау
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleSave(day)}
+                      disabled={isPending}
+                    >
+                      {isPending ? <Loader2 size={14} className="animate-spin" /> : "Сақтау"}
                     </Button>
                   </div>
                 </div>

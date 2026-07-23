@@ -3,7 +3,6 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, UserPlus, Clock, X } from "lucide-react";
-import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { STUDENT_STATUS, ROLES } from "@/lib/constants";
 import { formatKzPhone } from "@/lib/utils";
@@ -84,16 +83,30 @@ function InviteModal({ role, marathonId, orgId, onClose }) {
 
 export default function MarathonPeoplePage({ params }) {
   const { orgId, marathonId } = use(params);
-  const { ready, tick, assignMentorToStudent } = useData();
+  
+  // db орнына барлық функцияларды useData() контексінен аламыз
+  const {
+    ready,
+    tick,
+    assignMentorToStudent,
+    getMarathon,
+    getMentorsByOrg,
+    getStudentsByMarathon,
+    getInvitationsByMarathon,
+    getStudentsByMentor,
+  } = useData();
+
   const [tab, setTab] = useState(ROLES.STUDENT);
   const [inviteOpen, setInviteOpen] = useState(false);
 
   if (!ready) return <LoadingState />;
 
-  const marathon = db.getMarathon(marathonId);
-  const mentors = db.getMentorsByOrg(orgId);
-  const students = db.getStudentsByMarathon(marathonId).slice().sort((a, b) => b.points - a.points);
-  const invitations = db.getInvitationsByMarathon(marathonId);
+  // Функцияларды қауіпсіз орындаймыз (fallback білдіреді):
+  const marathon = getMarathon ? getMarathon(marathonId) : null;
+  const mentors = getMentorsByOrg ? getMentorsByOrg(orgId) : [];
+  const rawStudents = getStudentsByMarathon ? getStudentsByMarathon(marathonId) : [];
+  const students = rawStudents.slice().sort((a, b) => (b.points || 0) - (a.points || 0));
+  const invitations = getInvitationsByMarathon ? getInvitationsByMarathon(marathonId) : [];
   const pendingInvites = invitations.filter((i) => i.status === "pending" && i.role === tab);
 
   return (
@@ -103,7 +116,7 @@ export default function MarathonPeoplePage({ params }) {
           href={`/org/${orgId}/admin/marathons/${marathonId}`}
           className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-ink w-fit mb-3"
         >
-          <ArrowLeft size={14} /> {marathon?.title}
+          <ArrowLeft size={14} /> {marathon?.title || "Марафонға қайту"}
         </Link>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <h1 className="font-display text-2xl font-semibold text-ink">Адамдар</h1>
@@ -122,7 +135,7 @@ export default function MarathonPeoplePage({ params }) {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              "px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
               tab === t.key ? "bg-white text-horizon-dark shadow-sm" : "text-mist hover:text-ink"
             )}
           >
@@ -157,7 +170,7 @@ export default function MarathonPeoplePage({ params }) {
                   <td className="px-5 py-3.5">
                     <select
                       value={student.mentorId || ""}
-                      onChange={(e) => assignMentorToStudent(student.id, e.target.value || null)}
+                      onChange={(e) => assignMentorToStudent && assignMentorToStudent(student.id, e.target.value || null)}
                       className="rounded-lg border border-mist-light px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">Тағайындалмаған</option>
@@ -166,7 +179,7 @@ export default function MarathonPeoplePage({ params }) {
                       ))}
                     </select>
                   </td>
-                  <td className="px-5 py-3.5 text-ink font-medium">{student.points}</td>
+                  <td className="px-5 py-3.5 text-ink font-medium">{student.points || 0}</td>
                   <td className="px-5 py-3.5">
                     <Badge tone={student.status === STUDENT_STATUS.ACTIVE ? "steppe" : "ember"}>
                       {student.status === STUDENT_STATUS.ACTIVE ? "Белсенді" : "Бұғатталған"}
@@ -193,13 +206,16 @@ export default function MarathonPeoplePage({ params }) {
                   <td colSpan={3} className="px-5 py-10 text-center text-mist">Әзірге ментор жоқ.</td>
                 </tr>
               )}
-              {mentors.map((mentor) => (
-                <tr key={mentor.id} className="border-b border-mist-light last:border-0">
-                  <td className="px-5 py-3.5 font-medium text-ink">{mentor.name}</td>
-                  <td className="px-5 py-3.5 text-mist text-xs">{mentor.phone} · {mentor.email}</td>
-                  <td className="px-5 py-3.5 text-ink font-medium">{db.getStudentsByMentor(mentor.id).length}</td>
-                </tr>
-              ))}
+              {mentors.map((mentor) => {
+                const mentorStudentsCount = getStudentsByMentor ? getStudentsByMentor(mentor.id).length : 0;
+                return (
+                  <tr key={mentor.id} className="border-b border-mist-light last:border-0">
+                    <td className="px-5 py-3.5 font-medium text-ink">{mentor.name}</td>
+                    <td className="px-5 py-3.5 text-mist text-xs">{mentor.phone} · {mentor.email}</td>
+                    <td className="px-5 py-3.5 text-ink font-medium">{mentorStudentsCount}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Card>

@@ -17,7 +17,7 @@ export default function TenantAdminLayout({ children, params }) {
     <DashboardShell
       theme="ink"
       eyebrow="Организатор"
-      title="Кабинет марафонов"
+      title="Кабинет организатора"
       navItems={NAV_ITEMS(orgId)}
     >
       {children}
