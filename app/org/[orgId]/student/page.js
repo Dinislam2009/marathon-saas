@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { 
-  User, 
-  ChevronRight, 
-  CreditCard, 
-  Edit3, 
-  Youtube, 
-  Send, 
-  Instagram, 
-  HelpCircle, 
-  FileText 
+import {
+  User,
+  ChevronRight,
+  CreditCard,
+  Edit3,
+  Youtube,
+  Send,
+  HelpCircle,
+  FileText
 } from "lucide-react";
+import InstagramIcon from "@/components/ui/InstagramIcon";
 import { useData } from "@/context/DataContext";
 import Card from "@/components/ui/Card";
 import LoadingState from "@/components/ui/LoadingState";
@@ -136,7 +135,7 @@ export default function StudentProfilePage() {
 
           <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
             <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shrink-0">
-              <Instagram size={16} />
+              <InstagramIcon size={16} />
             </div>
             <span>Біз Instagram - дамыз</span>
           </a>
