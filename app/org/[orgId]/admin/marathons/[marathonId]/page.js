@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Users, ChevronDown, CircleCheck, Circle, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, ChevronDown, CircleCheck, Circle, Loader2, Paperclip, X, Upload, AlertCircle } from "lucide-react";
 import * as actions from "@/app/actions";
 import { useData } from "@/context/DataContext";
 import { VERIFICATION_TYPE, VERIFICATION_TYPE_LABELS } from "@/lib/constants";
@@ -11,11 +11,16 @@ import { cn } from "@/lib/utils";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
+import { supabase } from "@/lib/supabase"; // <--- Supabase міндетті түрде импортталуы керек
+
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILES_COUNT = 3;
 
 const EMPTY_TASK = { 
   title: "", 
   videoUrl: "", 
   content: "", 
+  fileUrls: [], 
   verificationType: VERIFICATION_TYPE.TEST 
 };
 
@@ -29,13 +34,13 @@ export default function MarathonDetailPage({ params }) {
   const [draft, setDraft] = useState(EMPTY_TASK);
   const [dbTasks, setDbTasks] = useState([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  // 1. Тапсырмаларды тікелей серверден (actions арқылы) жүктеп алу
   const fetchServerTasks = async () => {
     try {
       setIsLoadingTasks(true);
-      // actions.js ішінде getTasksByMarathon болса немесе actions-тан сұрау:
       const tasksData = await actions.getTasksByMarathon(marathonId);
       if (Array.isArray(tasksData)) {
         setDbTasks(tasksData);
@@ -56,37 +61,90 @@ export default function MarathonDetailPage({ params }) {
   const marathon = getMarathon ? getMarathon(marathonId) : null;
   if (!marathon) return <p className="p-6 text-mist">Марафон табылмады.</p>;
 
-  // Context-ті емес, тікелей серверден келген dbTasks тізімін қолданамыз:
   const taskByDay = Object.fromEntries(dbTasks.map((t) => [t.dayNumber, t]));
   const days = Array.from({ length: marathon.durationDays || 21 }, (_, i) => i + 1);
 
   function openEditor(day) {
     setOpenDay(openDay === day ? null : day);
-    setDraft(taskByDay[day] || EMPTY_TASK);
+    setUploadError("");
+    const existingTask = taskByDay[day];
+    setDraft(existingTask ? {
+      ...existingTask,
+      fileUrls: existingTask.fileUrls || (existingTask.fileUrl ? [existingTask.fileUrl] : [])
+    } : EMPTY_TASK);
   }
 
-  function handleSave(day) {
-    if (!draft.title || !draft.title.trim()) {
-      alert("Өтініш, тапсырма атауын енгізіңіз!");
+  // Файлдарды жүктеу және тексеру логикасы
+  const handleFileUpload = async (e) => {
+    setUploadError("");
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    const currentFiles = draft.fileUrls || [];
+
+    if (currentFiles.length + files.length > MAX_FILES_COUNT) {
+      setUploadError(`Бір тапсырмаға максимум ${MAX_FILES_COUNT} файл тіркеуге болады!`);
+      e.target.value = "";
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const res = await actions.upsertTask(marathonId, day, draft);
+    setIsUploadingFile(true);
 
-        if (res) {
-          // Базаға сақталған бойда серверден жаңа тізімді қайта тартып аламыз:
-          await fetchServerTasks();
-          setOpenDay(null);
+    try {
+      const newUrls = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+
+        if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+          setUploadError(`"${file.name}" файлы өте үлкен! Өлшемі ${MAX_FILE_SIZE_MB} МБ-тан аспауы керек.`);
+          continue;
         }
-      } catch (error) {
-        console.error("Save error:", error);
-        alert("Тапсырманы сақтау кезінде қате шықты: " + (error.message || "Сервер қатесі"));
-      }
-    });
-  }
 
+        const safeOriginalName = file.name
+          .replace(/[^a-zA-Z0-9.-]/g, "_")
+          .toLowerCase();
+
+        const fileName = `tasks/m_${marathonId}_day_${openDay}_${Date.now()}_${safeOriginalName}`;
+
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        // SDK-ны мүлдем қолданбай, тікелей HTTP fetch арқылы жүктеу
+        const uploadResponse = await fetch(
+          `${supabaseUrl}/storage/v1/object/submissions/${fileName}`,
+          {
+            method: "POST",
+            headers: {
+              "apikey": anonKey,
+              "x-upsert": "true",
+            },
+            body: file,
+          }
+        );
+
+        const resData = await uploadResponse.json().catch(() => ({}));
+
+        if (!uploadResponse.ok) {
+          throw new Error(resData.error || resData.message || resData.statusCode || "Файлды жүктеу сәтсіз аяқталды");
+        }
+
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/submissions/${fileName}`;
+        newUrls.push(publicUrl);
+      }
+
+      setDraft((prev) => ({
+        ...prev,
+        fileUrls: [...(prev.fileUrls || []), ...newUrls],
+      }));
+    } catch (err) {
+      console.error("Upload Error:", err);
+      setUploadError("Файлды жүктеу қателігі: " + (err.message || "Белгісіз қате"));
+    } finally {
+      setIsUploadingFile(false);
+      e.target.value = "";
+    }
+  };
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -159,6 +217,7 @@ export default function MarathonDetailPage({ params }) {
                     onChange={(e) => setDraft({ ...draft, content: e.target.value })}
                     className="rounded-xl border border-mist-light px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
+                  
                   <div>
                     <p className="text-xs font-medium text-mist mb-2">Тексеру форматы</p>
                     <div className="flex gap-2">
@@ -179,25 +238,94 @@ export default function MarathonDetailPage({ params }) {
                       ))}
                     </div>
                   </div>
+
                   <div>
-                    <p className="text-xs font-medium text-mist mb-2">Файл жүктеу (үлгі)</p>
-                    <div className="rounded-xl border border-dashed border-mist-light px-3 py-4 text-center text-xs text-mist">
-                      Phase 2: Firebase Storage / S3 қосылғанда іске қосылады
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-xs font-medium text-mist">Материал/Файл тіркеу</p>
+                      <span className="text-[10px] text-mist font-normal">
+                        ({(draft.fileUrls || []).length}/{MAX_FILES_COUNT})
+                      </span>
                     </div>
+
+                    {uploadError && (
+                      <div className="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 flex items-center justify-between animate-in fade-in duration-200">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle size={15} className="shrink-0 text-red-500" />
+                          <span>{uploadError}</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setUploadError("")}
+                          className="p-1 hover:bg-red-100 rounded-lg transition-colors text-red-500 cursor-pointer"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+
+                    {(draft.fileUrls || []).length > 0 && (
+                      <div className="flex flex-col gap-2 mb-2">
+                        {draft.fileUrls.map((url, idx) => (
+                          <div key={idx} className="flex items-center justify-between rounded-xl border border-mist-light p-2.5 bg-paper-dim">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-2 text-xs text-horizon font-medium hover:underline truncate max-w-[85%]"
+                            >
+                              <Paperclip size={14} className="shrink-0" />
+                              <span className="truncate">Файл #{idx + 1} ашу</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(idx)}
+                              className="p-1 hover:bg-mist-light/50 rounded-lg text-mist hover:text-ink transition-colors cursor-pointer"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {(draft.fileUrls || []).length < MAX_FILES_COUNT && (
+                      <label className="flex flex-col items-center justify-center rounded-xl border border-dashed border-mist-light p-4 hover:border-horizon hover:bg-paper-dim transition-all cursor-pointer">
+                        {isUploadingFile ? (
+                          <div className="flex items-center gap-2 text-xs text-mist">
+                            <Loader2 size={16} className="animate-spin text-horizon" />
+                            <span>Файл жүктелуде...</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-mist">
+                            <Upload size={18} className="text-horizon" />
+                            <span className="text-xs font-medium text-ink">Файл таңдаңыз (PDF, Сурет...)</span>
+                            <span className="text-[10px] text-mist">Макс. 10 МБ (Макс. 3 файл)</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={handleFileUpload}
+                          disabled={isUploadingFile}
+                        />
+                      </label>
+                    )}
                   </div>
+
                   <div className="flex justify-end gap-2 pt-1">
                     <Button 
                       variant="secondary" 
                       size="sm" 
                       onClick={() => setOpenDay(null)}
-                      disabled={isPending}
+                      disabled={isPending || isUploadingFile}
                     >
                       Бас тарту
                     </Button>
                     <Button 
                       size="sm" 
                       onClick={() => handleSave(day)}
-                      disabled={isPending}
+                      disabled={isPending || isUploadingFile}
                     >
                       {isPending ? <Loader2 size={14} className="animate-spin" /> : "Сақтау"}
                     </Button>

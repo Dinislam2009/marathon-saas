@@ -1,46 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function AddStudentModal({ isOpen, onClose, marathons, onAdd, onCheckStudent }) {
   const [selectedMarathon, setSelectedMarathon] = useState("");
-  const [contactInput, setContactInput] = useState("+7 (7");
-  
+  const [contactInput, setContactInput] = useState("");
   const [status, setStatus] = useState("idle");
   const [foundUser, setFoundUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const debounceRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
+
+  if (!isOpen) return null;
+
   const formatPhoneNumber = (value) => {
     const digits = value.replace(/\D/g, "");
-    let result = "+7 (7";
+    if (!digits) return "";
+
+    let result = "+7 (";
     const cleanBody = digits.startsWith("7") ? digits.slice(1) : digits;
 
-    if (cleanBody.length > 0) result += cleanBody.substring(0, 2);
-    if (cleanBody.length >= 2) result += `) ${cleanBody.substring(2, 5)}`;
-    if (cleanBody.length >= 5) result += `-${cleanBody.substring(5, 7)}`;
-    if (cleanBody.length >= 7) result += `-${cleanBody.substring(7, 9)}`;
+    if (cleanBody.length > 0) result += cleanBody.substring(0, 3);
+    if (cleanBody.length >= 3) result += `) ${cleanBody.substring(3, 6)}`;
+    if (cleanBody.length >= 6) result += `-${cleanBody.substring(6, 8)}`;
+    if (cleanBody.length >= 8) result += `-${cleanBody.substring(8, 10)}`;
 
     return result;
   };
 
-  const handleInputChange = async (e) => {
+  const scheduleVerify = (value, isEmail, marathonId) => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      verifyStudent(value, isEmail, marathonId);
+    }, 300);
+  };
+
+  const handleInputChange = (e) => {
     const val = e.target.value;
-    
-    if (val.includes("@")) {
-      setContactInput(val);
-      if (val.length > 4 && selectedMarathon) {
-        verifyStudent(val, true, selectedMarathon);
-      }
+
+    if (!val.trim()) {
+      setContactInput("");
+      clearTimeout(debounceRef.current);
+      setStatus("idle");
+      setFoundUser(null);
       return;
     }
 
-    const formatted = formatPhoneNumber(val);
-    setContactInput(formatted);
+    const isEmail = val.includes("@") || /[a-zA-Z]/.test(val);
+    let formattedVal = val;
 
-    const rawDigits = formatted.replace(/\D/g, "");
-    if (rawDigits.length === 11 && selectedMarathon) {
-      verifyStudent(formatted, false, selectedMarathon);
+    if (!isEmail) {
+      formattedVal = formatPhoneNumber(val);
+    }
+
+    setContactInput(formattedVal);
+
+    if (!selectedMarathon) return;
+
+    const rawDigits = formattedVal.replace(/\D/g, "");
+    
+    if ((isEmail && formattedVal.trim().length > 4) || rawDigits.length === 11) {
+      scheduleVerify(formattedVal.trim(), isEmail, selectedMarathon);
     } else {
+      clearTimeout(debounceRef.current);
       setStatus("idle");
       setFoundUser(null);
     }
@@ -60,6 +86,9 @@ export default function AddStudentModal({ isOpen, onClose, marathons, onAdd, onC
         } else if (result.status === "in_another_marathon") {
           setStatus("in_another_marathon");
           setFoundUser(result.student);
+        } else if (result.status === "found") {
+          setStatus("found");
+          setFoundUser(result.student);
         } else {
           setStatus("found");
           setFoundUser(result.student);
@@ -75,15 +104,7 @@ export default function AddStudentModal({ isOpen, onClose, marathons, onAdd, onC
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedMarathon) {
-      alert("Сначала выберите марафон!");
-      return;
-    }
-
-    if (status !== "found") {
-      alert("Этого участника нельзя добавить!");
-      return;
-    }
+    if (!selectedMarathon || status !== "found") return;
 
     const trimmed = contactInput.trim();
     const isEmail = trimmed.includes("@");
@@ -96,7 +117,7 @@ export default function AddStudentModal({ isOpen, onClose, marathons, onAdd, onC
         phone: !isEmail ? trimmed : foundUser?.phone || "",
       });
 
-      setContactInput("+7 (7");
+      setContactInput("");
       setSelectedMarathon("");
       setStatus("idle");
       setFoundUser(null);
@@ -107,8 +128,6 @@ export default function AddStudentModal({ isOpen, onClose, marathons, onAdd, onC
       setIsSubmitting(false);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -131,9 +150,15 @@ export default function AddStudentModal({ isOpen, onClose, marathons, onAdd, onC
             <select
               value={selectedMarathon}
               onChange={(e) => {
-                setSelectedMarathon(e.target.value);
-                setContactInput("+7 (7");
+                const mId = e.target.value;
+                setSelectedMarathon(mId);
                 setStatus("idle");
+                setFoundUser(null);
+
+                if (mId && contactInput.trim()) {
+                  const isEmail = contactInput.includes("@");
+                  scheduleVerify(contactInput.trim(), isEmail, mId);
+                }
               }}
               required
               className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-800 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all bg-white"
@@ -148,45 +173,51 @@ export default function AddStudentModal({ isOpen, onClose, marathons, onAdd, onC
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Телефон или Email
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+              Email или номер телефона
             </label>
+
             <input
               type="text"
-              placeholder="+7 (707) 900-35-67 или email@mail.kz"
+              placeholder="email@mail.kz или +7..."
               value={contactInput}
               onChange={handleInputChange}
               required
-              className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-800 placeholder-gray-400 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all"
+              className="w-full rounded-2xl border border-gray-200 px-4 py-3.5 text-gray-800 placeholder-gray-400 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all text-sm"
             />
 
+            {/* Статустар (барлығы ОРЫСША) */}
             {status === "checking" && (
               <p className="mt-2 text-xs text-gray-500 animate-pulse">
                 🔍 Проверка в базе данных...
               </p>
             )}
 
+            {/* Базадан табылды, қосуға болады */}
             {status === "found" && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                <span>✓</span> Участник найден {foundUser?.name ? `(${foundUser.name})` : ""} — готов к добавлению!
+              <div className="mt-2 text-sm font-medium text-emerald-600 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                ✓ Пользователь найден в базе {foundUser?.name ? `(${foundUser.name})` : ""} — готов к добавлению!
               </div>
             )}
 
+            {/* Базада мүлдем жоқ */}
             {status === "not_found" && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm font-medium text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
-                <span>✕</span> Участник не зарегистрирован на сайте
+              <div className="mt-2 text-sm font-medium text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                ✕ Участник не найден в базе данных
               </div>
             )}
 
+            {/* Басқа марафонда бар */}
             {status === "in_another_marathon" && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm font-medium text-amber-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                <span>⚠</span> Участник уже состоит в другом марафоне
+              <div className="mt-2 text-sm font-medium text-amber-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                ⚠ Участник уже состоит в другом марафоне
               </div>
             )}
 
+            {/* Тура осы марафонда бар */}
             {status === "already_in_this_marathon" && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm font-medium text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
-                <span>✕</span> Участник уже добавлен в этот марафон
+              <div className="mt-2 text-sm font-medium text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                ✕ Пользователь уже добавлен в этот марафон
               </div>
             )}
           </div>

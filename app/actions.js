@@ -2,13 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import * as db from "@/lib/data"; 
-import * as auth from "@/lib/auth";
+import { getUser } from "@/lib/auth";
 import { getTodayDayNumber } from "@/lib/utils"; 
+import { prisma } from "@/lib/prisma";
 
 // Helper function to stringify complex DB objects safely across the server boundary
 function safeJson(data) {
   if (data === undefined || data === null) return null;
   return JSON.parse(JSON.stringify(data));
+}
+
+function formatPhone(phone) {
+  if (!phone) return "—";
+  const cleaned = String(phone).replace(/\D/g, "");
+  if (cleaned.length === 11) {
+    return `+7 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7, 9)}-${cleaned.slice(9, 11)}`;
+  }
+  if (cleaned.length === 10) {
+    return `+7 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 8)}-${cleaned.slice(8, 10)}`;
+  }
+  return phone;
 }
 
 /**
@@ -32,29 +45,18 @@ async function validateSession() {
 // ==========================================
 
 export async function fetchInitialState() {
-  const user = await validateSession(); // Сессияны тексеру
-  
-  // Егер қолданушы авторизациядан өтпеген болса, бос штат қайтару
+  const user = await validateSession();
   if (!user) {
     return { currentStudentId: null };
   }
 
-  const organizers = await db.getOrganizers();
-  const org = organizers[0] || null;
-  let marathon = null;
-  let firstStudent = null;
-
-  if (org) {
-    const marathons = await db.getMarathonsByOrg(org.id);
-    marathon = marathons[0] || null;
-  }
-  if (marathon) {
-    const students = await db.getStudentsByMarathon(marathon.id);
-    firstStudent = students[0] || null;
-  }
+  // Пайдаланушыға тиесілі нақты оқушы жазбасын іздеу
+  const student = await prisma.student.findFirst({
+    where: { userId: user.id },
+  });
 
   return {
-    currentStudentId: firstStudent ? firstStudent.id : null
+    currentStudentId: student ? student.id : null,
   };
 }
 
@@ -117,7 +119,9 @@ export async function getProfileDataAction(studentId, orgId) {
       data: safeJson({ student, marathon, authUser, students })
     };
   } catch (error) {
-    return { ok: false, error: error.message };
+    console.error("getMentorsByOrgId error:", error);
+    // Prisma-ның нақты не сұрап тұрғанын браузерге шығару:
+    throw new Error(error.message); 
   }
 }
 
@@ -261,15 +265,47 @@ export async function setStudentStatus(studentId, status) {
   revalidatePath("/");
 }
 
-export async function updateChecklist(studentId, marathonId, dayNumber, patch) {
-  const user = await validateSession();
-  if (!user || (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId)) {
-    throw new Error("Бұл чеклистті өзгертуге рұқсатыңыз жоқ.");
-  }
+export async function updateChecklist(studentId, marathonId, dayNumber, checklistData) {
+  try {
+    if (!studentId || studentId === "demo-student") {
+      return { ok: true };
+    }
 
-  const res = await db.updateChecklist(studentId, marathonId, dayNumber, patch);
-  revalidatePath("/");
-  return safeJson(res);
+    // Submission бар-жоғын тексереміз
+    let submission = await prisma.submission.findFirst({
+      where: {
+        studentId,
+        dayNumber,
+      },
+    });
+
+    if (submission) {
+      await prisma.submission.update({
+        where: { id: submission.id },
+        data: {
+          checklist: {
+            ...(submission.checklist || {}),
+            ...checklistData,
+          },
+        },
+      });
+    } else {
+      await prisma.submission.create({
+        data: {
+          studentId,
+          marathonId,
+          dayNumber,
+          status: "PENDING",
+          checklist: checklistData,
+        },
+      });
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.error("updateChecklist error:", error);
+    return { ok: false, error: error.message };
+  }
 }
 
 export async function addHabit(studentId, title) {
@@ -333,15 +369,24 @@ export async function sendMessage(orgId, studentId, studentName, text) {
   return safeJson(res);
 }
 
-export async function addMentor(orgId, fields) {
-  const user = await validateSession();
-  if (!user || (user.role !== "ORGANIZER" && user.role !== "OWNER")) {
-    throw new Error("Менторды тек ұйымдастырушы қоса алады.");
-  }
+export async function createMentor(data) {
+  try {
+    const { fullName, phone, email } = data;
+    const formattedEmail = email ? String(email).trim().toLowerCase() : null;
 
-  const res = await db.addMentor(orgId, fields);
-  revalidatePath("/");
-  return safeJson(res);
+    const mentor = await prisma.mentor.create({
+      data: {
+        name: fullName,
+        phone: phone,
+        email: formattedEmail,
+      },
+    });
+
+    return safeJson ? safeJson(mentor) : mentor;
+  } catch (error) {
+    console.error("createMentor error:", error);
+    throw error;
+  }
 }
 
 export async function assignMentorToStudent(studentId, mentorId) {
@@ -413,38 +458,51 @@ export async function getOrganizersAction() {
   }
 }
 
-export async function getStudentDashboardAction(studentId) {
+export async function getStudentDashboard(orgId) {
   try {
-    const user = await validateSession();
-    if (!user || (user.role !== "ORGANIZER" && user.role !== "OWNER" && user.role !== "CURATOR" && user.id !== studentId)) {
-      throw new Error("Бақылау панелін көруге рұқсатыңыз жоқ.");
+    // 1. Ағымдағы қолданушыны сессиядан аламыз
+    const session = await auth.getSession(); // немесе сенде қолданылатын сессия логикасы
+
+    let student = null;
+
+    if (session?.user?.id) {
+      student = await prisma.student.findFirst({
+        where: { userId: session.user.id },
+        include: {
+          marathon: true,
+        },
+      });
     }
 
-    const student = await db.getStudent(studentId);
-    const marathon = await db.getMarathonForStudent(studentId);
-    
-    if (!student || !marathon) {
-      return { ok: false, error: "Деректер табылмады" };
-    }
+    // 2. Егер оқушы сақталмаған болса, құлатпай демо-оқушы қайтарамыз (Fallback)
+    if (!student) {
+      const firstStudent = await prisma.student.findFirst({
+        include: { marathon: true },
+      });
 
-    const todayDay = getTodayDayNumber(marathon) || 1;
-    
-    const task = await db.getTask(marathon.id, todayDay);
-    const submission = await db.getSubmission(student.id, todayDay);
-    const allSubmissions = await db.getSubmissionsByStudent(student.id);
+      student = firstStudent || {
+        id: "demo-student",
+        name: "Қатысушы",
+        email: "student@example.com",
+        points: 0,
+      };
+    }
 
     return {
-      ok: true,
-      data: safeJson({
-        student,
-        marathon,
-        task,
-        submission,
-        allSubmissions
-      })
+      success: true,
+      student,
     };
   } catch (error) {
-    return { ok: false, error: error.message };
+    console.error("getStudentDashboard error:", error);
+    // Сессия немесе база қатесі болса да бетті құлатпау
+    return {
+      success: true,
+      student: {
+        id: "demo-student",
+        name: "Қатысушы",
+        points: 0,
+      },
+    };
   }
 }
 
@@ -516,32 +574,49 @@ export async function getMarathons() {
 
 export async function getMarathonsByOrgId(orgId) {
   try {
-    // Егер orgId берілмесе немесе бос болса, db.getMarathonsByOrg арқылы аламыз
-    const targetOrg = orgId && orgId !== "orgId" ? orgId : null;
+    const user = await validateSession();
     
-    if (targetOrg && db.getMarathonsByOrg) {
-      const marathons = await db.getMarathonsByOrg(targetOrg);
-      return safeJson(marathons);
+    // 1. Ұйымды анықтау (URL-дегі orgId немесе сессиядағы user/organizer)
+    let targetOrgId = orgId && orgId !== "orgId" ? orgId : null;
+
+    if (!targetOrgId && user) {
+      const org = await prisma.organizer.findFirst({
+        where: { userId: user.id },
+      });
+      if (org) targetOrgId = org.id;
     }
 
-    // Төтенше жағдайда барлық марафонды оқып қайтару:
-    const organizers = await db.getOrganizers();
-    if (organizers && organizers[0]) {
-      const marathons = await db.getMarathonsByOrg(organizers[0].id);
-      return safeJson(marathons);
+    // 2. Егер әлі де табылмаса, базадағы бірінші ұйымды алу
+    if (!targetOrgId) {
+      const firstOrg = await prisma.organizer.findFirst();
+      if (firstOrg) targetOrgId = firstOrg.id;
     }
 
-    return [];
+    if (!targetOrgId) return [];
+
+    // 3. Марафондарды оқушылар санымен (_count) бірге жүктеу
+    const marathons = await prisma.marathon.findMany({
+      where: { organizerId: targetOrgId },
+      include: {
+        _count: {
+          select: { students: true }, // Марафондағы студенттер санын санайды
+        },
+        students: true, // Қажет болса студенттер тізімін де қосады
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Қатысушылар санын карточкаға ыңғайлы етіп форматтау
+    const formattedMarathons = marathons.map((m) => ({
+      ...m,
+      studentsCount: m._count?.students || m.students?.length || 0,
+    }));
+
+    return safeJson(formattedMarathons);
   } catch (error) {
     console.error("getMarathonsByOrgId error:", error);
     return [];
   }
-}
-
-export async function getMarathonById(id) {
-  return await prisma.marathon.findUnique({
-    where: { id: String(id) },
-  });
 }
 
 export async function getTasksByMarathon(marathonId) {
@@ -562,5 +637,438 @@ export async function getAllStudentsByOrg(orgId) {
   } catch (error) {
     console.error("getAllStudentsByOrg error:", error);
     return [];
+  }
+}
+
+export async function checkStudentInDatabase(value, isEmail, marathonId) {
+  try {
+    const rawDigits = value.replace(/\D/g, "");
+    // Соңғы 10 цифрды алу (мысалы, 7079003568)
+    const phoneQuery = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
+
+    // 1. ИЗДЕУ: Алдымен Student кестесінен, кейін User кестесінен іздейміз
+    let foundStudent = null;
+    let foundUser = null;
+
+    if (isEmail) {
+      const emailQuery = value.trim().toLowerCase();
+
+      // Student кестесінен іздеу
+      foundStudent = await prisma.student.findFirst({
+        where: { email: { equals: emailQuery, mode: "insensitive" } },
+        include: { user: true },
+      });
+
+      // Егер Student-тен табылмаса, User кестесінен іздеу
+      if (!foundStudent) {
+        foundUser = await prisma.user.findFirst({
+          where: { email: { equals: emailQuery, mode: "insensitive" } },
+          include: { student: true },
+        });
+      }
+    } else {
+      // Телефон арқылы іздеу (Student кестесі)
+      const allStudents = await prisma.student.findMany();
+      foundStudent = allStudents.find((s) => {
+        if (!s.phone) return false;
+        const sDigits = s.phone.replace(/\D/g, "");
+        return sDigits.endsWith(phoneQuery) || (phoneQuery && sDigits.includes(phoneQuery));
+      });
+
+      // Егер Student-тен табылмаса, User кестесінен іздеу
+      if (!foundStudent) {
+        const allUsers = await prisma.user.findMany();
+        foundUser = allUsers.find((u) => {
+          if (!u.phone) return false;
+          const uDigits = u.phone.replace(/\D/g, "");
+          return uDigits.endsWith(phoneQuery) || (phoneQuery && uDigits.includes(phoneQuery));
+        });
+      }
+    }
+
+    // Нәтижені біріктіру
+    const target = foundStudent || foundUser;
+
+    // -------------------------------------------------------------
+    // Жағдай 1: Базада (Student-те де, User-де де) мүлдем ЖОҚ
+    // -------------------------------------------------------------
+    if (!target) {
+      return { student: null, status: "not_found" };
+    }
+
+    // Аты мен марафон ID-сын анықтау
+    let name = "";
+    let studentMarathonId = null;
+
+    if (foundStudent) {
+      name = foundStudent.name;
+      studentMarathonId = foundStudent.marathonId;
+    } else if (foundUser) {
+      name = `${foundUser.firstName} ${foundUser.lastName}`.trim();
+      studentMarathonId = foundUser.student?.marathonId;
+    }
+
+    const studentData = {
+      name,
+      email: target.email,
+      phone: target.phone,
+    };
+
+    // -------------------------------------------------------------
+    // Жағдай 2: ДӘЛ ОСЫ таңдалған марафонда бар
+    // -------------------------------------------------------------
+    if (studentMarathonId && String(studentMarathonId) === String(marathonId)) {
+      return { student: studentData, status: "already_in_this_marathon" };
+    }
+
+    // -------------------------------------------------------------
+    // Жағдай 3: БАСҚА марафонда бар
+    // -------------------------------------------------------------
+    if (studentMarathonId) {
+      return { student: studentData, status: "in_another_marathon" };
+    }
+
+    // -------------------------------------------------------------
+    // Жағдай 4: Базада бар, бірақ бұл марафонға әлі қосылмаған (Дайын!)
+    // -------------------------------------------------------------
+    return { student: studentData, status: "found" };
+  } catch (error) {
+    console.error("Student check error:", error);
+    return { student: null, status: "not_found" };
+  }
+}
+
+export async function getMarathonById(id) {
+  try {
+    const marathon = await prisma.marathon.findUnique({
+      where: { id: String(id) },
+    });
+    return safeJson(marathon);
+  } catch (error) {
+    console.error("getMarathonById error:", error);
+    return null;
+  }
+}
+
+export async function getStudentsByMarathonId(marathonId) {
+  try {
+    const allStudents = await prisma.student.findMany({
+      include: {
+        mentor: true,
+      },
+    });
+
+    const filtered = allStudents.filter(
+      (s) => String(s.marathonId) === String(marathonId)
+    );
+
+    return safeJson(filtered);
+  } catch (error) {
+    console.error("getStudentsByMarathonId error:", error);
+    return [];
+  }
+}
+
+export async function getMentorsByMarathonId(marathonId) {
+  try {
+    const allMentors = await prisma.mentor.findMany({
+      include: {
+        _count: {
+          select: { students: true },
+        },
+      },
+    });
+
+    const filtered = allMentors.filter(
+      (m) => String(m.marathonId) === String(marathonId)
+    );
+
+    return safeJson(filtered);
+  } catch (error) {
+    console.error("getMentorsByMarathonId error:", error);
+    return [];
+  }
+}
+
+export async function getMentorsByOrgId(orgId) {
+  try {
+    let targetOrgId = orgId;
+
+    // Егер URL-ден "orgId" сөзі өтіп кетсе, базадағы бірінші Organizer ID-ін аламыз
+    if (!targetOrgId || targetOrgId === "orgId") {
+      const firstOrg = await prisma.organizer.findFirst({
+        select: { id: true },
+      });
+      targetOrgId = firstOrg?.id;
+    }
+
+    if (!targetOrgId) {
+      return [];
+    }
+
+    // Осы ұйымға тиесілі менторларды базадан аламыз
+    const mentors = await prisma.mentor.findMany({
+      where: {
+        organizerId: targetOrgId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        _count: {
+          select: {
+            students: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return mentors;
+  } catch (error) {
+    console.error("getMentorsByOrgId error:", error);
+    return [];
+  }
+}
+
+export async function addMentor(data) {
+  try {
+    const { fullName, name, phone, email, orgId, organizerId, company, ownerName } = data || {};
+    
+    // orgId немесе organizerId
+    let targetOrgId = orgId || organizerId;
+
+    if (!targetOrgId) {
+      throw new Error("Ұйым ID-сі (orgId) жіберілмеген.");
+    }
+
+    const mentorName = fullName || name || "Без имени";
+    const formattedEmail = email ? String(email).trim().toLowerCase() : "organizer@example.com";
+
+    // 1. Базадан осы Organizer-ді іздейміз
+    let existingOrganizer = null;
+    
+    // Егер targetOrgId "orgId" деген сөз емес, нақты ID болса:
+    if (targetOrgId !== "orgId") {
+      existingOrganizer = await prisma.organizer.findUnique({
+        where: { id: targetOrgId },
+      });
+    } else {
+      // Егер "orgId" болып келсе, базадағы ең алғашқы Organizer-ді алып көреміз
+      existingOrganizer = await prisma.organizer.findFirst();
+    }
+
+    // 2. Егер базада тіпті ешқандай Organizer болмаса, барлық міндетті өрістермен жасаймыз
+    if (!existingOrganizer) {
+      existingOrganizer = await prisma.organizer.create({
+        data: {
+          ...(targetOrgId !== "orgId" && { id: targetOrgId }),
+          name: name || fullName || "Организация",
+          company: company || "Компания",
+          ownerName: ownerName || fullName || name || "Владелец",
+          email: formattedEmail, // Міндетті email өрісі
+        },
+      });
+    }
+
+    // 3. Менторды сәтті байланыстырып құрамыз
+    const mentor = await prisma.mentor.create({
+      data: {
+        name: mentorName,
+        phone: phone || "",
+        email: formattedEmail,
+        organizer: {
+          connect: { id: existingOrganizer.id },
+        },
+      },
+    });
+
+    // Ментор сәтті құрылған соң:
+    revalidatePath("/org/[orgId]/admin/mentors", "page");
+
+    return mentor;
+  } catch (error) {
+    console.error("addMentor error:", error);
+    throw new Error(`Менторды қосу кезінде қате шықты: ${error.message}`);
+  }
+}
+
+export async function checkMentor(value, isEmail, marathonId) {
+  try {
+    const trimmedVal = value.trim();
+
+    // Алдымен базадан Менторды өз Email немесе Телефоны бойынша іздейміз
+    let mentor = await prisma.mentor.findFirst({
+      where: isEmail
+        ? { email: { equals: trimmedVal.toLowerCase(), mode: "insensitive" } }
+        : { phone: trimmedVal },
+    });
+
+    // Егер Mentor моделінен табылмаса, User моделінен іздеп көреміз
+    if (!mentor) {
+      const user = await prisma.user.findFirst({
+        where: isEmail
+          ? { email: { equals: trimmedVal.toLowerCase(), mode: "insensitive" } }
+          : { phone: trimmedVal },
+      });
+
+      if (user) {
+        mentor = {
+          id: user.id,
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          phone: user.phone,
+        };
+      }
+    }
+
+    if (!mentor) {
+      return { status: "not_found" };
+    }
+
+    return { status: "found", mentor };
+  } catch (error) {
+    console.error("checkMentor error:", error);
+    return { status: "not_found" };
+  }
+}
+
+export async function getStudentsByOrgId(orgId) {
+  try {
+    // 1. Базадан оқушыларды таңдамалы өрістермен аламыз (score-сыз)
+    const students = await prisma.student.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        points: true,
+        marathon: {
+          select: {
+            title: true,
+          },
+        },
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    // 2. Деректерді кестеге ыңғайлап қайтарамыз
+    return students.map((s) => {
+      const rawPhone = s.phone || s.user?.phone;
+      const fullName =
+        s.name ||
+        (s.user ? `${s.user.firstName} ${s.user.lastName}` : "Аты-жөні көрсетілмеген");
+
+      return {
+        id: s.id,
+        name: fullName,
+        email: s.email || s.user?.email || "—",
+        phone: formatPhone(rawPhone),
+        marathonTitle: s.marathon?.title || "—",
+        points: s.points ?? 0,
+      };
+    });
+  } catch (error) {
+    console.error("getStudentsByOrgId error:", error);
+    return [];
+  }
+}
+
+export async function getStudentDashboardAction(currentStudentId) {
+  try {
+    let student = null;
+
+    // 1. Клиенттен келген ID бойынша оқушыны іздеу
+    if (currentStudentId && currentStudentId !== "undefined") {
+      student = await prisma.student.findUnique({
+        where: { id: currentStudentId },
+        include: { marathon: true },
+      });
+    }
+
+    // 2. Табылмаса, базадағы бірінші оқушыны алу
+    if (!student) {
+      student = await prisma.student.findFirst({
+        include: { marathon: true },
+      });
+    }
+
+    // 3. Базада оқушы мүлдем жоқ болса — дефолтты демо-деректер
+    if (!student) {
+      const marathon = (await prisma.marathon.findFirst()) || {
+        id: "demo-marathon",
+        title: "Демо Марафон",
+        totalDays: 30,
+      };
+
+      return {
+        ok: true,
+        data: {
+          student: {
+            id: "demo-student",
+            name: "Қатысушы",
+            status: "ACTIVE",
+          },
+          marathon,
+          task: {
+            dayNumber: 1,
+            title: "1-күн: Танысу және мақсат қою",
+            description: "Бүгінгі марафон бағдарламасы бойынша алғашқы тапсырманы орындаңыз.",
+          },
+          submission: null,
+          allSubmissions: [],
+        },
+      };
+    }
+
+    // 4. Марафон мен тапсырма деректерін дайындау
+    const marathon = student.marathon || (await prisma.marathon.findFirst());
+
+    const task = (await prisma.task.findFirst({
+      where: { marathonId: marathon?.id },
+      orderBy: { dayNumber: "asc" },
+    })) || {
+      dayNumber: 1,
+      title: "1-күн Тапсырмасы",
+      description: "Бүгінгі сабақ материалдарымен танысып шығыңыз.",
+    };
+
+    const submission = await prisma.submission.findFirst({
+      where: {
+        studentId: student.id,
+        dayNumber: task.dayNumber || 1,
+      },
+    });
+
+    const allSubmissions = await prisma.submission.findMany({
+      where: { studentId: student.id },
+    });
+
+    return {
+      ok: true,
+      data: {
+        student,
+        marathon: marathon || { id: "m1", title: "Марафон", totalDays: 30 },
+        task,
+        submission,
+        allSubmissions,
+      },
+    };
+  } catch (error) {
+    console.error("getStudentDashboardAction error:", error);
+    return {
+      ok: false,
+      error: `Серверлік қате: ${error.message}`,
+    };
   }
 }

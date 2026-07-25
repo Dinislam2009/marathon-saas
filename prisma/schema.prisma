@@ -7,55 +7,40 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  phone        String   @unique
+  id           String      @id @default(uuid())
+  email        String      @unique
+  phone        String      @unique
   passwordHash String
   firstName    String
   lastName     String
-  verified     Boolean  @default(false)
-  role         Role     @default(PARTICIPANT)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  organizer Organizer?
-  mentor    Mentor?
-  student   Student?
-  pendingOtp PendingOtp?
-}
-
-enum Role {
-  OWNER
-  ORGANIZER
-  CURATOR
-  PARTICIPANT
+  verified     Boolean     @default(false)
+  role         Role        @default(PARTICIPANT)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  mentor       Mentor?
+  organizer    Organizer?
+  pendingOtp   PendingOtp?
+  student      Student?
 }
 
 model Organizer {
-  id     String  @id @default(uuid())
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  company             String
-  ownerName           String
-  email               String
-  subscriptionStatus  SubscriptionStatus @default(TRIAL)
-  subscriptionPlan    String              @default("Сынақ мерзімі")
-  monthlyFee          Int                 @default(0)
-  nextPaymentDate     DateTime?
-  createdAt           DateTime            @default(now())
-
-  marathons Marathon[]
-  mentors   Mentor[]
-  invitations Invitation[]
-  chatMessages ChatMessage[]
-}
-
-enum SubscriptionStatus {
-  TRIAL
-  ACTIVE
-  BLOCKED
+  id                 String             @id @default(uuid())
+  userId             String?            @unique
+  company            String
+  ownerName          String
+  email              String
+  subscriptionStatus SubscriptionStatus @default(TRIAL)
+  subscriptionPlan   String             @default("Сынақ мерзімі")
+  monthlyFee         Int                @default(0)
+  nextPaymentDate    DateTime?
+  createdAt          DateTime           @default(now())
+  chatMessages       ChatMessage[]
+  invitations        Invitation[]
+  marathons          Marathon[]
+  mentors            Mentor[]
+  user               User?              @relation(fields: [userId], references: [id])
 }
 
 model Marathon {
@@ -66,13 +51,142 @@ model Marathon {
   startDate    DateTime
   status       MarathonStatus @default(ACTIVE)
   createdAt    DateTime       @default(now())
+  organizerId  String
+  invitations  Invitation[]
+  organizer    Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  students     Student[]
+  tasks        Task[]
+}
 
+model Mentor {
+  id          String    @id @default(uuid())
+  userId      String?   @unique
+  name        String
+  email       String
+  phone       String
+  createdAt   DateTime  @default(now())
   organizerId String
   organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-
-  tasks       Task[]
+  user        User?     @relation(fields: [userId], references: [id])
   students    Student[]
-  invitations Invitation[]
+}
+
+model Student {
+  id           String        @id @default(uuid())
+  userId       String?       @unique
+  name         String
+  email        String
+  phone        String?
+  points       Int           @default(0)
+  status       StudentStatus @default(ACTIVE)
+  joinedAt     DateTime      @default(now())
+  marathonId   String
+  mentorId     String?
+  chatMessages ChatMessage[]
+  habits       Habit[]
+  matrixTasks  MatrixTask[]
+  marathon     Marathon      @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  mentor       Mentor?       @relation(fields: [mentorId], references: [id])
+  user         User?         @relation(fields: [userId], references: [id])
+  submissions  Submission[]
+}
+
+model Task {
+  id               String           @id @default(uuid())
+  dayNumber        Int
+  title            String
+  videoUrl         String?
+  content          String?
+  fileUrls         String[]         // <--- МІНЕ, ЕНДІ БІРНЕШЕ ФАЙЛДЫҢ СІЛТЕМЕСІН МАССИВ РЕТІНДЕ САҚТАЙДЫ
+  verificationType VerificationType @default(TEST)
+  status           TaskStatus       @default(DRAFT)
+  createdAt        DateTime         @default(now())
+  marathonId       String
+  marathon         Marathon         @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+
+  @@unique([marathonId, dayNumber])
+}
+
+model Submission {
+  id          String           @id @default(uuid())
+  dayNumber   Int
+  status      SubmissionStatus @default(PENDING)
+  checklist   Json             @default("{\"video\": false, \"routine\": false, \"homework\": false}")
+  fileUrl     String?          // <--- МІНЕ, ОСЫ ӨРІСТІ ҚОСАМЫЗ (Сурет/файл сілтемесі)
+  submittedAt DateTime?
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, dayNumber])
+}
+
+model Invitation {
+  id              String         @id @default(uuid())
+  role            InvitationRole
+  fullName        String
+  phone           String
+  email           String
+  status          InviteStatus   @default(PENDING)
+  claimedByUserId String?
+  createdAt       DateTime       @default(now())
+  marathonId      String
+  organizerId     String
+  marathon        Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  organizer       Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+}
+
+model Habit {
+  id        String   @id @default(uuid())
+  title     String
+  doneDates Json     @default("[]")
+  createdAt DateTime @default(now())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model MatrixTask {
+  id        String   @id @default(uuid())
+  title     String
+  urgent    Boolean  @default(false)
+  important Boolean  @default(false)
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id          String    @id @default(uuid())
+  studentName String
+  text        String
+  createdAt   DateTime  @default(now())
+  organizerId String
+  studentId   String?
+  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  student     Student?  @relation(fields: [studentId], references: [id])
+}
+
+model PendingOtp {
+  id        String   @id @default(uuid())
+  code      String
+  phone     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  OWNER
+  ORGANIZER
+  CURATOR
+  PARTICIPANT
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  BLOCKED
 }
 
 enum MarathonStatus {
@@ -81,65 +195,9 @@ enum MarathonStatus {
   COMPLETED
 }
 
-model Mentor {
-  id     String  @id @default(uuid())
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  name      String
-  email     String
-  phone     String
-  createdAt DateTime @default(now())
-
-  organizerId String
-  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-
-  students Student[]
-}
-
-model Student {
-  id     String  @id @default(uuid())
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  name      String
-  email     String
-  phone     String?
-  points    Int           @default(0)
-  status    StudentStatus @default(ACTIVE)
-  joinedAt  DateTime      @default(now())
-
-  marathonId String
-  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-
-  mentorId String?
-  mentor   Mentor? @relation(fields: [mentorId], references: [id], onDelete: SetNull)
-
-  submissions Submission[]
-  habits      Habit[]
-  matrixTasks MatrixTask[]
-  chatMessages ChatMessage[]
-}
-
 enum StudentStatus {
   ACTIVE
   BLOCKED
-}
-
-model Task {
-  id               String            @id @default(uuid())
-  dayNumber        Int
-  title            String
-  videoUrl         String?
-  content          String?
-  verificationType VerificationType  @default(TEST)
-  status           TaskStatus        @default(DRAFT)
-  createdAt        DateTime          @default(now())
-
-  marathonId String
-  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-
-  @@unique([marathonId, dayNumber])
 }
 
 enum VerificationType {
@@ -153,40 +211,10 @@ enum TaskStatus {
   PUBLISHED
 }
 
-model Submission {
-  id          String           @id @default(uuid())
-  dayNumber   Int
-  status      SubmissionStatus @default(PENDING)
-  checklist   Json             @default("{\"routine\":false,\"video\":false,\"homework\":false}")
-  submittedAt DateTime?
-
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@unique([studentId, dayNumber])
-}
-
 enum SubmissionStatus {
   PENDING
   SUBMITTED
   MISSED
-}
-
-model Invitation {
-  id       String         @id @default(uuid())
-  role     InvitationRole
-  fullName String
-  phone    String
-  email    String
-  status   InviteStatus   @default(PENDING)
-  claimedByUserId String?
-  createdAt DateTime      @default(now())
-
-  marathonId String
-  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-
-  organizerId String
-  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
 }
 
 enum InvitationRole {
@@ -197,50 +225,4 @@ enum InvitationRole {
 enum InviteStatus {
   PENDING
   CLAIMED
-}
-
-model Habit {
-  id        String   @id @default(uuid())
-  title     String
-  doneDates Json     @default("[]")
-  createdAt DateTime @default(now())
-
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-}
-
-model MatrixTask {
-  id        String   @id @default(uuid())
-  title     String
-  urgent    Boolean  @default(false)
-  important Boolean  @default(false)
-  done      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-}
-
-model ChatMessage {
-  id          String   @id @default(uuid())
-  studentName String
-  text        String
-  createdAt   DateTime @default(now())
-
-  organizerId String
-  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-
-  studentId String?
-  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
-}
-
-model PendingOtp {
-  id        String   @id @default(uuid())
-  code      String
-  phone     String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

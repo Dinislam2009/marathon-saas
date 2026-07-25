@@ -1,154 +1,440 @@
 "use client";
 
-import {
-  User,
-  ChevronRight,
-  CreditCard,
-  Edit3,
-  Send,
-  HelpCircle,
-  FileText
-} from "lucide-react";
-import InstagramIcon from "@/components/ui/InstagramIcon";
-import YoutubeIcon from "@/components/ui/YoutubeIcon";
+import { useState, useEffect, useCallback, use } from "react";
+import { useRouter } from "next/navigation";
 import { useData } from "@/context/DataContext";
+import { getStudentDashboardAction, updateChecklist } from "@/app/actions";
+import { DAILY_CHECKLIST_ITEMS } from "@/lib/constants";
 import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
+import YoutubeIcon from "@/components/ui/YoutubeIcon";
+import { 
+  Flame, 
+  Check, 
+  Lock, 
+  AlertCircle, 
+  ExternalLink, 
+  RefreshCw, 
+  Calendar, 
+  Clock,
+  Bell,
+  Video
+} from "lucide-react";
 
-export default function StudentProfilePage() {
-  const { ready, currentStudentId, studentData } = useData();
-  const [profile, setProfile] = useState(null);
+export default function StudentDashboardPage({ params }) {
+  // Next.js params
+  const { orgId } = use(params);
+  const router = useRouter();
+  const { currentStudentId, setCurrentStudentId } = useData();
+
+  // State
+  const [loading, setLoading] = useState(true);
+  const [updatingChecklist, setUpdatingChecklist] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+  const [checklistState, setChecklistState] = useState({
+    routine: false,
+    video: false,
+    homework: false,
+  });
+
+  // Fetch dashboard data
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await getStudentDashboardAction(currentStudentId);
+
+      if (res?.ok && res?.data) {
+        setData(res.data);
+
+        if (res.data.student?.id && res.data.student.id !== currentStudentId) {
+          setCurrentStudentId(res.data.student.id);
+        }
+
+        if (res.data.submission?.checklist) {
+          setChecklistState({
+            routine: !!res.data.submission.checklist.routine,
+            video: !!res.data.submission.checklist.video,
+            homework: !!res.data.submission.checklist.homework,
+          });
+        }
+      } else {
+        setError(res?.error || "Деректер табылмады");
+      }
+    } catch (err) {
+      console.error("Dashboard data load error:", err);
+      setError("Сервермен байланыс қатесі. Қайтадан байқап көріңіз.");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentStudentId, setCurrentStudentId]);
 
   useEffect(() => {
-    if (ready && studentData) {
-      setProfile(studentData);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Calculate streak
+  const calculateStreak = (allSubmissions) => {
+    if (!allSubmissions || !Array.isArray(allSubmissions)) return 0;
+    
+    const sorted = [...allSubmissions].sort((a, b) => b.dayNumber - a.dayNumber);
+    let streak = 0;
+
+    for (const sub of sorted) {
+      if (sub.status === "SUBMITTED") {
+        streak++;
+      } else if (sub.status === "MISSED") {
+        break;
+      }
     }
-  }, [ready, studentData]);
+    return streak;
+  };
 
-  if (!ready || !profile) return <LoadingState />;
+  // Checklist toggle handler
+  const handleToggleChecklist = async (itemKey) => {
+    if (!data?.student || !data?.marathon) return;
+    
+    const isLocked = data.submission && data.submission.status !== "PENDING";
+    if (isLocked || updatingChecklist) return;
 
-  const studentName = profile.fullName || profile.name || "Қатысушы";
-  const studentEmail = profile.email || "email@example.com";
-  const studentId = profile.id ? `ID${profile.id.slice(0, 8).toUpperCase()}` : "ID251040147";
-  const grade = profile.grade || "11";
-  const subject1 = profile.subject1 || "Информатика";
-  const subject2 = profile.subject2 || "Математика";
-  const phone = profile.phone || "+7 707 000 00 00";
+    const newValue = !checklistState[itemKey];
+    
+    const updatedChecklist = { ...checklistState, [itemKey]: newValue };
+    setChecklistState(updatedChecklist);
+    setUpdatingChecklist(true);
+
+    try {
+      const dayNum = data.task?.dayNumber || 1;
+      const res = await updateChecklist(
+        data.student.id,
+        data.marathon.id,
+        dayNum,
+        { [itemKey]: newValue }
+      );
+
+      if (!res?.ok) {
+        setChecklistState(checklistState);
+      }
+    } catch (err) {
+      console.error("Failed to update checklist:", err);
+      setChecklistState(checklistState);
+    } finally {
+      setUpdatingChecklist(false);
+    }
+  };
+
+  // 1. LOADING STATE
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
+        <LoadingState text="Жүктелуде..." />
+      </div>
+    );
+  }
+
+  // 2. ERROR STATE
+  if (error && !data) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-paper-dim flex items-center justify-center text-ember mb-4">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-ink mb-2">Жүктеу қатесі</h2>
+        <p className="text-mist text-sm mb-6 max-w-sm">{error}</p>
+        <Button onClick={fetchDashboardData} className="flex items-center gap-2">
+          <RefreshCw className="w-4 h-4" /> Қайталау
+        </Button>
+      </div>
+    );
+  }
+
+  const { student, marathon, task, submission, allSubmissions } = data || {};
+
+  // 3. NOT FOUND STATE
+  if (!student || !marathon) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-paper-dim flex items-center justify-center text-mist mb-4">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-ink mb-2">Деректер табылмады</h2>
+        <p className="text-mist text-sm mb-6">
+          Студент немесе марафон жүйеден табылмады.
+        </p>
+        <Button onClick={() => router.push("/start")}>
+          /start бетіне оралу
+        </Button>
+      </div>
+    );
+  }
+
+  // 4. BLOCKED STATE
+  if (student.status === "BLOCKED") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-ember/10 flex items-center justify-center text-ember mb-4">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-ink mb-2">Аккаунт бұғатталған</h2>
+        <p className="text-mist text-sm max-w-sm">
+          Сіздің марафонға қатысу мүмкіндігіңіз шектелген. Ұйымдастырушымен байланысыңыз.
+        </p>
+      </div>
+    );
+  }
+
+  // Calculated variables
+  const streak = calculateStreak(allSubmissions);
+  const totalItems = 3;
+  const completedCount = Object.values(checklistState).filter(Boolean).length;
+  const progressPercent = Math.round((completedCount / totalItems) * 100);
+  const isSubmissionLocked = submission && submission.status !== "PENDING";
+  const dayNumber = task?.dayNumber || 1;
+  const totalDays = marathon.totalDays || 30;
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col gap-5 py-4">
-      
-      {/* 1. БАСТЫ ИНФО КАРТОЧКАСЫ */}
-      <Card className="!p-6 bg-white rounded-3xl shadow-sm border border-slate-100">
-        <div className="flex items-start justify-between pb-6 border-b border-slate-100">
-          <div className="flex items-center gap-4">
-            {/* Аватар / Инициал */}
-            <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-2xl shrink-0">
-              {studentName.charAt(0)}
+    <div className="w-full pb-12 px-2 sm:px-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+
+        {/* СОЛ ЖАҚ / ОРТАҢҒЫ КОНТЕНТ */}
+        <div className="xl:col-span-2 space-y-6">
+
+          {/* HERO CARD */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-horizon to-horizon-dark rounded-3xl p-6 md:p-8 text-white shadow-lg">
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 backdrop-blur-md border border-white/20">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Күн {dayNumber} / {totalDays}
+                </span>
+
+                <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-bold">
+                  <Flame className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
+                  <span>{streak} күн қатарынан</span>
+                </div>
+              </div>
+
+              <div>
+                <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-1">
+                  {marathon.title}
+                </h1>
+                <p className="text-white/80 text-sm md:text-base font-medium">
+                  Мақсатыңа қарай алға ұмтыл! Әр күннің маңызы зор.
+                </p>
+              </div>
             </div>
-            
-            <div>
+          </div>
+
+          {/* TODAY'S PROGRESS */}
+          <Card className="p-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-ink">Күндік прогресс</h3>
+                  <p className="text-xs text-mist">
+                    Орындалды: {completedCount} / {totalItems}
+                  </p>
+                </div>
+                <span className="text-xl font-black text-ink">{progressPercent}%</span>
+              </div>
+
+              <div className="w-full h-3 bg-paper-dim rounded-full overflow-hidden border border-mist-light">
+                <div
+                  className="h-full bg-steppe transition-all duration-300 ease-out rounded-full"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              {isSubmissionLocked && (
+                <div className="mt-3 p-3 rounded-xl bg-paper-dim border border-mist-light flex items-center gap-2 text-xs font-medium text-mist">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>
+                    {submission.status === "SUBMITTED"
+                      ? "Бүгінгі тапсырма сәтті жіберілді!"
+                      : "Бүгінгі қабылдау уақыты аяқталды."}
+                  </span>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* TODAY'S TASK CARD */}
+          <Card className="p-6 space-y-4">
+            {task ? (
+              <>
+                <div className="border-b border-mist-light pb-3">
+                  <span className="text-xs font-semibold text-mist uppercase tracking-wider">
+                    Күн тапсырмасы
+                  </span>
+                  <h2 className="text-xl font-bold text-ink mt-0.5">{task.title}</h2>
+                </div>
+
+                {task.description && (
+                  <p className="text-ink/80 text-sm leading-relaxed whitespace-pre-line">
+                    {task.description}
+                  </p>
+                )}
+
+                {task.videoUrl && (
+                  <a
+                    href={task.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-paper-dim hover:bg-paper border border-mist-light text-ink text-sm font-medium transition-colors group"
+                  >
+                    <YoutubeIcon className="w-5 h-5 text-red-600 group-hover:scale-105 transition-transform" />
+                    <span>Бейнесабақты қарау</span>
+                    <ExternalLink className="w-4 h-4 text-mist ml-auto" />
+                  </a>
+                )}
+              </>
+            ) : (
+              <div className="py-8 text-center space-y-2">
+                <Clock className="w-10 h-10 text-mist mx-auto opacity-50" />
+                <h3 className="text-base font-bold text-ink">
+                  Бүгінгі тапсырма әлі дайын емес
+                </h3>
+                <p className="text-xs text-mist max-w-xs mx-auto">
+                  Ұйымдастырушы жақында материалдарды жариялайды.
+                </p>
+              </div>
+            )}
+          </Card>
+
+          {/* CHECKLIST */}
+          <div className="space-y-3">
+            <h3 className="text-base font-bold text-ink px-1">Күндік чек-лист</h3>
+
+            <div className={`space-y-3 ${isSubmissionLocked ? "opacity-60 pointer-events-none" : ""}`}>
+              {(DAILY_CHECKLIST_ITEMS || [
+                { id: "routine", label: "Таңғы ритуал" },
+                { id: "video", label: "Видеоматериалды көру" },
+                { id: "homework", label: "Үй тапсырмасын орындау" },
+              ]).map((item) => {
+                const isChecked = !!checklistState[item.id];
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleToggleChecklist(item.id)}
+                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
+                      isChecked
+                        ? "bg-steppe/10 border-steppe/30 text-ink"
+                        : "bg-paper hover:bg-paper-dim border-mist-light text-ink"
+                    }`}
+                  >
+                    <span className="text-sm font-medium pr-4">{item.label}</span>
+
+                    <div
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-colors shrink-0 ${
+                        isChecked
+                          ? "bg-steppe border-steppe text-white"
+                          : "border-mist-light bg-paper"
+                      }`}
+                    >
+                      {isChecked && <Check className="w-4 h-4 stroke-[3]" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* DEADLINE WARNING */}
+          <div className="text-center py-2">
+            <p className="text-xs text-mist flex items-center justify-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              Дедлайн: бүгін 23:00-ге дейін. Үлгермесеңіз — күн өткізілді болып саналады.
+            </p>
+          </div>
+
+        </div>
+
+        {/* ОҢ ЖАҚ ПАНЕЛЬ */}
+        <div className="xl:col-span-1 space-y-6 sticky top-6 self-start">
+
+          {/* Белсенділік күнтізбесі */}
+          <Card className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-slate-900">{studentName}</h1>
+                <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
+                  <Flame className="w-5 h-5 fill-amber-500" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-ink text-sm">Белсенділік күнтізбесі</h3>
+                  <p className="text-xs text-mist">Тапсырманы күнде орында</p>
+                </div>
               </div>
-              <p className="text-sm text-slate-500 mt-0.5">{studentEmail}</p>
-              
-              <div className="inline-block mt-2 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-600 text-xs font-semibold rounded-full">
-                {studentId}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1.5 text-center">
+              {["Дс", "Сс", "Ср", "Бс", "Жм", "Сб", "Жс"].map((day, i) => (
+                <div
+                  key={`calendar-day-${i}`}
+                  className={`py-2 rounded-xl text-xs flex flex-col items-center justify-center transition-all ${
+                    i < dayNumber - 1
+                      ? "bg-horizon text-white font-medium"
+                      : i === dayNumber - 1
+                      ? "bg-horizon/10 text-horizon border-2 border-horizon font-bold"
+                      : "bg-paper-dim text-mist"
+                  }`}
+                >
+                  <span className="text-[10px] opacity-80">{day}</span>
+                  <span className="text-sm font-bold">{i + 1}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Хабарландырулар */}
+          <Card className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-horizon/10 text-horizon rounded-xl">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-ink text-sm">Хабарландырулар</h3>
+              </div>
+              <span className="text-[10px] bg-horizon/10 text-horizon px-2 py-0.5 rounded-full font-semibold">
+                Жаңа
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-paper-dim border border-mist-light">
+                <div className="flex items-start gap-2.5">
+                  <Video className="w-4 h-4 text-horizon mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="text-xs font-bold text-ink">LIVE ZOOM Вебинар!</h4>
+                    <p className="text-[11px] text-mist mt-1 leading-relaxed">
+                      Сағат 20:00-де экспертпен онлайн кездесу болады.
+                    </p>
+                    <span className="text-[10px] text-mist/70 mt-2 block">1 сағат бұрын</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-paper-dim border border-mist-light">
+                <div className="flex items-start gap-2.5">
+                  <Clock className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="text-xs font-bold text-ink">Дедлайн жақындауда</h4>
+                    <p className="text-[11px] text-mist mt-1 leading-relaxed">
+                      Бүгінгі тапсырманы 23:00-ге дейін орындап үлгеріңіз.
+                    </p>
+                    <span className="text-[10px] text-mist/70 mt-2 block">3 сағат бұрын</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </Card>
 
-          <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">
-            <Edit3 size={20} />
-          </button>
         </div>
 
-        {/* 4 Бағандық ақпарат панелі */}
-        <div className="grid grid-cols-4 gap-4 pt-5 text-sm">
-          <div>
-            <p className="text-xs text-slate-400 font-medium mb-1">Оқу сыныбы</p>
-            <p className="font-bold text-slate-800">{grade}</p>
-          </div>
-          <div className="border-l border-slate-100 pl-4">
-            <p className="text-xs text-slate-400 font-medium mb-1">1-ші пән</p>
-            <p className="font-bold text-slate-800">{subject1}</p>
-          </div>
-          <div className="border-l border-slate-100 pl-4">
-            <p className="text-xs text-slate-400 font-medium mb-1">2-ші пән</p>
-            <p className="font-bold text-slate-800">{subject2}</p>
-          </div>
-          <div className="border-l border-slate-100 pl-4">
-            <p className="text-xs text-slate-400 font-medium mb-1">Телефон нөмері (WhatsApp)</p>
-            <p className="font-bold text-slate-800">{phone}</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* 2. ЕРЕЖЕЛЕР МЕН FAQ */}
-      <Card className="!p-0 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-100">
-        <a href="#" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-800">Ережелер мен келісімдер</span>
-          </div>
-          <ChevronRight size={18} className="text-slate-400" />
-        </a>
-        <a href="#" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-800">FAQ</span>
-          </div>
-          <ChevronRight size={18} className="text-slate-400" />
-        </a>
-      </Card>
-
-      {/* 3. ТӨЛЕМ ТАРИХЫ */}
-      <Card className="!p-0 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        <a href="#" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-          <div className="flex items-center gap-3">
-            <CreditCard size={18} className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-800">Төлем тарихы</span>
-          </div>
-          <ChevronRight size={18} className="text-slate-400" />
-        </a>
-      </Card>
-
-      {/* 4. БІЗ ӘЛЕУМЕТТІК ЖЕЛІЛЕРДЕ */}
-      <Card className="!p-5 bg-white rounded-3xl shadow-sm border border-slate-100">
-        <p className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">
-          БІЗ ӘЛЕУМЕТТІК ЖЕЛІЛЕРДЕ
-        </p>
-
-        <div className="flex flex-col gap-3">
-          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
-            <div className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
-              <YoutubeIcon size={16} />
-            </div>
-            <span>Бізді YouTube-тен қараңыз</span>
-          </a>
-
-          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
-            <div className="w-7 h-7 rounded-full bg-sky-500 text-white flex items-center justify-center shrink-0">
-              <Send size={14} className="-ml-0.5" />
-            </div>
-            <span>Біздің Telegram арнамыз</span>
-          </a>
-
-          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shrink-0">
-              <InstagramIcon size={16} />
-            </div>
-            <span>Біз Instagram - дамыз</span>
-          </a>
-
-          <a href="#" className="flex items-center gap-3 text-slate-800 font-medium text-sm hover:opacity-80 transition-opacity">
-            <div className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center shrink-0 font-bold text-xs">
-              🎵
-            </div>
-            <span>Біздің TikTok</span>
-          </a>
-        </div>
-      </Card>
-
+      </div>
     </div>
   );
 }

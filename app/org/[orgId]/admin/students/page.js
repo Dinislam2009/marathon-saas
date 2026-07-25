@@ -1,186 +1,185 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
-import { Search, Users, Trophy, GraduationCap, Plus, X, Loader2 } from "lucide-react";
-import * as actions from "@/app/actions";
+import { use, useEffect, useState } from "react";
+import { UserPlus, Search, Trophy, GraduationCap, Users } from "lucide-react";
+import { useData } from "@/context/DataContext";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
-import AddStudentModal from "@/components/ui/AddStudentModal";
+import * as actions from "@/app/actions";
 
-function KpiCard({ icon: Icon, label, value }) {
-  return (
-    <Card className="flex items-start gap-3">
-      <div className="h-10 w-10 rounded-xl bg-horizon/10 flex items-center justify-center text-horizon-dark shrink-0">
-        <Icon size={18} />
-      </div>
-      <div>
-        <p className="text-xs text-mist uppercase tracking-wide mb-1">{label}</p>
-        <p className="font-display text-2xl font-semibold text-ink">{value}</p>
-      </div>
-    </Card>
-  );
-}
+export default function StudentsPage({ params }) {
+  const { orgId } = use(params);
+  const { ready, tick } = useData();
 
-export default function AdminAllStudentsPage({ params }) {
-  const resolvedParams = use(params);
-  const orgId = resolvedParams.orgId;
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [marathons, setMarathons] = useState([]);
-  const [allStudents, setAllStudents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const loadData = async () => {
+  const fetchData = async () => {
     try {
-      setIsLoading(true);
-      const mList = await actions.getMarathonsByOrgId(orgId);
-      setMarathons(mList || []);
-
-      if ("getAllStudentsByOrg" in actions) {
-        const sList = await actions.getAllStudentsByOrg(orgId);
-        setAllStudents(sList || []);
-      } else {
-        setAllStudents([]);
+      setLoading(true);
+      if (typeof actions.getStudentsByOrgId === "function") {
+        const res = await actions.getStudentsByOrgId(orgId);
+        setStudents(res || []);
       }
     } catch (err) {
-      console.error("Data load error:", err);
+      console.error("Failed to load students:", err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, [orgId]);
+    if (ready) {
+      fetchData();
+    }
+  }, [ready, orgId, tick]);
 
-  if (isLoading) return <LoadingState />;
+  if (!ready || loading) return <LoadingState />;
 
-  const filteredStudents = allStudents.filter((s) => {
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
+  // Іздеу фильтрі
+  const filteredStudents = students.filter((s) => {
+    const query = searchQuery.toLowerCase();
+    const name = (s.name || s.fullName || "").toLowerCase();
+    const email = (s.email || "").toLowerCase();
+    const phone = (s.phone || "").toLowerCase();
+    const marathon = (s.marathon?.title || s.marathonTitle || "").toLowerCase();
+
     return (
-      s.name?.toLowerCase().includes(q) ||
-      (s.email && s.email.toLowerCase().includes(q)) ||
-      (s.phone && s.phone.includes(q)) ||
-      (s.marathonTitle && s.marathonTitle.toLowerCase().includes(q))
+      name.includes(query) ||
+      email.includes(query) ||
+      phone.includes(query) ||
+      marathon.includes(query)
     );
   });
 
-  const totalStudents = allStudents.length;
-  const totalPoints = allStudents.reduce((sum, s) => sum + (s.points || 0), 0);
-  const avgPoints = totalStudents ? Math.round(totalPoints / totalStudents) : 0;
-
-  // Студентті марафонға қосу функциясы
-  async function handleAddStudent(marathonId, studentData) {
-    if (actions.addStudentToMarathon) {
-      await actions.addStudentToMarathon(marathonId, studentData);
-    }
-    await loadData(); // Тізімді жаңарту
-  }
+  // Статистика
+  const totalStudents = students.length;
+  const totalPoints = students.reduce((acc, curr) => acc + (curr.points || curr.score || 0), 0);
+  const avgPoints = totalStudents > 0 ? Math.round(totalPoints / totalStudents) : 0;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+    <div key={tick} className="flex flex-col gap-6">
+      {/* Бас тақырып және Іздеу / Қосу */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Барлық қатысушылар</h1>
-          <p className="text-mist text-sm mt-1">Ұйымның барлық марафондарының қатысушылары бір жерде.</p>
+          <h1 className="font-display text-2xl font-semibold text-ink">
+            Барлық Қатысушылар
+          </h1>
+          <p className="text-xs text-mist mt-1">
+            Ұйымның барлық марафондарының қатысушылары бір жерде.
+          </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-mist" />
+        <div className="flex items-center gap-3">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-mist" size={16} />
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              type="text"
               placeholder="Қатысушыны іздеу..."
-              className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-mist-light text-sm bg-white"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-2xl border border-mist-light pl-9 pr-4 py-2.5 text-xs text-ink placeholder-mist outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all bg-white"
             />
           </div>
-          <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
-            <Plus size={16} /> Қатысушы қосу
+
+          <Button className="gap-2 text-xs">
+            <UserPlus size={16} /> Қатысушы қосу
           </Button>
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-4">
-        <KpiCard icon={Users} label="Барлық қатысушы" value={totalStudents} />
-        <KpiCard icon={Trophy} label="Жалпы балл" value={totalPoints} />
-        <KpiCard icon={GraduationCap} label="Орташа балл" value={avgPoints} />
+      {/* Статистикалық плашкалар */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 flex items-center gap-4 bg-white border border-mist-light rounded-2xl">
+          <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
+            <Users size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold tracking-wider text-mist uppercase">БАРЛЫҚ ҚАТЫСУШЫ</p>
+            <p className="text-2xl font-bold text-ink mt-0.5">{totalStudents}</p>
+          </div>
+        </Card>
+
+        <Card className="p-4 flex items-center gap-4 bg-white border border-mist-light rounded-2xl">
+          <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
+            <Trophy size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold tracking-wider text-mist uppercase">ЖАЛПЫ БАЛЛ</p>
+            <p className="text-2xl font-bold text-ink mt-0.5">{totalPoints}</p>
+          </div>
+        </Card>
+
+        <Card className="p-4 flex items-center gap-4 bg-white border border-mist-light rounded-2xl">
+          <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
+            <GraduationCap size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold tracking-wider text-mist uppercase">ОРТАША БАЛЛ</p>
+            <p className="text-2xl font-bold text-ink mt-0.5">{avgPoints}</p>
+          </div>
+        </Card>
       </div>
 
-      <Card padded={false} className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead>
-              <tr className="border-b border-mist-light text-xs uppercase text-mist tracking-wide">
-                <th className="px-5 py-3 font-medium">Аты-жөні / Байланыс</th>
-                <th className="px-5 py-3 font-medium">Марафон</th>
-                <th className="px-5 py-3 font-medium text-right">Баллдар</th>
+      {/* Негізгі Кесте */}
+      <Card padded={false} className="overflow-hidden bg-white border border-mist-light rounded-2xl">
+        <table className="w-full text-sm text-left text-ink">
+          <thead className="bg-mist-light/30 text-xs uppercase text-mist font-semibold">
+            <tr>
+              <th className="p-4">АТЫ-ЖӨНІ</th>
+              <th className="p-4">EMAIL</th>
+              <th className="p-4">ТЕЛЕФОН</th>
+              <th className="p-4">МАРАФОН</th>
+              <th className="p-4 text-right">БАЛЛДАР</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredStudents.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-mist">
+                  Қатысушылар табылмады.
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredStudents.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-5 py-10 text-center text-mist">
-                    Қатысушылар табылмады.
+            ) : (
+              filteredStudents.map((student, index) => (
+                <tr
+                  key={student.id || `student-${index}`}
+                  className="border-b border-mist-light last:border-0 hover:bg-paper-dim/10 transition-colors"
+                >
+                  {/* Аты-жөні */}
+                  <td className="p-4 font-medium text-ink">
+                    {student.name || student.fullName || (student.user ? `${student.user.firstName} ${student.user.lastName}` : "Аты-жөні жоқ")}
                   </td>
-                </tr>
-              )}
-              {filteredStudents.map((student) => (
-                <tr key={student.id} className="border-b border-mist-light last:border-0">
-                  <td className="px-5 py-3.5">
-                    <p className="font-medium text-ink">{student.name}</p>
-                    <p className="text-mist text-xs">{student.phone || student.email}</p>
+
+                  {/* Email */}
+                  <td className="p-4 text-mist">
+                    {student.email || student.user?.email || "—"}
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className="inline-block bg-paper-dim px-2.5 py-1 rounded-lg text-xs font-medium text-ink">
-                      {student.marathonTitle || "Марафон"}
+
+                  {/* Телефон */}
+                  <td className="p-4 text-mist">
+                    {student.phone || student.user?.phone || "—"}
+                  </td>
+
+                  {/* Марафон */}
+                  <td className="p-4">
+                    <span className="inline-block px-2.5 py-1 text-xs font-medium bg-mist-light/50 text-ink rounded-lg">
+                      {student.marathon?.title || student.marathonTitle || "—"}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-right font-medium text-ink">{student.points || 0}</td>
+
+                  {/* Баллдар */}
+                  <td className="p-4 font-bold text-ink text-right">
+                    {student.points ?? student.score ?? 0}
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </Card>
-
-      {/* Жаңа бөлек компонент түріндегі модалка */}
- <AddStudentModal
-  isOpen={isModalOpen}
-  onClose={() => setIsModalOpen(false)}
-  marathons={marathons}
-  onAdd={handleAddStudent}
-  onCheckStudent={async (value, isEmail, marathonId) => {
-    // 1. Жалпы базадан студентті табамыз
-    const existingStudent = allStudents.find((s) => 
-      isEmail ? s.email?.toLowerCase() === value.toLowerCase() : s.phone === value
-    );
-
-    // Егер базада мүлде жоқ болса
-    if (!existingStudent) {
-      return { student: null, status: "not_found" };
-    }
-
-    // 2. Дәл осы марафонға тіркеліп қойғанын тексереміз
-    // (Егер студенттің марафоны сәйкес келсе немесе қатысушылар тізімінде осы марафон көрсетілсе)
-    const isOwnerOfThisMarathon = existingStudent.marathonId === marathonId || existingStudent.marathon_id === marathonId;
-    if (isOwnerOfThisMarathon) {
-      return { student: existingStudent, status: "already_in_this_marathon" };
-    }
-
-    // 3. Басқа марафонда бар екенін тексереміз
-    const isInAnotherMarathon = Boolean(existingStudent.marathonId || existingStudent.marathon_id);
-    if (isInAnotherMarathon) {
-      return { student: existingStudent, status: "in_another_marathon" };
-    }
-
-    // 4. Базада бар, бірақ ешқандай марафонға қосылмаған (таза оқушы)
-    return { student: existingStudent, status: "found" };
-  }}
-/>
     </div>
   );
 }
