@@ -197,13 +197,13 @@ export default function StudentDashboardPage({ params }) {
 
   return (
     <div className="w-full pb-12 px-2 sm:px-4">
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
 
-        {/* СОЛ ЖАҚ / ОРТАҢҒЫ КОНТЕНТ */}
-        <div className="xl:col-span-2 space-y-6">
+        {/* СОЛ ЖАҚ / НЕГІЗГІ КОНТЕНТ */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-6 w-full">
 
           {/* HERO CARD */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-horizon to-horizon-dark rounded-3xl p-6 md:p-8 text-white shadow-lg">
+          <div className="relative overflow-hidden bg-gradient-to-br from-horizon to-horizon-dark rounded-3xl p-6 md:p-8 text-white shadow-lg w-full">
             <div className="relative z-10 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 backdrop-blur-md border border-white/20">
@@ -229,7 +229,7 @@ export default function StudentDashboardPage({ params }) {
           </div>
 
           {/* TODAY'S PROGRESS */}
-          <Card className="p-6">
+          <Card className="p-6 w-full">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -262,7 +262,7 @@ export default function StudentDashboardPage({ params }) {
           </Card>
 
           {/* TODAY'S TASK CARD */}
-          <Card className="p-6 space-y-4">
+          <Card className="p-6 space-y-4 w-full">
             {task ? (
               <>
                 <div className="border-b border-mist-light pb-3">
@@ -305,29 +305,28 @@ export default function StudentDashboardPage({ params }) {
           </Card>
 
           {/* CHECKLIST */}
-          <div className="space-y-3">
+          <div className="space-y-3 w-full">
             <h3 className="text-base font-bold text-ink px-1">Күндік чек-лист</h3>
 
             <div className={`space-y-3 ${isSubmissionLocked ? "opacity-60 pointer-events-none" : ""}`}>
               {(DAILY_CHECKLIST_ITEMS || [
-  { id: "routine", label: "Таңғы ритуал" },
-  { id: "video", label: "Видеоматериалды көру" },
-  { id: "homework", label: "Үй тапсырмасын орындау" },
-]).map((item, index) => { // <--- осында index айнымалысын қосамыз
-  const isChecked = !!checklistState[item.id];
+                { id: "routine", label: "Таңғы ритуал" },
+                { id: "video", label: "Видеоматериалды көру" },
+                { id: "homework", label: "Үй тапсырмасын орындау" },
+              ]).map((item, index) => {
+                const isChecked = !!checklistState[item.id];
 
-  return (
-    <div
-      // Егер item.id болмаса, реттік нөмірді (index) пайдаланады
-      key={item.id ? item.id : `checklist-${index}`} 
-      onClick={() => handleToggleChecklist(item.id)}
-      className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
-        isChecked
-          ? "bg-steppe/10 border-steppe/30 text-ink"
-          : "bg-paper hover:bg-paper-dim border-mist-light text-ink"
-      }`}
-    >
-      <span className="text-sm font-medium pr-4">{item.label}</span>
+                return (
+                  <div
+                    key={item.id ? item.id : `checklist-${index}`}
+                    onClick={() => handleToggleChecklist(item.id)}
+                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
+                      isChecked
+                        ? "bg-steppe/10 border-steppe/30 text-ink"
+                        : "bg-paper hover:bg-paper-dim border-mist-light text-ink"
+                    }`}
+                  >
+                    <span className="text-sm font-medium pr-4">{item.label}</span>
 
                     <div
                       className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-colors shrink-0 ${
@@ -355,10 +354,23 @@ export default function StudentDashboardPage({ params }) {
         </div>
 
         {/* ОҢ ЖАҚ ПАНЕЛЬ */}
-        <div className="xl:col-span-1 space-y-6 sticky top-6 self-start">
+        <div className="lg:col-span-5 xl:col-span-4 space-y-6 w-full">
+
+          {/* Стрик статистикасы */}
+          <Card className="p-5 w-full">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-ember/10 text-ember flex items-center justify-center shrink-0">
+                <Flame className="w-7 h-7 fill-ember" />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-ink leading-none">{streak} күн</p>
+                <p className="text-xs text-mist mt-1">Қатарынан орындалған күндер</p>
+              </div>
+            </div>
+          </Card>
 
           {/* Белсенділік күнтізбесі */}
-          <Card className="p-5 space-y-4">
+          <Card className="p-5 space-y-4 w-full">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
@@ -372,31 +384,30 @@ export default function StudentDashboardPage({ params }) {
             </div>
 
             <div className="grid grid-cols-7 gap-1.5 text-center">
-  {["Дс", "Сс", "Ср", "Бс", "Жм", "Сб", "Жс"].map((day, i) => {
-    // dayNumber анықталмаған болса, қате шықпас үшін әдепкі мән береміз (мысалы: 1)
-    const currentDay = typeof dayNumber !== 'undefined' ? dayNumber : 1;
+              {["Дс", "Сс", "Ср", "Бс", "Жм", "Сб", "Жс"].map((day, i) => {
+                const currentDay = typeof dayNumber !== 'undefined' ? dayNumber : 1;
 
-    return (
-      <div
-        key={`calendar-day-${i}`}
-        className={`py-2 rounded-xl text-xs flex flex-col items-center justify-center transition-all ${
-          i < currentDay - 1
-            ? "bg-horizon text-white font-medium"
-            : i === currentDay - 1
-            ? "bg-horizon/10 text-horizon border-2 border-horizon font-bold"
-            : "bg-paper-dim text-mist"
-        }`}
-      >
-        <span className="text-[10px] opacity-80">{day}</span>
-        <span className="text-sm font-bold">{i + 1}</span>
-      </div>
-    );
-  })}
-</div>
-</Card>
+                return (
+                  <div
+                    key={`calendar-day-${i}`}
+                    className={`py-2 rounded-xl text-xs flex flex-col items-center justify-center transition-all ${
+                      i < currentDay - 1
+                        ? "bg-horizon text-white font-medium"
+                        : i === currentDay - 1
+                        ? "bg-horizon/10 text-horizon border-2 border-horizon font-bold"
+                        : "bg-paper-dim text-mist"
+                    }`}
+                  >
+                    <span className="text-[10px] opacity-80">{day}</span>
+                    <span className="text-sm font-bold">{i + 1}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
 
           {/* Хабарландырулар */}
-          <Card className="p-5 space-y-4">
+          <Card className="p-5 space-y-4 w-full">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-horizon/10 text-horizon rounded-xl">
@@ -436,6 +447,93 @@ export default function StudentDashboardPage({ params }) {
                 </div>
               </div>
             </div>
+          </Card>
+
+          {/* Марафон статистикасы */}
+          <Card className="p-5 space-y-3 w-full">
+            <h3 className="font-bold text-ink text-sm">Марафон статистикасы</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-2xl bg-paper-dim border border-mist-light">
+                <p className="text-lg font-black text-ink">{dayNumber}/{totalDays}</p>
+                <p className="text-[11px] text-mist mt-0.5">Өткен күндер</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-paper-dim border border-mist-light">
+                <p className="text-lg font-black text-ink">
+                  {Array.isArray(allSubmissions)
+                    ? allSubmissions.filter((s) => s.status === "SUBMITTED").length
+                    : 0}
+                </p>
+                <p className="text-[11px] text-mist mt-0.5">Тапсырылған күн</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Мотивация */}
+          <Card className="p-5 bg-gradient-to-br from-steppe/10 to-transparent border-steppe/20 w-full">
+            <p className="text-sm font-medium text-ink italic leading-relaxed">
+              «Табыстылық — бұл әр күнгі кішкентай қадамдардың жиынтығы.»
+            </p>
+            <p className="text-xs text-mist mt-2">Loopit жаттауы</p>
+          </Card>
+
+          {/* Топ рейтинг (қысқаша) */}
+          <Card className="p-5 space-y-4 w-full">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-ink text-sm">Топ рейтинг</h3>
+              <button
+                onClick={() => router.push(`/org/${orgId}/rating`)}
+                className="text-[11px] font-semibold text-horizon hover:underline"
+              >
+                Барлығы
+              </button>
+            </div>
+            <div className="space-y-2.5">
+              {(data?.leaderboard || []).slice(0, 3).map((person, i) => (
+                <div
+                  key={person.id || i}
+                  className="flex items-center gap-3 p-2.5 rounded-xl bg-paper-dim border border-mist-light"
+                >
+                  <span className="w-6 h-6 rounded-full bg-horizon/10 text-horizon text-xs font-bold flex items-center justify-center shrink-0">
+                    {i + 1}
+                  </span>
+                  <span className="text-xs font-medium text-ink truncate">
+                    {person.name || "Қатысушы"}
+                  </span>
+                  <span className="ml-auto text-xs font-bold text-mist shrink-0">
+                    {person.progress ?? 0}%
+                  </span>
+                </div>
+              ))}
+              {!data?.leaderboard?.length && (
+                <p className="text-xs text-mist text-center py-2">
+                  Рейтинг деректері әлі жоқ
+                </p>
+              )}
+            </div>
+          </Card>
+
+          {/* Куратор */}
+          <Card className="p-5 space-y-3 w-full">
+            <h3 className="font-bold text-ink text-sm">Кураторыңыз</h3>
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-horizon/10 text-horizon flex items-center justify-center font-bold text-sm shrink-0">
+                {(data?.mentor?.name || "К")[0]}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink truncate">
+                  {data?.mentor?.name || "Куратор тағайындалмаған"}
+                </p>
+                <p className="text-xs text-mist truncate">
+                  {data?.mentor?.role || "Сұрақ болса, чатқа жазыңыз"}
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => router.push(`/org/${orgId}/chat`)}
+              className="w-full text-sm"
+            >
+              Хабарласу
+            </Button>
           </Card>
 
         </div>

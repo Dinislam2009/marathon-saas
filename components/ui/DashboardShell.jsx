@@ -39,7 +39,7 @@ export default function DashboardShell({
   return (
     <div className="min-h-screen flex bg-paper">
       
-      {/* 💻 КОМПЬЮТЕРЛІК САЙДБАР (Мобилкада жасырын 'hidden md:flex', десктопта 256px) */}
+      {/* 💻 КОМПЬЮТЕРЛІК САЙДБАР */}
       <aside
         className={cn(
           "hidden md:flex w-64 shrink-0 flex-col py-6 px-4 gap-8 sticky top-0 h-screen",
@@ -48,18 +48,28 @@ export default function DashboardShell({
       >
         {/* Шапка / Логотип & Тақырып */}
         <div className="px-3">
+          {/* 1. LOOPIT Логотипі (Сілтемесімен) */}
+          <a
+            href="https://marathon-saas.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block group"
+          >
+            <h1 className="font-display font-extrabold text-xl text-purple-600 tracking-tight leading-none group-hover:text-purple-700 transition-colors">
+              {title || "LOOPIT"}
+            </h1>
+          </a>
+
+          {/* 2. Кабинет ученика (Төменге түсті) */}
           {eyebrow && (
-            <p className={cn("text-[11px] font-bold uppercase tracking-wider mb-1", t.eyebrow)}>
+            <p className={cn("text-[11px] font-bold uppercase tracking-wider mt-1.5", t.eyebrow)}>
               {eyebrow}
             </p>
           )}
-          <h1 className="font-display font-extrabold text-xl text-horizon-dark tracking-tight leading-none">
-            {title || "LOOPIT"}
-          </h1>
         </div>
 
         {/* Навигациялық пункттер */}
-        <nav className="flex flex-col gap-1.5 flex-1">
+        <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto">
           {navItems.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
@@ -88,8 +98,8 @@ export default function DashboardShell({
           </header>
         )}
         
-        {/* Контент компьютерде кеңірек (max-w-6xl) болып ортаға орналасады */}
-        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-6xl w-full mx-auto">
+        {/* ТҮЗЕТІЛДІ: max-w-6xl және mx-auto алып тасталды, енді экран толық толады */}
+        <main className="flex-1 p-4 sm:p-6 md:p-8 w-full">
           {children}
         </main>
       </div>

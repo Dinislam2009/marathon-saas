@@ -1,16 +1,45 @@
 "use client";
 
 import { use } from "react";
-import MobileTabBar from "@/components/ui/MobileTabBar";
+import DashboardShell from "@/components/ui/DashboardShell";
+import { 
+  Home, 
+  Calendar, 
+  Users, 
+  BookOpen, 
+  FileText, 
+  CheckCircle, 
+  Trophy, 
+  Grid, 
+  MessageSquare, 
+  User 
+} from "lucide-react";
 
 export default function StudentLayout({ children, params }) {
-  // Next.js-те params өрнегін қауіпсіз алу
   const resolvedParams = use(params);
-  const orgId = resolvedParams?.orgId;
+  const orgId = resolvedParams?.orgId || "orgId";
+
+  // Студенттік кабинетке арналған меню тізімі
+  const studentNavItems = [
+    { label: "Главная", href: `/org/${orgId}/student`, icon: Home },
+    { label: "Календарь", href: `/org/${orgId}/student/calendar`, icon: Calendar },
+    { label: "Группа", href: `/org/${orgId}/student/group`, icon: Users },
+    { label: "Материалы", href: `/org/${orgId}/student/materials`, icon: BookOpen },
+    { label: "Отчёт", href: `/org/${orgId}/student/report`, icon: FileText },
+    { label: "Привычки", href: `/org/${orgId}/student/habits`, icon: CheckCircle },
+    { label: "Рейтинг", href: `/org/${orgId}/student/rating`, icon: Trophy },
+    { label: "Матрица", href: `/org/${orgId}/student/matrix`, icon: Grid },
+    { label: "Чат", href: `/org/${orgId}/student/chat`, icon: MessageSquare },
+    { label: "Профиль", href: `/org/${orgId}/student/profile`, icon: User },
+  ];
 
   return (
-    <MobileTabBar orgId={orgId}>
+    <DashboardShell 
+      eyebrow="Кабинет ученика"
+      title="LOOPIT"
+      navItems={studentNavItems}
+    >
       {children}
-    </MobileTabBar>
+    </DashboardShell>
   );
 }

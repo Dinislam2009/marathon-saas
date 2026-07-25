@@ -10,13 +10,14 @@ import {
   Calendar, 
   Plus, 
   Bell, 
-  CheckCircle2, 
   Target 
 } from "lucide-react";
 
 export default function CountdownPage() {
-  // Марафонның, ҰБТ-ның және жеке оқиғалардың таймер деректері
-  const [events, setEvents] = useState([
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Оқиғалар тізімі
+  const events = [
     {
       id: 1,
       title: "Shyraq Марафон финиші",
@@ -47,7 +48,36 @@ export default function CountdownPage() {
       gradient: "from-amber-500 via-orange-500 to-amber-700",
       badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
     },
-  ]);
+  ];
+
+  const [timeLeft, setTimeLeft] = useState({});
+
+  // Динамикалық уақытты есептеу
+  useEffect(() => {
+    setIsMounted(true);
+
+    const calculateTime = () => {
+      const newTimeLeft = {};
+      events.forEach((event) => {
+        const difference = +new Date(event.targetDate) - +new Date();
+        if (difference > 0) {
+          newTimeLeft[event.id] = {
+            days: String(Math.floor(difference / (1000 * 60 * 60 * 24))).padStart(2, '0'),
+            hours: String(Math.floor((difference / (1000 * 60 * 60)) % 24)).padStart(2, '0'),
+            minutes: String(Math.floor((difference / 1000 / 60) % 60)).padStart(2, '0'),
+            seconds: String(Math.floor((difference / 1000) % 60)).padStart(2, '0'),
+          };
+        } else {
+          newTimeLeft[event.id] = { days: "00", hours: "00", minutes: "00", seconds: "00" };
+        }
+      });
+      setTimeLeft(newTimeLeft);
+    };
+
+    calculateTime();
+    const timer = setInterval(calculateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="space-y-6 w-full pb-10">
@@ -77,6 +107,7 @@ export default function CountdownPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {events.map((event) => {
           const IconComponent = event.icon;
+          const time = timeLeft[event.id] || { days: "00", hours: "00", minutes: "00", seconds: "00" };
 
           return (
             <div
@@ -102,23 +133,23 @@ export default function CountdownPage() {
                 </p>
               </div>
 
-              {/* Кері санақ цифрлары (Дисплей) */}
+              {/* Кері санақ цифрлары */}
               <div className="p-6 space-y-5">
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                    <span className="block text-2xl font-black text-gray-900">09</span>
+                    <span className="block text-2xl font-black text-gray-900">{isMounted ? time.days : "00"}</span>
                     <span className="text-[10px] font-bold text-gray-400 uppercase">Күн</span>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                    <span className="block text-2xl font-black text-gray-900">14</span>
+                    <span className="block text-2xl font-black text-gray-900">{isMounted ? time.hours : "00"}</span>
                     <span className="text-[10px] font-bold text-gray-400 uppercase">Сағат</span>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                    <span className="block text-2xl font-black text-gray-900">32</span>
+                    <span className="block text-2xl font-black text-gray-900">{isMounted ? time.minutes : "00"}</span>
                     <span className="text-[10px] font-bold text-gray-400 uppercase">Минут</span>
                   </div>
                   <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
-                    <span className="block text-2xl font-black text-purple-700 animate-pulse">45</span>
+                    <span className="block text-2xl font-black text-purple-700 animate-pulse">{isMounted ? time.seconds : "00"}</span>
                     <span className="text-[10px] font-bold text-purple-600 uppercase">Секунд</span>
                   </div>
                 </div>
@@ -127,7 +158,9 @@ export default function CountdownPage() {
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 font-medium">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                    <span>Күні: {new Date(event.targetDate).toLocaleDateString("kk-KZ")}</span>
+                    <span>
+                      Күні: {isMounted ? new Date(event.targetDate).toLocaleDateString("kk-KZ") : ""}
+                    </span>
                   </div>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${event.badgeColor}`}>
                     Белсенді
@@ -139,7 +172,7 @@ export default function CountdownPage() {
         })}
       </div>
 
-      {/* 3. КЕСТЕЛІК ШОЛУЖӘНЕ ХАБАРЛАНДЫРУ КАРТОЧКАСЫ */}
+      {/* 3. КЕСТЕЛІК ШОЛУ ЖӘНЕ ХАБАРЛАНДЫРУ КАРТОЧКАСЫ */}
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
