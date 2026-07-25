@@ -5,6 +5,7 @@ import * as db from "@/lib/data";
 import { getUser } from "@/lib/auth";
 import { getTodayDayNumber } from "@/lib/utils"; 
 import { prisma } from "@/lib/prisma";
+import * as auth from "@/lib/auth"; // Немесе жобаңыздағы нақты жолды көрсетіңіз
 
 // Helper function to stringify complex DB objects safely across the server boundary
 function safeJson(data) {
@@ -135,6 +136,7 @@ export async function registerUser(fields) {
 }
 
 export async function loginUser(identifier, password) {
+  // Тікелей createClient емес, өзіңіздің auth модуліңізді шақырамыз
   const res = await auth.loginUser(identifier, password);
   return safeJson(res);
 }
@@ -460,14 +462,18 @@ export async function getOrganizersAction() {
 
 export async function getStudentDashboard(orgId) {
   try {
-    // 1. Ағымдағы қолданушыны сессиядан аламыз
-    const session = await auth.getSession(); // немесе сенде қолданылатын сессия логикасы
+    // 1. getSession() орнына getUser() қолданамыз
+    const userResponse = await auth.getUser(); 
 
     let student = null;
 
-    if (session?.user?.id) {
+    // getUser() функциясы тікелей user объектісін немесе { user: ... } қайтаруы мүмкін.
+    // Сондықтан ID-ді екі жағдайға да сәйкестендіріп аламыз:
+    const currentUserId = userResponse?.id || userResponse?.user?.id;
+
+    if (currentUserId) {
       student = await prisma.student.findFirst({
-        where: { userId: session.user.id },
+        where: { userId: currentUserId },
         include: {
           marathon: true,
         },

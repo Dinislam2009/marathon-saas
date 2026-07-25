@@ -310,23 +310,24 @@ export default function StudentDashboardPage({ params }) {
 
             <div className={`space-y-3 ${isSubmissionLocked ? "opacity-60 pointer-events-none" : ""}`}>
               {(DAILY_CHECKLIST_ITEMS || [
-                { id: "routine", label: "Таңғы ритуал" },
-                { id: "video", label: "Видеоматериалды көру" },
-                { id: "homework", label: "Үй тапсырмасын орындау" },
-              ]).map((item) => {
-                const isChecked = !!checklistState[item.id];
+  { id: "routine", label: "Таңғы ритуал" },
+  { id: "video", label: "Видеоматериалды көру" },
+  { id: "homework", label: "Үй тапсырмасын орындау" },
+]).map((item, index) => { // <--- осында index айнымалысын қосамыз
+  const isChecked = !!checklistState[item.id];
 
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => handleToggleChecklist(item.id)}
-                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
-                      isChecked
-                        ? "bg-steppe/10 border-steppe/30 text-ink"
-                        : "bg-paper hover:bg-paper-dim border-mist-light text-ink"
-                    }`}
-                  >
-                    <span className="text-sm font-medium pr-4">{item.label}</span>
+  return (
+    <div
+      // Егер item.id болмаса, реттік нөмірді (index) пайдаланады
+      key={item.id ? item.id : `checklist-${index}`} 
+      onClick={() => handleToggleChecklist(item.id)}
+      className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
+        isChecked
+          ? "bg-steppe/10 border-steppe/30 text-ink"
+          : "bg-paper hover:bg-paper-dim border-mist-light text-ink"
+      }`}
+    >
+      <span className="text-sm font-medium pr-4">{item.label}</span>
 
                     <div
                       className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-colors shrink-0 ${
@@ -371,23 +372,28 @@ export default function StudentDashboardPage({ params }) {
             </div>
 
             <div className="grid grid-cols-7 gap-1.5 text-center">
-              {["Дс", "Сс", "Ср", "Бс", "Жм", "Сб", "Жс"].map((day, i) => (
-                <div
-                  key={`calendar-day-${i}`}
-                  className={`py-2 rounded-xl text-xs flex flex-col items-center justify-center transition-all ${
-                    i < dayNumber - 1
-                      ? "bg-horizon text-white font-medium"
-                      : i === dayNumber - 1
-                      ? "bg-horizon/10 text-horizon border-2 border-horizon font-bold"
-                      : "bg-paper-dim text-mist"
-                  }`}
-                >
-                  <span className="text-[10px] opacity-80">{day}</span>
-                  <span className="text-sm font-bold">{i + 1}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
+  {["Дс", "Сс", "Ср", "Бс", "Жм", "Сб", "Жс"].map((day, i) => {
+    // dayNumber анықталмаған болса, қате шықпас үшін әдепкі мән береміз (мысалы: 1)
+    const currentDay = typeof dayNumber !== 'undefined' ? dayNumber : 1;
+
+    return (
+      <div
+        key={`calendar-day-${i}`}
+        className={`py-2 rounded-xl text-xs flex flex-col items-center justify-center transition-all ${
+          i < currentDay - 1
+            ? "bg-horizon text-white font-medium"
+            : i === currentDay - 1
+            ? "bg-horizon/10 text-horizon border-2 border-horizon font-bold"
+            : "bg-paper-dim text-mist"
+        }`}
+      >
+        <span className="text-[10px] opacity-80">{day}</span>
+        <span className="text-sm font-bold">{i + 1}</span>
+      </div>
+    );
+  })}
+</div>
+</Card>
 
           {/* Хабарландырулар */}
           <Card className="p-5 space-y-4">
