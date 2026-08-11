@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState, useRef } from "react";
-import { UserPlus, Trash2, Settings, ShieldAlert, X } from "lucide-react";
+import { UserPlus, Trash2, Settings, ShieldAlert, X, Clock } from "lucide-react";
 import { useData } from "@/context/DataContext";
 import Card from "@/components/Card";
 import Button from "@/components/Button";
@@ -9,11 +9,12 @@ import LoadingState from "@/components/LoadingState";
 import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
-// --- 1. кураторДЫ ҚОСУ МОДАЛЬ ТЕРЕЗЕСІ ---
+// --- 1. КУРАТОРДЫ ҚОСУ СМАРТ МОДАЛЬ ТЕРЕЗЕСІ ---
 function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, isRu }) {
   const [selectedMarathon, setSelectedMarathon] = useState("");
   const [contactInput, setContactInput] = useState("");
-  const [status, setStatus] = useState("idle");
+  const [status, setStatus] = useState("idle"); // idle, checking, ready, invalid_role, already_in_this_marathon, not_found
+  const [statusMessage, setStatusMessage] = useState("");
   const [foundUser, setFoundUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -54,16 +55,13 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
       setContactInput("");
       clearTimeout(debounceRef.current);
       setStatus("idle");
+      setStatusMessage("");
       setFoundUser(null);
       return;
     }
 
     const isEmail = val.includes("@") || /[a-zA-Z]/.test(val);
-    let formattedVal = val;
-
-    if (!isEmail) {
-      formattedVal = formatPhoneNumber(val);
-    }
+    let formattedVal = isEmail ? val : formatPhoneNumber(val);
 
     setContactInput(formattedVal);
 
@@ -76,6 +74,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
     } else {
       clearTimeout(debounceRef.current);
       setStatus("idle");
+      setStatusMessage("");
       setFoundUser(null);
     }
   };
@@ -85,18 +84,54 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
     try {
       if (onCheckcurator) {
         const result = await onCheckcurator(value, isEmail, marathonId);
-        if (!result || result.status === "not_found") {
+        const user = result?.curator || result?.user;
+
+        if (!result || result.status === "not_found" || !user) {
           setStatus("not_found");
           setFoundUser(null);
-        } else if (result.status === "already_in_this_marathon") {
-          setStatus("already_in_this_marathon");
-          setFoundUser(result.curator || result.user);
-        } else {
-          setStatus("found");
-          setFoundUser(result.curator || result.user);
+          return;
         }
+
+        // ⛔ 1. РӨЛДЕРДІ ТЕКСЕРУ: OWNER немесе ORGANIZER-ді Куратор қылуға тыйым салу
+        if (user.role === "OWNER") {
+          setStatus("invalid_role");
+          setStatusMessage(
+            isRu
+              ? "Нельзя добавить Владельца / Менеджера (Owner) в качестве куратора."
+              : "Платформа иесін / Менеджерді (Owner) куратор етіп тағайындауға болмайды."
+          );
+          setFoundUser(user);
+          return;
+        }
+
+        if (user.role === "ORGANIZER") {
+          setStatus("invalid_role");
+          setStatusMessage(
+            isRu
+              ? "Нельзя добавить Организатора в качестве куратора."
+              : "Организаторды куратор етіп тағайындауға болмайды."
+          );
+          setFoundUser(user);
+          return;
+        }
+
+        // ⚠️ 2. МАРАФОНҒА БҰРЫННАН ҚОСЫЛҒАНЫН ТЕКСЕРУ
+        if (result.status === "already_in_this_marathon") {
+          setStatus("already_in_this_marathon");
+          setStatusMessage(
+            isRu
+              ? "Куратор уже добавлен в этот марафон."
+              : "Куратор бұл марафонға бұрыннан қосылған."
+          );
+          setFoundUser(user);
+          return;
+        }
+
+        // ✅ 3. ҚОСУҒА ДАЙЫН (Ученик немесе жеке пайдаланушы)
+        setStatus("ready");
+        setFoundUser(user);
       } else {
-        setStatus("found");
+        setStatus("ready");
       }
     } catch {
       setStatus("not_found");
@@ -106,7 +141,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedMarathon || status !== "found") return;
+    if (!selectedMarathon || status !== "ready") return;
 
     const trimmed = contactInput.trim();
     const isEmail = trimmed.includes("@");
@@ -114,7 +149,8 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
     try {
       setIsSubmitting(true);
       await onAdd(selectedMarathon, {
-        name: foundUser?.name || "",
+        userId: foundUser?.id,
+        name: foundUser?.name || foundUser?.fullName || "",
         email: isEmail ? trimmed.toLowerCase() : foundUser?.email || null,
         phone: !isEmail ? trimmed : foundUser?.phone || "",
       });
@@ -122,6 +158,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
       setContactInput("");
       setSelectedMarathon("");
       setStatus("idle");
+      setStatusMessage("");
       setFoundUser(null);
       onClose();
     } catch (err) {
@@ -132,24 +169,26 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm font-sans">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl transition-all">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs font-sans p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl transition-all">
+        {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {isRu ? "Добавить куратора" : "куратор қосу"}
+          <h2 className="text-xl font-extrabold text-gray-900">
+            {isRu ? "Добавить куратора" : "Куратор қосу"}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-xl font-semibold cursor-pointer"
+            className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors rounded-xl hover:bg-gray-100 cursor-pointer"
           >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* МАРАФОНДЫ ТАҢДАУ */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              {isRu ? "Марафон" : "Марафон"}
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+              {isRu ? "ВЫБЕРИТЕ МАРАФОН" : "МАРАФОНДЫ ТАҢДАҢЫЗ"}
             </label>
             <select
               value={selectedMarathon}
@@ -157,6 +196,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
                 const mId = e.target.value;
                 setSelectedMarathon(mId);
                 setStatus("idle");
+                setStatusMessage("");
                 setFoundUser(null);
 
                 if (mId && contactInput.trim()) {
@@ -165,10 +205,10 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
                 }
               }}
               required
-              className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-800 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all bg-white text-sm cursor-pointer"
+              className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-800 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all bg-gray-50 text-xs font-semibold cursor-pointer"
             >
               <option value="">
-                {isRu ? "Выберите марафон" : "Марафонды таңдаңыз"}
+                {isRu ? "-- Выберите марафон --" : "-- Марафонды таңдау --"}
               </option>
               {marathons?.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -178,53 +218,101 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
             </select>
           </div>
 
+          {/* CONTACT INPUT */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
-              {isRu ? "Email или номер телефона" : "Email немесе телефон нөмірі"}
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+              {isRu ? "EMAIL ИЛИ НОМЕР ТЕЛЕФОНА" : "EMAIL НЕМЕСЕ ТЕЛЕФОН НӨМІРІ"}
             </label>
 
             <input
               type="text"
-              placeholder={isRu ? "email@mail.ru или +7..." : "email@mail.kz немесе +7..."}
+              placeholder={isRu ? "email@mail.ru или +7 (7XX)..." : "email@mail.kz немесе +7 (7XX)..."}
               value={contactInput}
               onChange={handleInputChange}
               required
-              className="w-full rounded-2xl border border-gray-200 px-4 py-3.5 text-gray-800 placeholder-gray-400 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all text-sm"
+              className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-800 placeholder-gray-400 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all text-xs font-medium bg-gray-50"
             />
 
+            {/* 🔍 CHECKING */}
             {status === "checking" && (
-              <p className="mt-2 text-xs text-gray-500 animate-pulse">
-                🔍 {isRu ? "Проверка в базе данных..." : "Деректер базасынан тексерілуде..."}
-              </p>
-            )}
-
-            {status === "found" && (
-              <div className="mt-2 text-sm font-medium text-emerald-600 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                ✓ {isRu ? "куратор найден в базе" : "куратор базадан табылды"} {foundUser?.name ? `(${foundUser.name})` : ""} — {isRu ? "готов к добавлению!" : "қосуға дайын!"}
+              <div className="mt-3 p-3 bg-blue-50/60 rounded-2xl border border-blue-100 text-xs text-blue-600 font-medium animate-pulse">
+                🔍 {isRu ? "Проверка данных в базе..." : "Базадан деректер тексерілуде..."}
               </div>
             )}
 
-            {status === "not_found" && (
-              <div className="mt-2 text-sm font-medium text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
-                ✕ {isRu ? "куратор не найден в базе данных" : "куратор деректер базасынан табылмады"}
+            {/* ✅ READY (ФОТОДАҒЫДАЙ ӘДЕМІ КАРТОЧКА) */}
+            {status === "ready" && foundUser && (
+              <div className="mt-3 p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200 space-y-2">
+                <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                  <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider">
+                    ✓ {isRu ? "ГОТОВО К ДОБАВЛЕНИЮ!" : "ҚОСУҒА ДАЙЫН!"}
+                  </span>
+                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-extrabold uppercase">
+                    {foundUser.role === "PARTICIPANT"
+                      ? (isRu ? "Ученик" : "Оқушы")
+                      : (isRu ? "Пользователь" : "Пайдаланушы")}
+                  </span>
+                </div>
+                <div className="text-xs space-y-1 text-emerald-950 font-medium">
+                  <p>
+                    <span className="text-emerald-700 font-bold">{isRu ? "ФИО: " : "Аты-жөні: "}</span>
+                    {foundUser.name || foundUser.fullName || "—"}
+                  </p>
+                  <p>
+                    <span className="text-emerald-700 font-bold">{isRu ? "Почта: " : "Поштасы: "}</span>
+                    {foundUser.email || "—"}
+                  </p>
+                  <p>
+                    <span className="text-emerald-700 font-bold">{isRu ? "Телефон: " : "Телефоны: "}</span>
+                    {foundUser.phone || "—"}
+                  </p>
+                </div>
               </div>
             )}
 
+            {/* ⛔ INVALID ROLE (OWNER / ORGANIZER ШЕКТЕУІ) */}
+            {status === "invalid_role" && (
+              <div className="mt-3 p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-700 space-y-1">
+                <p className="font-bold">⛔ {statusMessage}</p>
+                {foundUser && (
+                  <p className="text-[11px] text-rose-600 font-medium">
+                    {isRu ? "Пользователь: " : "Пайдаланушы: "}
+                    <span className="font-semibold">{foundUser.name || foundUser.fullName}</span> ({foundUser.role})
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* ⚠️ ALREADY IN THIS MARATHON */}
             {status === "already_in_this_marathon" && (
-              <div className="mt-2 text-sm font-medium text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
-                ✕ {isRu ? "куратор уже добавлен в этот марафон" : "куратор бұл марафонға қосылып қойған"}
+              <div className="mt-3 p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-800 space-y-1">
+                <p className="font-bold">⚠️ {statusMessage}</p>
+                {foundUser && (
+                  <p className="text-[11px] text-amber-700 font-medium">
+                    {isRu ? "Куратор: " : "Куратор: "}
+                    <span className="font-semibold">{foundUser.name || foundUser.fullName}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* ✕ NOT FOUND */}
+            {status === "not_found" && (
+              <div className="mt-3 p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-700 font-medium">
+                ✕ {isRu ? "Пользователь не найден в базе данных (Не зарегистрирован)." : "Пайдаланушы деректер базасынан табылмады (Тіркелмеген)."}
               </div>
             )}
           </div>
 
+          {/* SUBMIT BUTTON */}
           <button
             type="submit"
-            disabled={isSubmitting || status !== "found"}
-            className="w-full rounded-2xl bg-purple-600 py-3.5 font-semibold text-white shadow-lg shadow-purple-200 transition-all hover:bg-purple-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2 cursor-pointer"
+            disabled={isSubmitting || status !== "ready"}
+            className="w-full rounded-2xl bg-purple-600 py-3.5 font-extrabold text-xs text-white shadow-md shadow-purple-200 transition-all hover:bg-purple-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed mt-3 cursor-pointer"
           >
             {isSubmitting
               ? (isRu ? "Добавление..." : "Қосылуда...")
-              : (isRu ? "Добавить" : "Қосу")}
+              : (isRu ? "Добавить в марафон" : "Марафонға қосу")}
           </button>
         </form>
       </div>
@@ -232,7 +320,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
   );
 }
 
-// --- 2. кураторҒА МАРАФОН БЕКІТУ МОДАЛЬ ТЕРЕЗЕСІ ---
+// --- 2. МАРАФОН БЕКІТУ МОДАЛІ ---
 function ManageAccessModal({ isOpen, onClose, curator, allMarathons, onSave, isRu }) {
   const [selectedMarathonId, setSelectedMarathonId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -265,16 +353,15 @@ function ManageAccessModal({ isOpen, onClose, curator, allMarathons, onSave, isR
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs font-sans p-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl transition-all">
         <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-xl font-black text-gray-900">
               {isRu ? "Привязать марафон" : "Марафонды бекіту"}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              {isRu ? "куратор: " : "куратор: "}
-              <span className="font-semibold text-gray-800">{curator.name || curator.fullName}</span>
+              Куратор: <span className="font-bold text-gray-800">{curator.name || curator.fullName}</span>
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer">
@@ -284,13 +371,13 @@ function ManageAccessModal({ isOpen, onClose, curator, allMarathons, onSave, isR
 
         <form onSubmit={handleSave} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">
               {isRu ? "Выберите марафон (1 куратор = 1 марафон)" : "Марафонды таңдаңыз (1 куратор = 1 марафон)"}
             </label>
             <select
               value={selectedMarathonId}
               onChange={(e) => setSelectedMarathonId(e.target.value)}
-              className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-800 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 transition-all bg-white text-sm cursor-pointer"
+              className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-800 outline-none focus:border-purple-600 transition bg-gray-50 text-xs font-semibold cursor-pointer"
             >
               <option value="">
                 {isRu ? "Не привязан ни к какому марафону" : "Ешқандай марафонға бекітілмеген"}
@@ -307,7 +394,7 @@ function ManageAccessModal({ isOpen, onClose, curator, allMarathons, onSave, isR
             <Button variant="ghost" type="button" onClick={onClose} disabled={isSaving}>
               {isRu ? "Отмена" : "Бас тарту"}
             </Button>
-            <Button type="submit" disabled={isSaving} className="bg-purple-600 hover:bg-purple-700">
+            <Button type="submit" disabled={isSaving} className="bg-purple-600 hover:bg-purple-700 text-white font-bold">
               {isSaving
                 ? (isRu ? "Сохранение..." : "Сақталуда...")
                 : (isRu ? "Сохранить" : "Сақтау")}
@@ -319,7 +406,7 @@ function ManageAccessModal({ isOpen, onClose, curator, allMarathons, onSave, isR
   );
 }
 
-// --- 3. кураторДЫ ӨШІРУДІ РАСТАУ МОДАЛЬ ТЕРЕЗЕСІ ---
+// --- 3. КУРАТОРДЫ ӨШІРУ МОДАЛІ ---
 function DeleteConfirmModal({ isOpen, onClose, curator, onDelete, isRu }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -338,18 +425,18 @@ function DeleteConfirmModal({ isOpen, onClose, curator, onDelete, isRu }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs font-sans p-4">
       <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl text-center">
         <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
           <ShieldAlert size={24} />
         </div>
 
-        <h3 className="text-lg font-bold text-gray-900 mb-1">
-          {isRu ? "Удалить куратора?" : "кураторды өшіру?"}
+        <h3 className="text-lg font-black text-gray-900 mb-1">
+          {isRu ? "Удалить куратора?" : "Кураторды өшіру?"}
         </h3>
-        <p className="text-xs text-gray-500 mb-6">
+        <p className="text-xs text-gray-500 mb-6 font-medium">
           {isRu ? "Вы уверены, что хотите удалить куратора " : "Сенімдісіз бе, кураторды өшіру "}{" "}
-          <span className="font-semibold text-gray-800">{curator.name || curator.fullName}</span>?{" "}
+          <span className="font-bold text-gray-800">{curator.name || curator.fullName}</span>?{" "}
           {isRu ? "Это действие нельзя отменить." : "Бұл әрекетті қайтару мүмкін емес."}
         </p>
 
@@ -360,7 +447,7 @@ function DeleteConfirmModal({ isOpen, onClose, curator, onDelete, isRu }) {
           <Button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="w-1/2 bg-rose-600 hover:bg-rose-700 text-white"
+            className="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-bold"
           >
             {isDeleting
               ? (isRu ? "Удаление..." : "Өшірілуде...")
@@ -373,14 +460,14 @@ function DeleteConfirmModal({ isOpen, onClose, curator, onDelete, isRu }) {
 }
 
 // --- 4. НЕГІЗГІ БЕТ КОМПОНЕНТІ ---
-export default function curatorsPage({ params }) {
+export default function CuratorsPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
   const { orgId } = use(params);
   const { ready, tick, triggerUpdate } = useData();
 
-  const [curators, setcurators] = useState([]);
+  const [curators, setCurators] = useState([]);
   const [marathons, setMarathons] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -396,7 +483,7 @@ export default function curatorsPage({ params }) {
         const res = await actions.getcuratorsByOrgId(orgId);
         const rawList = res || [];
 
-        // ⚡ ДУБЛИКАТТАРДЫ ТАЗАЛАУ (email немесе name/phone бойынша уникалды қылу)
+        // Дубликаттарды тазалау
         const uniqueList = Array.from(
           new Map(
             rawList.map((m) => [
@@ -406,7 +493,7 @@ export default function curatorsPage({ params }) {
           ).values()
         );
 
-        setcurators(uniqueList);
+        setCurators(uniqueList);
       }
       if (typeof actions.getMarathonsByOrgId === "function") {
         const mRes = await actions.getMarathonsByOrgId(orgId);
@@ -474,8 +561,8 @@ export default function curatorsPage({ params }) {
           </p>
         </div>
 
-        <Button onClick={() => setInviteOpen(true)} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white cursor-pointer">
-          <UserPlus size={16} /> {isRu ? "Добавить куратора" : "куратор қосу"}
+        <Button onClick={() => setInviteOpen(true)} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white cursor-pointer font-bold">
+          <UserPlus size={16} /> {isRu ? "Добавить куратора" : "Куратор қосу"}
         </Button>
       </div>
 
@@ -483,7 +570,7 @@ export default function curatorsPage({ params }) {
         <table className="w-full text-sm text-left text-slate-900">
           <thead className="bg-slate-50/50 text-xs uppercase text-slate-400 font-bold border-b border-slate-100">
             <tr>
-              <th className="p-4">{isRu ? "куратор" : "куратор"}</th>
+              <th className="p-4">{isRu ? "КУРАТОР" : "КУРАТОР"}</th>
               <th className="p-4">{isRu ? "EMAIL" : "EMAIL"}</th>
               <th className="p-4">{isRu ? "ТЕЛЕФОН" : "ТЕЛЕФОН"}</th>
               <th className="p-4">{isRu ? "МАРАФОН" : "МАРАФОН"}</th>
@@ -541,7 +628,7 @@ export default function curatorsPage({ params }) {
                         <button
                           onClick={() => setDeleteModalcurator(curator)}
                           className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-                          title={isRu ? "Удалить куратора" : "кураторды өшіру"}
+                          title={isRu ? "Удалить куратора" : "Кураторды өшіру"}
                         >
                           <Trash2 size={16} />
                         </button>

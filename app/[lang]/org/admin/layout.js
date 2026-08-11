@@ -1,7 +1,17 @@
 "use client";
 
 import { use } from "react";
-import { LayoutGrid, Users, ShieldCheck, Settings, User, BarChart3, Layers, BookOpen } from "lucide-react";
+import { 
+  LayoutGrid, 
+  Users, 
+  UserCheck, // 👈 Менеджер иконкасы
+  ShieldCheck, 
+  Settings, 
+  User, 
+  BarChart3, 
+  Layers, 
+  BookOpen 
+} from "lucide-react";
 import DashboardShell from "@/components/DashboardShell";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -35,6 +45,11 @@ export default function AdminLayout({ children, params }) {
       href: `/${lang}/org/admin/curators`, 
       label: isRu ? "Кураторы" : "Кураторлар", 
       icon: ShieldCheck 
+    },
+    { 
+      href: `/${lang}/org/admin/managers`, // 👈 ТУРА ОСЫ ЖЕРГЕ ҚОСЫЛДЫ
+      label: isRu ? "Менеджеры" : "Менеджерлер", 
+      icon: UserCheck 
     },
     { 
       href: `/${lang}/org/admin/students`, 

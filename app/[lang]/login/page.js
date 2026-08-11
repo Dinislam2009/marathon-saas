@@ -8,6 +8,43 @@ import { loginUser } from "@/app/actions";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
 
+// Пайдаланушы рөліне сай тура бағыттау жолын анықтайтын көмекші функция
+const getRedirectPathByRole = (role, lang = "ru") => {
+  const normalizedRole = String(role || "").toUpperCase().trim();
+
+  switch (normalizedRole) {
+    case "OWNER":
+    case "SUPER_ADMIN":
+      return `/${lang}/owner`;
+
+    case "ORGANIZER":
+    case "ADMIN":
+      return `/${lang}/org/admin`;
+
+    case "MANAGER":
+    case "SALES_MANAGER":
+      return `/${lang}/org/manager`; // 👈 Менеджердің жеке кабинетіне бағыттау
+
+    case "TEACHER":
+    case "INSTRUCTOR":
+      return `/${lang}/org/admin/tasks`;
+
+    case "BASCURATOR":
+    case "INSPECTOR":
+      return `/${lang}/org/admin/curators`;
+
+    case "CURATOR":
+      return `/${lang}/org/curator`;
+
+    case "STUDENT":
+    case "PARTICIPANT":
+      return `/${lang}/org/student`;
+
+    default:
+      return `/${lang}`;
+  }
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const { lang } = useLanguage();
@@ -54,8 +91,9 @@ export default function LoginPage() {
         }
       }
 
-      // ⚡ Рөлге сай таза бағыттау (/start арқылы)
-      router.push("/start");
+      // ⚡ Менеджер немесе басқа рөлді өз туған кабинетіне жіберу
+      const targetPath = getRedirectPathByRole(result.user?.role, lang);
+      router.replace(targetPath);
 
     } catch (err) {
       setLoading(false);

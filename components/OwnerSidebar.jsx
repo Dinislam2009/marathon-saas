@@ -3,8 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import { LayoutDashboard, Building2, Zap, Megaphone, ArrowLeft } from "lucide-react";
-import { User } from "lucide-react"; // 👈 Импортқа қосу
+import { LayoutDashboard, Building2, Zap, Megaphone, ArrowLeft, UserCheck } from "lucide-react";
+import { User } from "lucide-react";
 
 export default function OwnerSidebar() {
   const pathname = usePathname();
@@ -13,27 +13,32 @@ export default function OwnerSidebar() {
   const navItems = [
     {
       label: "Метрикалар",
-      href: `/${lang}/owner`,
+      href: `/${lang}/admin`,
       icon: LayoutDashboard,
     },
     {
       label: "Ұйымдар (B2B)",
-      href: `/${lang}/owner/organizations`,
+      href: `/${lang}/admin/organizations`,
       icon: Building2,
     },
     {
+      label: "Менеджерлер",
+      href: `/${lang}/admin/managers`,
+      icon: UserCheck,
+    },
+    {
       label: "Тарифтер & Лимиттер",
-      href: `/${lang}/owner/subscriptions`,
+      href: `/${lang}/admin/subscriptions`,
       icon: Zap,
     },
     {
       label: "Хабарландырулар",
-      href: `/${lang}/owner/broadcast`,
+      href: `/${lang}/admin/broadcast`,
       icon: Megaphone,
     },
     {
-       label: "Профиль",
-       href: `/${lang}/owner/profile`,
+      label: "Профиль",
+      href: `/${lang}/admin/profile`,
       icon: User,
     }  
   ];
@@ -46,7 +51,7 @@ export default function OwnerSidebar() {
           <div className="flex items-center gap-2">
             <span className="text-xl font-black tracking-tight text-slate-900">Loopit</span>
             <span className="px-2 py-0.5 bg-purple-100 text-purple-700 font-black text-[9px] rounded-md uppercase">
-              OWNER
+              admin
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1 font-medium">Super Admin Control Center</p>

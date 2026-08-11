@@ -82,31 +82,58 @@ function VerifyOtpForm() {
       return;
     }
 
-    // ⚡ 1. Ескі сессияны толық тазалап, жаңа юзерді жазу
+    // ⚡ 1. Ескі сессияны толық тазалап, жаңа юзерді сақтау
     localStorage.removeItem("currentUser");
     localStorage.removeItem("current_user_id");
+    localStorage.removeItem("user_role");
 
     if (result.user) {
       localStorage.setItem("currentUser", JSON.stringify(result.user));
       localStorage.setItem("current_user_id", result.user.id);
+      if (result.user.role) {
+        localStorage.setItem("user_role", result.user.role);
+      }
     }
 
-    // ⚡ 2. Тексеру: Жай тіркелген юзердің рөлін бірінші орынға қою
-    const userRole = result.user?.role?.toUpperCase();
+    // ⚡ 2. Рөлге байланысты ТУРА кабинетке бағыттау
+    const userRole = String(result.user?.role || "").toUpperCase().trim();
 
-    // Егер бұл жаңа тіркелген студент/қатысушы болса — Студент кабинетіне бағыттау
-    if (userRole === "PARTICIPANT" || userRole === "STUDENT") {
-      router.push(`/${lang}/org/student`); 
-      return;
+    switch (userRole) {
+      case "OWNER":
+      case "SUPER_ADMIN":
+        router.push(`/${lang}/owner`);
+        break;
+
+      case "ORGANIZER":
+      case "ADMIN":
+        router.push(`/${lang}/org/admin`);
+        break;
+
+      case "MANAGER":
+      case "SALES_MANAGER":
+        router.push(`/${lang}/org/admin/managers`);
+        break;
+
+      case "TEACHER":
+      case "INSTRUCTOR":
+        router.push(`/${lang}/org/admin/tasks`);
+        break;
+
+      case "BASCURATOR":
+      case "INSPECTOR":
+        router.push(`/${lang}/org/admin/curators`);
+        break;
+
+      case "CURATOR":
+        router.push(`/${lang}/org/curator`);
+        break;
+
+      case "STUDENT":
+      case "PARTICIPANT":
+      default:
+        router.push(`/${lang}/org/student`);
+        break;
     }
-
-    // Егер куратор/Организатор болса — куратор дашбордына бағыттау
-    if (userRole === "ORGANIZER" || userRole === "OWNER" || userRole === "CURATOR") {
-      router.push(`/${lang}/org/curator`);
-      return;
-    }
-
-    router.push(`/${lang}/org/student`);
   }
 
   // Кодты қайта жіберу

@@ -1016,25 +1016,6 @@ export async function updateStudentProfile(data) {
   }
 }
 
-export async function assignStudentToGroupAction(studentId, groupId) {
-  try {
-    if (!studentId) return { ok: false, error: "Студент ID көрсетілмеген" };
-
-    const targetGroupId = groupId && groupId.trim() !== "" ? groupId : null;
-
-    await prisma.student.update({
-      where: { id: studentId },
-      data: {
-        groupId: targetGroupId,
-      },
-    });
-
-    return { ok: true };
-  } catch (error) {
-    console.error("assignStudentToGroupAction error:", error);
-    return { ok: false, error: error.message || "Топқа бекіту кезінде қате орын алды" };
-  }
-}
 
 export async function assignStudentToGroup(studentId, groupId) {
   return assignStudentToGroupAction(studentId, groupId);
@@ -1329,41 +1310,6 @@ export async function assigncuratorToStudent(studentId, curatorId) {
   } catch (error) {
     console.error("assigncuratorToStudent error:", error);
     throw new Error(`кураторды бекіту кезінде қате шықты: ${error.message}`);
-  }
-}
-
-export async function checkcurator(value, isEmail) {
-  try {
-    const trimmedVal = value.trim();
-
-    let curator = await prisma.curator.findFirst({
-      where: isEmail
-        ? { email: { equals: trimmedVal.toLowerCase(), mode: "insensitive" } }
-        : { phone: trimmedVal },
-    });
-
-    if (!curator) {
-      const user = await prisma.user.findFirst({
-        where: isEmail
-          ? { email: { equals: trimmedVal.toLowerCase(), mode: "insensitive" } }
-          : { phone: trimmedVal },
-      });
-
-      if (user) {
-        curator = {
-          id: user.id,
-          name: `${user.firstName} ${user.lastName}`,
-          email: user.email,
-          phone: user.phone,
-        };
-      }
-    }
-
-    if (!curator) return { status: "not_found" };
-    return { status: "found", curator };
-  } catch (error) {
-    console.error("checkcurator error:", error);
-    return { status: "not_found" };
   }
 }
 
@@ -2356,5 +2302,642 @@ export async function getAllOrganizersAction() {
   } catch (err) {
     console.error("getAllOrganizersAction error:", err);
     return { ok: false, error: err.message };
+  }
+}
+
+// 1. Топты редакциялау
+export async function updateGroupAction(groupId, data) {
+  try {
+    const { name, maxSize, curatorId } = data || {};
+
+    const updatedGroup = await prisma.group.update({
+      where: { id: groupId },
+      data: {
+        ...(name ? { name: name.trim() } : {}),
+        ...(maxSize ? { maxSize: parseInt(maxSize) } : {}),
+        curatorId: curatorId || null,
+      },
+    });
+
+    // Осы топтағы оқушылардың кураторын да жаңарту
+    await prisma.student.updateMany({
+      where: { groupId },
+      data: { curatorId: curatorId || null },
+    });
+
+    return { ok: true, group: updatedGroup };
+  } catch (err) {
+    console.error("updateGroupAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// 2. Топқа бөлінбеген оқушылар тізімін алу
+export async function getUnassignedStudentsAction(marathonId) {
+  try {
+    const students = await prisma.student.findMany({
+      where: { marathonId, groupId: null },
+      orderBy: { name: "asc" },
+    });
+    return { ok: true, students };
+  } catch (err) {
+    console.error("getUnassignedStudentsAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// 3. Оқушыны топқа қосу
+export async function assignStudentToGroupAction(studentId, groupId) {
+  try {
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
+    if (!group) return { ok: false, error: "Топ табылмады" };
+
+    const currentCount = await prisma.student.count({ where: { groupId } });
+    if (currentCount >= group.maxSize) {
+      return { ok: false, error: "Топта бос орын жоқ (сиымдылық лимиті толды)" };
+    }
+
+    await prisma.student.update({
+      where: { id: studentId },
+      data: {
+        groupId,
+        curatorId: group.curatorId || null,
+      },
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error("assignStudentToGroupAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// 4. Оқушыны топтан шығару (unassign)
+export async function removeStudentFromGroupAction(studentId) {
+  try {
+    await prisma.student.update({
+      where: { id: studentId },
+      data: { groupId: null, curatorId: null },
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("removeStudentFromGroupAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// 5. Оқушыларды топтарға автоматты түрде бөлу
+export async function autoDistributeStudentsAction(marathonId) {
+  try {
+    if (!marathonId) return { ok: false, error: "Марафон таңдалмаған" };
+
+    const unassigned = await prisma.student.findMany({
+      where: { marathonId, groupId: null },
+    });
+
+    if (unassigned.length === 0) {
+      return { ok: false, error: "Топқа бөлінбеген оқушылар жоқ" };
+    }
+
+    const groups = await prisma.group.findMany({
+      where: { marathonId },
+      include: { _count: { select: { students: true } } },
+    });
+
+    if (groups.length === 0) {
+      return { ok: false, error: "Бұл марафонда топтар құрылмаған" };
+    }
+
+    let studentIdx = 0;
+    let assignedCount = 0;
+
+    while (studentIdx < unassigned.length) {
+      let addedInRound = false;
+
+      for (const group of groups) {
+        if (studentIdx >= unassigned.length) break;
+
+        if (group._count.students < group.maxSize) {
+          const student = unassigned[studentIdx];
+          await prisma.student.update({
+            where: { id: student.id },
+            data: {
+              groupId: group.id,
+              curatorId: group.curatorId || null,
+            },
+          });
+
+          group._count.students++;
+          studentIdx++;
+          assignedCount++;
+          addedInRound = true;
+        }
+      }
+
+      if (!addedInRound) break; // Барлық топтар толды
+    }
+
+    return {
+      ok: true,
+      message: `${assignedCount} оқушы топтарға автоматты түрде бөлінді!`,
+    };
+  } catch (err) {
+    console.error("autoDistributeStudentsAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// Куратор ретінде қосу алдында смарт-тексеру
+export async function checkcurator(contactValue, isEmail, marathonId) {
+  try {
+    const formatted = contactValue.trim();
+
+    // 1. Пайдаланушыны базадан іздейміз
+    const user = await prisma.user.findFirst({
+      where: isEmail
+        ? { email: formatted.toLowerCase() }
+        : { phone: formatted },
+      include: {
+        curator: {
+          include: {
+            marathons: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return { status: "not_found" };
+    }
+
+    const fullName =
+      [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+      user.curator?.name ||
+      "Пайдаланушы";
+
+    // ⛔ 2. РӨЛДЕРДІ ТЕКСЕРУ: OWNER немесе ORGANIZER куратор бола алмайды
+    if (user.role === "OWNER" || user.role === "ORGANIZER") {
+      return {
+        status: "invalid_role",
+        message: "Владелец немесе Организатор аккаунтын Куратор етіп қосуға болмайды.",
+        curator: {
+          id: user.id,
+          name: fullName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+        },
+      };
+    }
+
+    // ⚠️ 3. БҰРЫННАН КУРАТОР БОЛСА (кез келген марафонда)
+    if (user.role === "CURATOR" || user.curator) {
+      return {
+        status: "already_in_this_marathon",
+        message: "Бұл қолданушы бұрыннан Куратор болып тіркелген.",
+        curator: {
+          id: user.id,
+          name: fullName,
+          email: user.email,
+          phone: user.phone,
+          role: "CURATOR",
+        },
+      };
+    }
+
+    // ✅ 4. ТЕК ТАЗА ОҚУШЫЛАР НЕМЕСЕ ҚАТЫСУШЫЛАР ҒАНА ҚОСЫЛА АЛАДЫ
+    return {
+      status: "ready",
+      curator: {
+        id: user.id,
+        name: fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+    };
+  } catch (err) {
+    console.error("checkcurator error:", err);
+    return { status: "not_found" };
+  }
+}
+
+// 1. Оқушыны марафонға қосу алдында смарт-тексеру
+export async function checkStudentForMarathonAction(value, isEmail) {
+  try {
+    if (!value || typeof value !== "string") {
+      return { status: "not_found", message: "Енгізілген мәлімет дұрыс емес" };
+    }
+
+    const formatted = value.trim();
+    let user = null;
+
+    if (isEmail) {
+      user = await prisma.user.findFirst({
+        where: { 
+          email: { equals: formatted.toLowerCase(), mode: "insensitive" } 
+        },
+      });
+    } else {
+      const cleanDigits = formatted.replace(/\D/g, "");
+      const last10Digits = cleanDigits.slice(-10);
+
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phone: formatted },
+            { phone: cleanDigits },
+            { phone: `+${cleanDigits}` },
+          ],
+        },
+      });
+
+      if (!user && last10Digits.length === 10) {
+        user = await prisma.user.findFirst({
+          where: {
+            phone: {
+              contains: last10Digits,
+            },
+          },
+        });
+      }
+    }
+
+    // 🔴 1. БАЗАДА ЖОҚ БОЛСА — БҰҒАТТАУ
+    if (!user) {
+      return { 
+        status: "not_found", 
+        message: "Пайдаланушы базада табылмады! Тек платформада тіркелген оқушыларды қосуға болады." 
+      };
+    }
+
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.name || "Пайдаланушы";
+
+    // 🔴 2. РӨЛІ ОҚУШЫ БОЛМАСА — БҰҒАТТАУ
+    const notAllowedRoles = ["OWNER", "ORGANIZER", "MANAGER", "CURATOR", "TEACHER"];
+    if (notAllowedRoles.includes(user.role?.toUpperCase())) {
+      return {
+        status: "invalid_role",
+        message: `Пайдаланушы рөлі "${user.role}". Марафонға тек оқушыларды қосуға болады!`,
+        user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+      };
+    }
+
+    // ⚡ 3. БҰРЫННАН МАРАФОНДА БАР БОЛСА — БҰҒАТТАУ (Prisma-да { not: null } қолданбай тексереміз)
+    const existingStudent = await prisma.student.findFirst({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    if (existingStudent && existingStudent.marathonId) {
+      return {
+        status: "already_in_marathon",
+        message: "Бұл оқушы марафонда бұрыннан бар! Бір оқушы тек 1 марафонда бола алады.",
+        user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+      };
+    }
+
+    // 🟢 ТЕК ОРСЫ ЖЕРДЕ ГАНА ҚОСУҒА РҰҚСАТ
+    return {
+      status: "ready",
+      user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+    };
+  } catch (err) {
+    console.error("checkStudentForMarathonAction error:", err);
+    return { 
+      status: "not_found", 
+      message: `Сервер қатесі: ${err.message || "Тексеру орындалмады"}` 
+    };
+  }
+}
+
+// Пайдаланушының ішкі рөлін тексеру логикасы
+export async function checkRolePermissions(role) {
+  return {
+    isManager: role === "MANAGER",
+    isTeacher: role === "TEACHER",
+    isBascurator: role === "BASCURATOR",
+    
+    canAddStudents: ["OWNER", "ORGANIZER", "MANAGER"].includes(role),
+    canManageTasks: ["OWNER", "ORGANIZER", "TEACHER"].includes(role),
+    canInspectGroups: ["OWNER", "ORGANIZER", "BASCURATOR"].includes(role),
+  };
+}
+
+export async function addStudentToMarathonAction(data) {
+  try {
+    const { marathonId, groupId, userId, name, email, phone, paymentStatus, managerId } = data || {};
+
+    if (!marathonId || !userId) {
+      return { ok: false, error: "Марафон немесе Оқушы ID табылмады" };
+    }
+
+    const targetGroupId = groupId && groupId !== "" ? groupId : null;
+
+    const existingStudent = await prisma.student.findFirst({
+      where: { userId },
+    });
+
+    if (existingStudent) {
+      await prisma.student.update({
+        where: { id: existingStudent.id },
+        data: { 
+          marathonId, 
+          groupId: targetGroupId,
+          paymentStatus: paymentStatus || "PAID",
+          ...(managerId ? { managerId } : {}), // 👈 Менеджерді де бекіту
+        },
+      });
+      return { ok: true };
+    }
+
+    await prisma.student.create({
+      data: {
+        userId,
+        marathonId,
+        groupId: targetGroupId,
+        name: name || "Оқушы",
+        email: email || "",
+        phone: phone || "",
+        paymentStatus: paymentStatus || "PAID",
+        ...(managerId ? { managerId } : {}), // 👈 Менеджерді де бекіту
+      },
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error("addStudentToMarathonAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// 1. Организацияға қатысты Менеджерлер тізімін алу
+export async function getManagersByOrgId(orgId) {
+  try {
+    const managers = await prisma.user.findMany({
+      where: {
+        role: "MANAGER",
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    // Әр менеджердің қанша оқушы қосқанын тексеру
+    const formatted = await Promise.all(
+      managers.map(async (m) => {
+        const addedCount = await prisma.student.count({
+          where: {
+            // Менеджер қосқан оқушылар саны
+            userId: m.id,
+          },
+        });
+
+        return {
+          id: m.id,
+          name: [m.firstName, m.lastName].filter(Boolean).join(" ") || "Менеджер",
+          email: m.email,
+          phone: m.phone,
+          studentsAdded: addedCount || 0,
+          createdAt: m.createdAt,
+        };
+      })
+    );
+
+    return formatted;
+  } catch (err) {
+    console.error("getManagersByOrgId error:", err);
+    return [];
+  }
+}
+
+// 2. Пайдаланушыны МЕНЕДЖЕР етуге тексеру (Смарт-проверка)
+export async function checkUserForManagerAction(contactValue, isEmail) {
+  try {
+    const formatted = contactValue.trim();
+
+    const user = await prisma.user.findFirst({
+      where: isEmail
+        ? { email: formatted.toLowerCase() }
+        : { phone: formatted },
+    });
+
+    if (!user) {
+      return { status: "not_found" };
+    }
+
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Пайдаланушы";
+
+    if (user.role === "OWNER" || user.role === "ORGANIZER") {
+      return {
+        status: "invalid_role",
+        message: "Платформа иесін немесе Организаторды Менеджер ете алмайсыз.",
+        user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+      };
+    }
+
+    if (user.role === "MANAGER") {
+      return {
+        status: "already_manager",
+        message: "Бұл пайдаланушы бұрыннан Менеджер рөлінде.",
+        user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+      };
+    }
+
+    return {
+      status: "ready",
+      user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+    };
+  } catch (err) {
+    console.error("checkUserForManagerAction error:", err);
+    return { status: "not_found" };
+  }
+}
+
+// 3. Менеджер рөлін тағайындау немесе алып тастау
+// Менеджер рөлін беру және оны нақты Организатордың ұйымына (orgId) байлау
+export async function assignManagerRoleAction(userId, orgId) {
+  try {
+    if (!userId) {
+      return { ok: false, error: "Пайдаланушы ID табылмады" };
+    }
+
+    // Пайдаланушы рөлін MANAGER-ге ауыстыру
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: "MANAGER" },
+    });
+
+    // Егер orgId берілген болса, ұйыммен байланыстыруды тексеру
+    if (orgId && orgId !== "undefined") {
+      try {
+        if (prisma.organizationMembership) {
+          const existing = await prisma.organizationMembership.findFirst({
+            where: { userId, organizationId: orgId },
+          });
+
+          if (!existing) {
+            await prisma.organizationMembership.create({
+              data: {
+                userId,
+                organizationId: orgId,
+                role: "MANAGER",
+              },
+            });
+          }
+        }
+      } catch (memberErr) {
+        console.warn("OrganizationMembership model error (skipped):", memberErr.message);
+      }
+    }
+
+    revalidatePath("/[lang]/org/admin/managers", "page");
+    return { ok: true };
+  } catch (err) {
+    console.error("assignManagerRoleAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// 1. Менеджер дашборды мен статистикасын алу
+export async function getManagerDashboardDataAction(managerId) {
+  try {
+    // Ұйымдағы барлық оқушыларды марафонымен және тобымен бірге алу
+    const myStudents = await prisma.student.findMany({
+      include: { 
+        marathon: true, 
+        group: true 
+      },
+      orderBy: { id: "desc" },
+    });
+
+    const unassignedStudents = await prisma.student.findMany({
+      where: { groupId: null },
+      include: { marathon: true },
+      orderBy: { id: "desc" },
+    });
+
+    const formattedStudents = myStudents.map((s) => ({
+      id: s.id,
+      name: s.name || "Ученик",
+      email: s.email || "",
+      phone: s.phone || "",
+      paymentStatus: s.paymentStatus || "PAID",
+      marathonTitle: s.marathon?.title || "—",
+      group: s.group ? { name: s.group.name } : null,
+    }));
+
+    return {
+      myStudents: formattedStudents,
+      unassignedStudents,
+      stats: {
+        totalAdded: formattedStudents.length,
+        monthlyCount: formattedStudents.length,
+        monthlyTarget: 50,
+        salesVolume: formattedStudents.length * 25000,
+      },
+    };
+  } catch (err) {
+    console.error("getManagerDashboardDataAction error:", err);
+    return { 
+      myStudents: [], 
+      unassignedStudents: [], 
+      stats: { totalAdded: 0, monthlyCount: 0, monthlyTarget: 50, salesVolume: 0 } 
+    };
+  }
+}
+
+// 2. Жылдам тіркеу (Смарт-форма арқылы)
+export async function addStudentByManagerAction(data) {
+  try {
+    const { name, phone, email, marathonId, groupId, paymentStatus, managerId } = data;
+
+    if (!name || !phone || !marathonId) {
+      return { ok: false, error: "Міндетті өрістерді толтырыңыз" };
+    }
+
+    const cleanPhone = phone.replace(/\D/g, "");
+
+    // Юзерді табу немесе құру
+    let user = await prisma.user.findFirst({
+      where: { OR: [{ phone: cleanPhone }, { email: email || "no-email@loopit.kz" }] },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          firstName: name,
+          phone: cleanPhone,
+          email: email || `${cleanPhone}@loopit.kz`,
+          role: "STUDENT",
+        },
+      });
+    }
+
+    // Студент жазбасын жасау немесе жаңарту
+    const student = await prisma.student.upsert({
+      where: { userId: user.id },
+      update: {
+        marathonId,
+        groupId: groupId || null,
+        paymentStatus: paymentStatus || "PAID",
+      },
+      create: {
+        userId: user.id,
+        marathonId,
+        groupId: groupId || null,
+        name,
+        phone: cleanPhone,
+        email: email || "",
+        paymentStatus: paymentStatus || "PAID",
+      },
+    });
+
+    return { ok: true, student };
+  } catch (err) {
+    console.error("addStudentByManagerAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// 3. Бос оқушыны өзіне бекіту және топқа қосу
+export async function claimUnassignedStudentAction(studentId, groupId, managerId) {
+  try {
+    await prisma.student.update({
+      where: { id: studentId },
+      data: {
+        groupId: groupId || null,
+      },
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("claimUnassignedStudentAction error:", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+export async function getGroupsAction(orgId) {
+  try {
+    const whereCondition = orgId && orgId !== "undefined" ? { organizationId: orgId } : {};
+    const groups = await prisma.group.findMany({
+      where: whereCondition,
+      select: {
+        id: true,
+        name: true,
+        marathonId: true,
+      },
+      orderBy: { name: "asc" },
+    });
+    return groups;
+  } catch (err) {
+    console.error("getGroupsAction error:", err);
+    return [];
   }
 }

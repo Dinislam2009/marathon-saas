@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useCallback, use } from "react";
 import { 
-  Plus, Edit3, Trash2, Loader2, Save, Trophy, BookOpen, X, Video, FileText, Clock, CalendarDays
+  Plus, Edit3, Trash2, Loader2, Save, Trophy, BookOpen, X, Video, FileText, Clock, CalendarDays, Sparkles, AlertCircle
 } from "lucide-react";
 import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
+import CustomDatePicker from "@/components/CustomDatePicker";
 import LoadingState from "@/components/LoadingState";
 
 export default function AdminTasksPage({ params }) {
@@ -190,9 +191,18 @@ export default function AdminTasksPage({ params }) {
     }
   };
 
+  // ДЕДЛАЙНДЫ БЫСТРЫЙ ПРЕCЕТПЕН ОРНАТУ
+  const applyQuickPreset = (daysToAdd, setHours = 23, setMinutes = 59) => {
+    const now = new Date();
+    now.setDate(now.getDate() + daysToAdd);
+    now.setHours(setHours, setMinutes, 0, 0);
+    const formatted = now.toISOString().slice(0, 16);
+    setTaskForm((prev) => ({ ...prev, deadlineAt: formatted }));
+  };
+
   if (loading) {
-  return <LoadingState />;
-}
+    return <LoadingState />;
+  }
 
   const duration = selectedMarathon?.durationDays || 21;
   const daysArray = Array.from({ length: duration }, (_, i) => i + 1);
@@ -271,7 +281,6 @@ export default function AdminTasksPage({ params }) {
                   </span>
                 </div>
 
-                {/* Сол күннің тапсырмалар тізімі */}
                 <div className="space-y-2 min-h-[80px]">
                   {dayTasks.length === 0 ? (
                     <p className="text-xs text-gray-300 italic pt-3 text-center">
@@ -291,7 +300,7 @@ export default function AdminTasksPage({ params }) {
                               +{t.points} XP
                             </span>
                             {t.deadlineAt && (
-                              <span className="flex items-center gap-0.5 text-purple-600">
+                              <span className="flex items-center gap-0.5 text-purple-600 font-extrabold">
                                 <Clock className="w-3 h-3" />
                                 {isRu ? "Дедлайн: " : "Дедлайн: "}{formatDateLabel(t.deadlineAt)}
                               </span>
@@ -401,39 +410,53 @@ export default function AdminTasksPage({ params }) {
                 </div>
               </div>
 
-              {/* 📅 УАҚЫТ ЖӘНЕ КҮН БАПТАУЛАРЫ */}
-              <div className="p-3.5 bg-purple-50/50 rounded-2xl border border-purple-100/80 space-y-3">
-                <span className="text-[11px] font-extrabold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <CalendarDays size={14} /> {isRu ? "Срок открытия и Дедлайн" : "Ашылу мерзімі мен Дедлайн"}
-                </span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1">
-                      {isRu ? "Дата и время открытия ученикам" : "Оқушыларға ашылатын күн мен уақыт"}
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={taskForm.availableAt}
-                      onChange={(e) => setTaskForm({ ...taskForm, availableAt: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-purple-600"
-                    />
-                  </div>
+              {/* ⚡ ЗАМАНАУИ ДЕДЛАЙН ЖӘНЕ УАҚЫТ КАРТОЧКАСЫ */}
+<div className="p-4 rounded-3xl bg-slate-50 border border-slate-200/80 space-y-3.5">
+  <div className="flex items-center justify-between">
+    <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+      <CalendarDays size={15} className="text-purple-600" />
+      {isRu ? "Срок открытия и Дедлайн" : "Ашылу мерзімі мен Дедлайн"}
+    </span>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1">
-                      {isRu ? "Дедлайн (Крайний срок сдачи)" : "Дедлайн (Соңғы тапсыру мерзімі)"}
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={taskForm.deadlineAt}
-                      onChange={(e) => setTaskForm({ ...taskForm, deadlineAt: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-purple-600"
-                    />
-                  </div>
-                </div>
-              </div>
+    {/* Быстрый Пресеттер */}
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => applyQuickPreset(1, 23, 59)}
+        className="px-2.5 py-1 bg-white hover:bg-purple-600 hover:text-white text-[10px] font-extrabold text-purple-700 rounded-xl border border-purple-200 transition cursor-pointer shadow-2xs"
+      >
+        {isRu ? "+1 день" : "+1 күн"}
+      </button>
+      <button
+        type="button"
+        onClick={() => applyQuickPreset(3, 23, 59)}
+        className="px-2.5 py-1 bg-white hover:bg-purple-600 hover:text-white text-[10px] font-extrabold text-purple-700 rounded-xl border border-purple-200 transition cursor-pointer shadow-2xs"
+      >
+        {isRu ? "+3 дня" : "+3 күн"}
+      </button>
+    </div>
+  </div>
 
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {/* Ашылуы */}
+    <CustomDatePicker
+      label={isRu ? "Открытие ученикам" : "Оқушыларға ашылуы"}
+      value={taskForm.availableAt}
+      onChange={(val) => setTaskForm({ ...taskForm, availableAt: val })}
+      color="purple"
+      isRu={isRu}
+    />
+
+    {/* Дедлайн */}
+    <CustomDatePicker
+      label={isRu ? "Дедлайн сдачи" : "Дедлайн (Соңғы сәт)"}
+      value={taskForm.deadlineAt}
+      onChange={(val) => setTaskForm({ ...taskForm, deadlineAt: val })}
+      color="rose"
+      isRu={isRu}
+    />
+  </div>
+</div>
               <div>
                 <label className="block text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
                   <Video size={13} /> {isRu ? "Ссылка на видео (YouTube / Loom)" : "Видео Сілтемесі (YouTube / Loom)"}
@@ -485,7 +508,7 @@ export default function AdminTasksPage({ params }) {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-40 cursor-pointer"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {saving

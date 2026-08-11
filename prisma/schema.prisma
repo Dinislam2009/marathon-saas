@@ -112,10 +112,13 @@ model Student {
   marathon         Marathon      @relation(fields: [marathonId], references: [id], onDelete: Cascade)
   user             User?         @relation(fields: [userId], references: [id])
   submissions      Submission[]
+  managerId     String?  // 👈 Осы жолды қосыңыз
+  paymentStatus String?  @default("PAID") // 👈 Осы жолды қосыңыз
 
   @@index([marathonId])
   @@index([curatorId])
   @@index([groupId])
+  
 }
 
 model Task {
@@ -224,6 +227,9 @@ model Announcement {
 enum Role {
   OWNER
   ORGANIZER
+  MANAGER     // 👈 Менеджер (Оқушы қосу, сату, төлемдер)
+  TEACHER     // 👈 Мұғалім (Тапсырмалар, контент, сабақтар)
+  BASCURATOR  // 👈 Бас куратор (Кураторлар мен топтарды бақылау)
   CURATOR
   PARTICIPANT
 }
