@@ -47,7 +47,7 @@ app/
   page.js                 # Демо рөл таңдау беті
   globals.css             # Tailwind v4 @theme токендері
 
-  super-admin/
+  owner/
     layout.js / page.js   # Ұйымдастырушыларды қосу/бұғаттау, MRR
 
   org/[orgId]/

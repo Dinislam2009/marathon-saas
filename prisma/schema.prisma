@@ -19,10 +19,10 @@ model User {
   role         Role        @default(PARTICIPANT)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  mentor       Mentor?
   organizer    Organizer?
   pendingOtp   PendingOtp?
   student      Student?
+  curator      curator?
 }
 
 model Organizer {
@@ -39,56 +39,83 @@ model Organizer {
   chatMessages       ChatMessage[]
   invitations        Invitation[]
   marathons          Marathon[]
-  mentors            Mentor[]
   user               User?              @relation(fields: [userId], references: [id])
+  curators           curator[]
 }
 
 model Marathon {
-  id           String         @id @default(uuid())
-  title        String
-  description  String?
-  durationDays Int            @default(21)
-  startDate    DateTime
-  status       MarathonStatus @default(ACTIVE)
-  createdAt    DateTime       @default(now())
-  organizerId  String
-  invitations  Invitation[]
-  organizer    Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  students     Student[]
-  tasks        Task[]
+  id            String         @id @default(uuid())
+  title         String
+  description   String?
+  durationDays  Int            @default(21)
+  startDate     DateTime
+  status        MarathonStatus @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  organizerId   String
+  announcements Announcement[]
+  groups        Group[]
+  invitations   Invitation[]
+  organizer     Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  students      Student[]
+  tasks         Task[]
+  curators      curator[]      @relation("MarathonTocurator")
 }
 
-model Mentor {
-  id          String    @id @default(uuid())
-  userId      String?   @unique
+model Group {
+  id            String         @id @default(uuid())
+  name          String
+  maxSize       Int            @default(30)
+  createdAt     DateTime       @default(now())
+  marathonId    String
+  curatorId     String?        @unique
+  announcements Announcement[]
+  curator       curator?       @relation(fields: [curatorId], references: [id])
+  marathon      Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  students      Student[]
+}
+
+model curator {
+  id          String     @id @default(uuid())
+  userId      String?    @unique
   name        String
   email       String
   phone       String
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime   @default(now())
   organizerId String
-  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  user        User?     @relation(fields: [userId], references: [id])
+  group       Group?
   students    Student[]
+  organizer   Organizer  @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  user        User?      @relation(fields: [userId], references: [id])
+  marathons   Marathon[] @relation("MarathonTocurator")
 }
 
 model Student {
-  id           String        @id @default(uuid())
-  userId       String?       @unique
-  name         String
-  email        String
-  phone        String?
-  points       Int           @default(0)
-  status       StudentStatus @default(ACTIVE)
-  joinedAt     DateTime      @default(now())
-  marathonId   String
-  mentorId     String?
-  chatMessages ChatMessage[]
-  habits       Habit[]
-  matrixTasks  MatrixTask[]
-  marathon     Marathon      @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-  mentor       Mentor?       @relation(fields: [mentorId], references: [id])
-  user         User?         @relation(fields: [userId], references: [id])
-  submissions  Submission[]
+  id               String        @id @default(uuid())
+  userId           String?       @unique
+  name             String
+  email            String
+  phone            String?
+  targetUniversity String?       @default("КБТУ")
+  targetMajor      String?       @default("ВТиПО")
+  targetScore      Int?          @default(135)
+  points           Int           @default(0)
+  status           StudentStatus @default(ACTIVE)
+  joinedAt         DateTime      @default(now())
+  marathonId       String
+  groupId          String?
+  curatorId        String?
+  chatMessages     ChatMessage[]
+  habits           Habit[]
+  matrixTasks      MatrixTask[]
+  curator          curator?      @relation(fields: [curatorId], references: [id])
+  group            Group?        @relation(fields: [groupId], references: [id])
+  marathon         Marathon      @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  user             User?         @relation(fields: [userId], references: [id])
+  submissions      Submission[]
+
+  @@index([marathonId])
+  @@index([curatorId])
+  @@index([groupId])
 }
 
 model Task {
@@ -97,14 +124,16 @@ model Task {
   title            String
   videoUrl         String?
   content          String?
-  fileUrls         String[]         // <--- МІНЕ, ЕНДІ БІРНЕШЕ ФАЙЛДЫҢ СІЛТЕМЕСІН МАССИВ РЕТІНДЕ САҚТАЙДЫ
+  fileUrls         String[]
+  points           Int              @default(10)
   verificationType VerificationType @default(TEST)
   status           TaskStatus       @default(DRAFT)
   createdAt        DateTime         @default(now())
   marathonId       String
+  submissions      Submission[]
   marathon         Marathon         @relation(fields: [marathonId], references: [id], onDelete: Cascade)
 
-  @@unique([marathonId, dayNumber])
+  @@index([marathonId])
 }
 
 model Submission {
@@ -112,12 +141,15 @@ model Submission {
   dayNumber   Int
   status      SubmissionStatus @default(PENDING)
   checklist   Json             @default("{\"video\": false, \"routine\": false, \"homework\": false}")
-  fileUrl     String?          // <--- МІНЕ, ОСЫ ӨРІСТІ ҚОСАМЫЗ (Сурет/файл сілтемесі)
+  fileUrl     String?
   submittedAt DateTime?
   studentId   String
+  taskId      String?
   student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task        Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, dayNumber])
+  @@index([studentId])
+  @@index([taskId])
 }
 
 model Invitation {
@@ -176,6 +208,19 @@ model PendingOtp {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model Announcement {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  authorRole String
+  authorName String
+  marathonId String
+  groupId    String?
+  createdAt  DateTime @default(now())
+  group      Group?   @relation(fields: [groupId], references: [id])
+  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+}
+
 enum Role {
   OWNER
   ORGANIZER
@@ -214,12 +259,14 @@ enum TaskStatus {
 enum SubmissionStatus {
   PENDING
   SUBMITTED
+  APPROVED
+  REJECTED
   MISSED
 }
 
 enum InvitationRole {
   STUDENT
-  MENTOR
+  curator
 }
 
 enum InviteStatus {

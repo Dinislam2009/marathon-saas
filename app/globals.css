@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Smooth scroll & base styling */
+html {
+  scroll-behavior: smooth;
+}
+
 /*
   Design tokens.
   Brand accent switched to the "Loopit" purple per stakeholder decision.
