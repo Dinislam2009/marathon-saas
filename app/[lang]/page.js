@@ -247,20 +247,16 @@ export default function LandingPage() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+useEffect(() => {
+  if (typeof window === "undefined") return;
 
-    const savedUserId = localStorage.getItem("current_user_id");
-    if (savedUserId) {
-      const getUserFn = actions.getCurrentUserAction || actions.getCurrentUser;
-      if (typeof getUserFn === "function") {
-        getUserFn(savedUserId)
-          .then((user) => setLoggedIn(Boolean(user)))
-          .catch(() => setLoggedIn(false));
-      }
-    }
-  }, []);
-
+  const savedUserId = localStorage.getItem("current_user_id");
+  if (savedUserId && typeof actions.getCurrentUser === "function") {
+    actions.getCurrentUser(savedUserId)
+      .then((user) => setLoggedIn(Boolean(user)))
+      .catch(() => setLoggedIn(false));
+  }
+}, []);
   const handleToggleLanguage = () => {
     const nextLang = isRu ? "kk" : "ru";
     if (changeLanguage) {

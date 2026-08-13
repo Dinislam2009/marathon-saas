@@ -13,30 +13,25 @@ export default function OwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const getMetricsFn =
-          actions.getOwnerGlobalMetrics || actions.getOwnerGlobalMetricsAction;
-        let res = null;
+useEffect(() => {
+  async function loadData() {
+    setLoading(true);
+    try {
+      // Тек actions.js ішінде бар нақты функцияны шақырамыз
+      const res = await actions.getOwnerGlobalMetrics();
 
-        if (typeof getMetricsFn === "function") {
-          res = await getMetricsFn();
-        }
-
-        if (res?.ok) {
-          setData(res);
-        }
-      } catch (err) {
-        console.error("Owner metrics load error:", err);
-      } finally {
-        setLoading(false);
+      if (res?.ok) {
+        setData(res);
       }
+    } catch (err) {
+      console.error("Owner metrics load error:", err);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    loadData();
-  }, []);
+  loadData();
+}, []);
 
   if (loading) return <LoadingState />;
 

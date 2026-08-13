@@ -10,14 +10,17 @@ const safeJson = (data) => JSON.parse(JSON.stringify(data));
 // --- КӨМЕКШІ (HELPER) ФУНКЦИЯЛАР ---------
 // ==========================================
 
-function formatPhone(phone) {
-  if (!phone) return "—";
+function formatPhoneToDbStyle(phone) {
+  if (!phone) return "";
   const cleaned = String(phone).replace(/\D/g, "");
-  if (cleaned.length === 11) {
-    return `+7 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7, 9)}-${cleaned.slice(9, 11)}`;
-  }
-  if (cleaned.length === 10) {
-    return `+7 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 8)}-${cleaned.slice(8, 10)}`;
+  const last10 = cleaned.length >= 10 ? cleaned.slice(-10) : cleaned;
+  
+  if (last10.length === 10) {
+    const code = last10.slice(0, 3);
+    const p1 = last10.slice(3, 6);
+    const p2 = last10.slice(6, 8);
+    const p3 = last10.slice(8, 10);
+    return `+7 (${code}) ${p1}-${p2}-${p3}`;
   }
   return phone;
 }
@@ -54,13 +57,14 @@ export async function registerUser(fields) {
   try {
     const { firstName, lastName, email, phone, password } = fields || {};
     const formattedEmail = email ? String(email).trim().toLowerCase() : "";
-    const formattedPhone = phone ? String(phone).trim() : "";
+    const rawPhone = phone ? String(phone).trim() : "";
+    const dbPhone = formatPhoneToDbStyle(rawPhone);
 
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
           ...(formattedEmail ? [{ email: formattedEmail }] : []),
-          ...(formattedPhone ? [{ phone: formattedPhone }] : []),
+          ...(rawPhone ? [{ phone: rawPhone }, { phone: dbPhone }] : []),
         ],
       },
       select: { id: true },
@@ -75,7 +79,7 @@ export async function registerUser(fields) {
         firstName,
         lastName,
         email: formattedEmail,
-        phone: formattedPhone,
+        phone: dbPhone || rawPhone,
         passwordHash: String(password),
         role: "PARTICIPANT",
       },
@@ -86,9 +90,9 @@ export async function registerUser(fields) {
     await prisma.pendingOtp.create({
       data: {
         userId: newUser.id,
-        phone: formattedPhone,
+        phone: newUser.phone,
         code: generatedCode,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 минут
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       },
     });
 
@@ -174,21 +178,76 @@ export async function verifyOtpAction(uid, code) {
 }
 
 export async function loginUser(identifier, password) {
-  const res = await auth.loginUser(identifier, password);
-  return safeJson(res);
+  try {
+    const rawInput = (identifier || "").trim();
+    if (!rawInput || !password) {
+      return { ok: false, error: "Мәліметтерді толық толтырыңыз." };
+    }
+
+    const dbFormattedPhone = formatPhoneToDbStyle(rawInput);
+    const cleanDigits = rawInput.replace(/\D/g, "");
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: rawInput.toLowerCase() },
+          { phone: rawInput },
+          { phone: dbFormattedPhone },
+          ...(cleanDigits ? [{ phone: { contains: cleanDigits.slice(-10) } }] : []),
+        ],
+      },
+    });
+
+    if (!user) {
+      return { ok: false, error: "Пайдаланушы табылмады." };
+    }
+
+    if (user.passwordHash !== String(password)) {
+      return { ok: false, error: "Құпия сөз қате!" };
+    }
+
+    return {
+      ok: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    };
+  } catch (error) {
+    console.error("loginUser error:", error);
+    return { ok: false, error: "Серверде ішкі қате орын алды." };
+  }
+}
+
+export async function getCurrentUser(userId) {
+  if (!userId) return null;
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        role: true,
+        verified: true,
+      },
+    });
+    return safeJson(user);
+  } catch (error) {
+    console.error("getCurrentUser error:", error);
+    return null;
+  }
 }
 
 export async function getCurrentUserAction(userId) {
-  if (!userId) return null;
-  const authUser = await validateSession();
-  if (!authUser) return null;
-
-  if (!["ORGANIZER", "OWNER", "CURATOR"].includes(authUser.role) && authUser.id !== userId) {
-    return null;
-  }
-
-  const user = await auth.getUser(userId);
-  return safeJson(user);
+  return getCurrentUser(userId);
 }
 
 export async function logoutAction() {
@@ -232,7 +291,7 @@ export async function getOwnerGlobalMetrics() {
         totalOrganizations,
         totalMarathons,
         totalStudents,
-        mrr: totalOrganizations * 150, // Болжалды есеп
+        mrr: totalOrganizations * 150,
       },
       recentOrganizations: formattedOrgs,
     };
@@ -240,6 +299,10 @@ export async function getOwnerGlobalMetrics() {
     console.error("getOwnerGlobalMetrics error:", error);
     return { ok: false, error: error.message };
   }
+}
+
+export async function getOwnerGlobalMetricsAction() {
+  return getOwnerGlobalMetrics();
 }
 
 export async function getAllOrganizersAction() {
@@ -494,6 +557,61 @@ export async function createMarathon(data) {
   }
 }
 
+export async function createMarathonAction(data) {
+  return createMarathon(data);
+}
+
+export async function updateMarathonAction(marathonId, data) {
+  try {
+    if (!marathonId) {
+      return { ok: false, error: "Марафон ID-і көрсетілмеген!" };
+    }
+
+    const { title, description, startDate, durationDays, status } = data || {};
+
+    const updatedMarathon = await prisma.marathon.update({
+      where: { id: String(marathonId) },
+      data: {
+        ...(title ? { title: title.trim() } : {}),
+        ...(description !== undefined ? { description: description?.trim() || null } : {}),
+        ...(startDate ? { startDate: new Date(startDate) } : {}),
+        ...(durationDays ? { durationDays: Number(durationDays) } : {}),
+        ...(status ? { status } : {}),
+      },
+    });
+
+    revalidatePath("/org/admin");
+    return { ok: true, marathon: updatedMarathon };
+  } catch (error) {
+    console.error("updateMarathonAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function updateMarathon(marathonId, data) {
+  return updateMarathonAction(marathonId, data);
+}
+
+export async function deleteMarathonAction(marathonId) {
+  try {
+    if (!marathonId) return { ok: false, error: "Марафон ID-і көрсетілмеген!" };
+
+    await prisma.marathon.delete({
+      where: { id: String(marathonId) },
+    });
+
+    revalidatePath("/org/admin");
+    return { ok: true };
+  } catch (error) {
+    console.error("deleteMarathonAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function deleteMarathon(marathonId) {
+  return deleteMarathonAction(marathonId);
+}
+
 // ==========================================
 // --- ТАПСЫРМАЛАР (TASKS & SUBMISSIONS) ----
 // ==========================================
@@ -511,6 +629,93 @@ export async function getTasksByMarathon(marathonId) {
     console.error("getTasksByMarathon error:", error);
     return [];
   }
+}
+
+export async function getTasksByMarathonId(marathonId) {
+  return getTasksByMarathon(marathonId);
+}
+
+export async function getTasksByMarathonIdAction(marathonId) {
+  return getTasksByMarathon(marathonId);
+}
+
+export async function saveTaskAction(data, dayNum, fieldsData) {
+  try {
+    let marathonId, dayNumber, fields;
+
+    if (typeof data === "object" && data !== null && !dayNum) {
+      marathonId = data.marathonId;
+      dayNumber = data.dayNumber;
+      fields = data;
+    } else {
+      marathonId = data;
+      dayNumber = dayNum;
+      fields = fieldsData;
+    }
+
+    if (!marathonId || dayNumber === undefined || dayNumber === null) {
+      return { ok: false, error: "Марафон ID және күн нөмірін көрсетіңіз!" };
+    }
+
+    const { title, content, videoUrl, verificationType } = fields || {};
+
+    const task = await prisma.task.upsert({
+      where: {
+        marathonId_dayNumber: {
+          marathonId: String(marathonId),
+          dayNumber: Number(dayNumber),
+        },
+      },
+      update: {
+        title: title || `Day ${dayNumber}`,
+        content,
+        videoUrl,
+        verificationType: verificationType || "TEST",
+      },
+      create: {
+        marathonId: String(marathonId),
+        dayNumber: Number(dayNumber),
+        title: title || `Day ${dayNumber}`,
+        content,
+        videoUrl,
+        verificationType: verificationType || "TEST",
+      },
+    });
+
+    revalidatePath("/org/admin/tasks");
+    return safeJson({ ok: true, task });
+  } catch (error) {
+    console.error("saveTaskAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function saveTask(data, dayNum, fieldsData) {
+  return saveTaskAction(data, dayNum, fieldsData);
+}
+
+export async function upsertTask(marathonId, dayNumber, fields) {
+  return saveTaskAction(marathonId, dayNumber, fields);
+}
+
+export async function deleteTask(taskId) {
+  try {
+    if (!taskId) return { ok: false, error: "Тапсырма ID көрсетілмеген!" };
+
+    await prisma.task.delete({
+      where: { id: String(taskId) },
+    });
+
+    revalidatePath("/org/admin/tasks");
+    return { ok: true };
+  } catch (error) {
+    console.error("deleteTask error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function deleteTaskAction(taskId) {
+  return deleteTask(taskId);
 }
 
 export async function submitTaskAction({ studentId, taskId, dayNumber, fileUrl, checklist }) {
@@ -561,6 +766,185 @@ export async function submitTaskAction({ studentId, taskId, dayNumber, fileUrl, 
   } catch (error) {
     console.error("submitTaskAction error:", error);
     return { ok: false, error: error.message };
+  }
+}
+
+// ==========================================
+// --- ТОПТАРМЕН ЖӘНЕ ОҚУШЫЛАРМЕН ЖҰМЫС -----
+// ==========================================
+
+export async function assignStudentToGroupAction(studentId, groupId) {
+  try {
+    if (!studentId) return { ok: false, error: "Оқушы ID-і көрсетілмеген!" };
+
+    await prisma.student.update({
+      where: { id: String(studentId) },
+      data: { groupId: groupId ? String(groupId) : null },
+    });
+
+    revalidatePath("/org/admin/groups");
+    return { ok: true };
+  } catch (error) {
+    console.error("assignStudentToGroupAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function removeStudentFromGroupAction(studentId) {
+  try {
+    if (!studentId) return { ok: false, error: "Оқушы ID-і көрсетілмеген!" };
+
+    await prisma.student.update({
+      where: { id: String(studentId) },
+      data: { groupId: null },
+    });
+
+    revalidatePath("/org/admin/groups");
+    return { ok: true };
+  } catch (error) {
+    console.error("removeStudentFromGroupAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function createGroupAction(data) {
+  try {
+    const { name, marathonId, curatorId } = data || {};
+    if (!name?.trim() || !marathonId) {
+      return { ok: false, error: "Топ атауын және марафонды таңдаңыз!" };
+    }
+
+    const group = await prisma.group.create({
+      data: {
+        name: name.trim(),
+        marathonId: String(marathonId),
+        curatorId: curatorId ? String(curatorId) : null,
+      },
+    });
+
+    revalidatePath("/org/admin/groups");
+    return { ok: true, group };
+  } catch (error) {
+    console.error("createGroupAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function updateGroupAction(groupId, data) {
+  try {
+    const { name, curatorId } = data || {};
+    await prisma.group.update({
+      where: { id: String(groupId) },
+      data: {
+        ...(name ? { name: name.trim() } : {}),
+        curatorId: curatorId !== undefined ? (curatorId ? String(curatorId) : null) : undefined,
+      },
+    });
+
+    revalidatePath("/org/admin/groups");
+    return { ok: true };
+  } catch (error) {
+    console.error("updateGroupAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function deleteGroupAction(groupId) {
+  try {
+    if (!groupId) return { ok: false, error: "Топ ID-і көрсетілмеген!" };
+
+    await prisma.student.updateMany({
+      where: { groupId: String(groupId) },
+      data: { groupId: null },
+    });
+
+    await prisma.group.delete({
+      where: { id: String(groupId) },
+    });
+
+    revalidatePath("/org/admin/groups");
+    return { ok: true };
+  } catch (error) {
+    console.error("deleteGroupAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function getUnassignedStudentsAction(marathonId) {
+  try {
+    const students = await prisma.student.findMany({
+      where: {
+        marathonId: marathonId ? String(marathonId) : undefined,
+        groupId: null,
+      },
+      select: { id: true, name: true, email: true, phone: true },
+    });
+    return { ok: true, students };
+  } catch (error) {
+    console.error("getUnassignedStudentsAction error:", error);
+    return { ok: false, students: [] };
+  }
+}
+
+export async function autoDistributeStudentsAction(marathonId) {
+  try {
+    if (!marathonId) return { ok: false, error: "Марафон ID-і көрсетілмеген!" };
+
+    const groups = await prisma.group.findMany({
+      where: { marathonId: String(marathonId) },
+      select: { id: true },
+    });
+
+    if (groups.length === 0) {
+      return { ok: false, error: "Авто-бөлу үшін алдымен кемінде 1 топ құру қажет!" };
+    }
+
+    const unassignedStudents = await prisma.student.findMany({
+      where: {
+        marathonId: String(marathonId),
+        groupId: null,
+      },
+      select: { id: true },
+    });
+
+    if (unassignedStudents.length === 0) {
+      return { ok: false, error: "Топқа бөлінбеген оқушылар табылмады." };
+    }
+
+    const updatePromises = unassignedStudents.map((student, index) => {
+      const targetGroup = groups[index % groups.length];
+      return prisma.student.update({
+        where: { id: student.id },
+        data: { groupId: targetGroup.id },
+      });
+    });
+
+    await Promise.all(updatePromises);
+
+    revalidatePath("/org/admin/groups");
+    return { ok: true, count: unassignedStudents.length };
+  } catch (error) {
+    console.error("autoDistributeStudentsAction error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function getcuratorsByOrgId(orgId) {
+  try {
+    let targetOrgId = orgId;
+    if (!targetOrgId || targetOrgId === "orgId" || targetOrgId === "undefined") {
+      const firstOrg = await prisma.organizer.findFirst({ select: { id: true } });
+      targetOrgId = firstOrg?.id;
+    }
+
+    const curators = await prisma.curator.findMany({
+      where: targetOrgId ? { organizerId: String(targetOrgId) } : {},
+      select: { id: true, name: true, email: true, phone: true },
+    });
+    return safeJson(curators);
+  } catch (error) {
+    console.error("getcuratorsByOrgId error:", error);
+    return [];
   }
 }
 
@@ -623,6 +1007,7 @@ export async function checkStudentForMarathonAction(value, isEmail) {
         select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true },
       });
     } else {
+      const dbFormattedPhone = formatPhoneToDbStyle(formatted);
       const cleanDigits = formatted.replace(/\D/g, "");
       const last10Digits = cleanDigits.slice(-10);
 
@@ -630,6 +1015,7 @@ export async function checkStudentForMarathonAction(value, isEmail) {
         where: {
           OR: [
             { phone: formatted },
+            { phone: dbFormattedPhone },
             { phone: cleanDigits },
             { phone: `+${cleanDigits}` },
             ...(last10Digits.length === 10 ? [{ phone: { contains: last10Digits } }] : []),
@@ -787,7 +1173,7 @@ export async function getGroupsAction(orgId) {
 }
 
 // ==========================================
-// --- DATA CONTEXT & OTHER ACTIONS ---------
+// --- МҮМКІНДІКТЕР ЖӘНЕ ҚОСЫМША -------------
 // ==========================================
 
 export async function addHabit(studentId, title) {
@@ -944,21 +1330,6 @@ export async function addStudentToMarathon(marathonId, fields) {
   }
 }
 
-export async function upsertTask(marathonId, dayNumber, fields) {
-  try {
-    const { title, content, videoUrl, verificationType } = fields || {};
-    const task = await prisma.task.upsert({
-      where: { marathonId_dayNumber: { marathonId, dayNumber: Number(dayNumber) } },
-      update: { title: title || `Day ${dayNumber}`, content, videoUrl, verificationType: verificationType || "TEST" },
-      create: { marathonId, dayNumber: Number(dayNumber), title: title || `Day ${dayNumber}`, content, videoUrl, verificationType: verificationType || "TEST" },
-    });
-    revalidatePath("/");
-    return safeJson({ ok: true, task });
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
-}
-
 export async function setStudentStatus(studentId, status) {
   try {
     if (studentId) await prisma.student.update({ where: { id: studentId }, data: { status: status || "ACTIVE" } });
@@ -1036,7 +1407,160 @@ export async function getMarathons() {
     return [];
   }
 }
+// ==========================================
+// --- КУРАТОРЛАРДЫ ТЕКСЕРУ ЖӘНЕ БАСҚАРУ ----
+// ==========================================
 
-export async function createMarathonAction(data) {
-  return createMarathon(data);
+export async function checkcurator(value, isEmail) {
+  try {
+    if (!value || typeof value !== "string") {
+      return { status: "not_found", message: "Енгізілген мәлімет дұрыс емес" };
+    }
+
+    const formatted = value.trim();
+    let user = null;
+
+    if (isEmail) {
+      user = await prisma.user.findFirst({
+        where: { email: { equals: formatted.toLowerCase(), mode: "insensitive" } },
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true },
+      });
+    } else {
+      const dbFormattedPhone = formatPhoneToDbStyle(formatted);
+      const cleanDigits = formatted.replace(/\D/g, "");
+      const last10Digits = cleanDigits.slice(-10);
+
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phone: formatted },
+            { phone: dbFormattedPhone },
+            { phone: cleanDigits },
+            { phone: `+${cleanDigits}` },
+            ...(last10Digits.length === 10 ? [{ phone: { contains: last10Digits } }] : []),
+          ],
+        },
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true },
+      });
+    }
+
+    if (!user) {
+      return { 
+        status: "not_found", 
+        message: "Пайдаланушы базада табылмады! Тек платформада тіркелген қолданушыларды куратор етіп тағайындауға болады." 
+      };
+    }
+
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Пайдаланушы";
+
+    // Куратор етіп бұрыннан куратор, оқушы немесе қатысушы рөліндегілерді тағайындауға болады
+    const existingCurator = await prisma.curator.findFirst({
+      where: { email: user.email },
+      select: { id: true },
+    });
+
+    if (existingCurator) {
+      return {
+        status: "already_curator",
+        message: "Бұл пайдаланушы бұрыннан куратор болып тіркелген!",
+        user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+      };
+    }
+
+    return {
+      status: "ready",
+      user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
+    };
+  } catch (err) {
+    console.error("checkcurator error:", err);
+    return { status: "not_found", message: `Сервер қатесі: ${err.message}` };
+  }
+}
+
+// Егер басқа стильде шақырылса:
+export async function checkCuratorAction(value, isEmail) {
+  return checkcurator(value, isEmail);
+}
+export async function checkCurator(value, isEmail) {
+  return checkcurator(value, isEmail);
+}
+// ==========================================
+// --- КУРАТОРДЫ ӨШІРУ (DELETE CURATOR) ----
+// ==========================================
+
+export async function deletecurator(curatorId) {
+  try {
+    if (!curatorId) {
+      return { ok: false, error: "Куратор ID-і көрсетілмеген!" };
+    }
+
+    // 1. Осы кураторға байланған оқушыларды босату
+    await prisma.student.updateMany({
+      where: { curatorId: String(curatorId) },
+      data: { curatorId: null },
+    });
+
+    // 2. Осы кураторға байланған топтарды босату
+    await prisma.group.updateMany({
+      where: { curatorId: String(curatorId) },
+      data: { curatorId: null },
+    });
+
+    // 3. Кураторды өшіру
+    await prisma.curator.delete({
+      where: { id: String(curatorId) },
+    });
+
+    revalidatePath("/org/admin/curators");
+    return { ok: true };
+  } catch (error) {
+    console.error("deletecurator error:", error);
+    return { ok: false, error: error.message || "Кураторды өшіру кезінде қате орын алды" };
+  }
+}
+
+// Басқа әріп комбинациясында шақырылса:
+export async function deleteCurator(curatorId) {
+  return deletecurator(curatorId);
+}
+
+export async function deleteCuratorAction(curatorId) {
+  return deletecurator(curatorId);
+}
+// ==========================================
+// --- КУРАТОР МАРАФОНДАРЫН ЖАҢАРТУ --------
+// ==========================================
+
+export async function updatecuratorMarathons(curatorId, marathonIds) {
+  try {
+    if (!curatorId) {
+      return { ok: false, error: "Куратор ID-і көрсетілмеген!" };
+    }
+
+    const ids = Array.isArray(marathonIds) ? marathonIds : [marathonIds].filter(Boolean);
+
+    await prisma.curator.update({
+      where: { id: String(curatorId) },
+      data: {
+        marathons: {
+          set: ids.map((id) => ({ id: String(id) })),
+        },
+      },
+    });
+
+    revalidatePath("/org/admin/curators");
+    return { ok: true };
+  } catch (error) {
+    console.error("updatecuratorMarathons error:", error);
+    return { ok: false, error: error.message || "Куратор марафондарын жаңарту кезінде қате шықты" };
+  }
+}
+
+// Басқа регистрде / стильде шақырылса да жұмыс істеуі үшін:
+export async function updateCuratorMarathons(curatorId, marathonIds) {
+  return updatecuratorMarathons(curatorId, marathonIds);
+}
+
+export async function updateCuratorMarathonsAction(curatorId, marathonIds) {
+  return updatecuratorMarathons(curatorId, marathonIds);
 }
