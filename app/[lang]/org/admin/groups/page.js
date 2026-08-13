@@ -16,7 +16,9 @@ import LoadingState from "@/components/LoadingState";
 export default function OrganizerGroupsPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
-  const { orgId } = use(params);
+  
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -57,6 +59,7 @@ export default function OrganizerGroupsPage({ params }) {
 
   // Деректерді жүктеу
   const fetchData = useCallback(async () => {
+    if (!orgId) return;
     setLoading(true);
     try {
       const marathonsList = await getMarathonsByOrgId(orgId);
@@ -105,7 +108,7 @@ export default function OrganizerGroupsPage({ params }) {
     setActiveDrawerGroup(group);
     if (group.marathonId) {
       const res = await getUnassignedStudentsAction(group.marathonId);
-      if (res.ok) setUnassignedStudents(res.students || []);
+      if (res?.ok) setUnassignedStudents(res.students || []);
     }
   };
 
@@ -114,13 +117,13 @@ export default function OrganizerGroupsPage({ params }) {
     if (!selectedStudentToAdd || !activeDrawerGroup || addingStudent) return;
     setAddingStudent(true);
     const res = await assignStudentToGroupAction(selectedStudentToAdd, activeDrawerGroup.id);
-    if (res.ok) {
+    if (res?.ok) {
       setSelectedStudentToAdd("");
       await fetchData();
       const unassignedRes = await getUnassignedStudentsAction(activeDrawerGroup.marathonId);
-      if (unassignedRes.ok) setUnassignedStudents(unassignedRes.students || []);
+      if (unassignedRes?.ok) setUnassignedStudents(unassignedRes.students || []);
     } else {
-      alert((isRu ? "Ошибка: " : "Қате: ") + res.error);
+      alert((isRu ? "Ошибка: " : "Қате: ") + res?.error);
     }
     setAddingStudent(false);
   };
@@ -128,14 +131,14 @@ export default function OrganizerGroupsPage({ params }) {
   // Оқушыны топтан шығару
   const handleRemoveStudent = async (studentId) => {
     const res = await removeStudentFromGroupAction(studentId);
-    if (res.ok) {
+    if (res?.ok) {
       await fetchData();
       if (activeDrawerGroup) {
         const unassignedRes = await getUnassignedStudentsAction(activeDrawerGroup.marathonId);
-        if (unassignedRes.ok) setUnassignedStudents(unassignedRes.students || []);
+        if (unassignedRes?.ok) setUnassignedStudents(unassignedRes.students || []);
       }
     } else {
-      alert((isRu ? "Ошибка: " : "Қате: ") + res.error);
+      alert((isRu ? "Ошибка: " : "Қате: ") + res?.error);
     }
   };
 
@@ -174,7 +177,7 @@ export default function OrganizerGroupsPage({ params }) {
         setShowEditModal(false);
         await fetchData();
       } else {
-        alert((isRu ? "Ошибка: " : "Қате: ") + res.error);
+        alert((isRu ? "Ошибка: " : "Қате: ") + res?.error);
       }
     } catch (err) {
       console.error("Update group error:", err);
@@ -198,7 +201,7 @@ export default function OrganizerGroupsPage({ params }) {
         alert(res.message);
         await fetchData();
       } else {
-        alert((isRu ? "Ошибка: " : "Қате: ") + res.error);
+        alert((isRu ? "Ошибка: " : "Қате: ") + res?.error);
       }
     } catch (err) {
       console.error("Auto distribute error:", err);
@@ -259,7 +262,7 @@ export default function OrganizerGroupsPage({ params }) {
             onChange={(e) => setSelectedMarathonFilter(e.target.value)}
             className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-purple-600 transition cursor-pointer"
           >
-            <option value="ALL">{isRu ? "Барлық марафондар" : "Барлық марафондар"}</option>
+            <option value="ALL">{isRu ? "Все марафоны" : "Барлық марафондар"}</option>
             {marathons.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.title}

@@ -29,18 +29,20 @@ export default function AddStudentPage() {
   useEffect(() => {
     async function initData() {
       try {
-        let orgId = localStorage.getItem("current_org_id");
+        const orgId = typeof window !== "undefined" ? localStorage.getItem("current_org_id") : null;
 
-        if (typeof actions.getMarathonsByOrgId === "function") {
-          const mList = await actions.getMarathonsByOrgId(orgId);
+        const getMarathonsFn = actions.getMarathonsByOrgId || actions.getMarathonsAction;
+        if (typeof getMarathonsFn === "function" && orgId) {
+          const mList = await getMarathonsFn(orgId);
           setMarathons(mList || []);
         }
 
-        if (typeof actions.getGroupsAction === "function") {
-          const gList = await actions.getGroupsAction(orgId);
+        const getGroupsFn = actions.getGroupsAction || actions.getGroupsByOrgId;
+        if (typeof getGroupsFn === "function" && orgId) {
+          const gList = await getGroupsFn(orgId);
           setGroups(gList || []);
-        } else {
-          const res = await fetch(`/api/org/groups?orgId=${orgId || ""}`);
+        } else if (orgId) {
+          const res = await fetch(`/api/org/groups?orgId=${orgId}`);
           const json = await res.json();
           if (json.ok || Array.isArray(json.groups)) {
             setGroups(json.groups || []);
@@ -72,8 +74,10 @@ export default function AddStudentPage() {
 
     try {
       const isEmail = value.includes("@") || /[a-zA-Z]/.test(value);
-      if (typeof actions.checkStudentForMarathonAction === "function") {
-        const res = await actions.checkStudentForMarathonAction(value.trim(), isEmail);
+      const checkFn = actions.checkStudentForMarathonAction || actions.checkStudent;
+
+      if (typeof checkFn === "function") {
+        const res = await checkFn(value.trim(), isEmail);
 
         if (res?.status === "not_found") {
           setStatus("not_found");
@@ -129,7 +133,7 @@ export default function AddStudentPage() {
     }
 
     const isEmail = val.includes("@") || /[a-zA-Z]/.test(val);
-    let formattedVal = isEmail ? val : formatPhoneNumber(val);
+    const formattedVal = isEmail ? val : formatPhoneNumber(val);
     setContactInput(formattedVal);
 
     scheduleVerify(formattedVal);
@@ -142,13 +146,13 @@ export default function AddStudentPage() {
       return;
     }
 
-    if (status !== "ready") return;
+    if (status !== "ready" || !foundUser) return;
 
     setLoading(true);
     setSubmitError("");
 
     try {
-      const managerId = localStorage.getItem("current_user_id");
+      const managerId = typeof window !== "undefined" ? localStorage.getItem("current_user_id") : null;
 
       const payload = {
         marathonId: selectedMarathon,
@@ -162,8 +166,9 @@ export default function AddStudentPage() {
         managerId,
       };
 
-      if (typeof actions.addStudentToMarathonAction === "function") {
-        const res = await actions.addStudentToMarathonAction(payload);
+      const addFn = actions.addStudentToMarathonAction || actions.addStudentToMarathon;
+      if (typeof addFn === "function") {
+        const res = await addFn(payload);
         if (res?.ok) {
           setSuccess(true);
           setContactInput("");
@@ -177,7 +182,7 @@ export default function AddStudentPage() {
       }
     } catch (err) {
       console.error(err);
-      setSubmitError(err.message || "Error");
+      setSubmitError(err?.message || "Error");
     } finally {
       setLoading(false);
     }
@@ -185,7 +190,7 @@ export default function AddStudentPage() {
 
   const availableGroups = groups.filter((g) => {
     if (!selectedMarathon) return true;
-    return !g.marathonId || g.marathonId === selectedMarathon;
+    return !g.marathonId || String(g.marathonId) === String(selectedMarathon);
   });
 
   return (

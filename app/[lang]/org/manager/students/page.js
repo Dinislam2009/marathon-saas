@@ -21,15 +21,19 @@ export default function MyStudentsCRMPage() {
       const managerId = typeof window !== "undefined" ? localStorage.getItem("current_user_id") : null;
       
       let list = [];
-      if (typeof actions.getManagerDashboardDataAction === "function") {
-        const res = await actions.getManagerDashboardDataAction(managerId);
+      const getDashFn = actions.getManagerDashboardDataAction || actions.getManagerDashboardData;
+      if (typeof getDashFn === "function" && managerId) {
+        const res = await getDashFn(managerId);
         list = res?.myStudents || [];
       }
       
-      // Егер бос болса, тікелей оқушылар тизімін алып көру
-      if (list.length === 0 && typeof actions.getStudentsByOrgId === "function") {
+      // Егер бос болса, тікелей оқушылар тізімін алып көру
+      const getStudentsFn = actions.getStudentsByOrgId || actions.getStudentsByOrgIdAction;
+      if (list.length === 0 && typeof getStudentsFn === "function") {
         const orgId = typeof window !== "undefined" ? localStorage.getItem("current_org_id") : null;
-        list = await actions.getStudentsByOrgId(orgId);
+        if (orgId) {
+          list = await getStudentsFn(orgId);
+        }
       }
 
       setStudents(list || []);

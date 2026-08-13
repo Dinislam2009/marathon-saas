@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Search, Users, Award, GraduationCap, Loader2 } from "lucide-react";
-import { assignStudentToGroupAction } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function StudentsClient({ initialStudents = [], groups = [] }) {
@@ -16,26 +16,28 @@ export default function StudentsClient({ initialStudents = [], groups = [] }) {
   const handleGroupChange = async (studentId, newGroupId) => {
     setUpdatingId(studentId);
     try {
-      const res = await assignStudentToGroupAction(studentId, newGroupId);
-      if (res?.ok) {
-        setStudents((prev) =>
-          prev.map((s) =>
-            s.id === studentId
-              ? {
-                  ...s,
-                  groupId: newGroupId,
-                  groupName:
-                    groups.find((g) => g.id === newGroupId)?.name ||
-                    (isRu ? "Без группы" : "Топсыз"),
-                }
-              : s
-          )
-        );
-      } else {
-        alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || ""));
+      if (typeof actions.assignStudentToGroupAction === "function") {
+        const res = await actions.assignStudentToGroupAction(studentId, newGroupId);
+        if (res?.ok) {
+          setStudents((prev) =>
+            prev.map((s) =>
+              s.id === studentId
+                ? {
+                    ...s,
+                    groupId: newGroupId,
+                    groupName:
+                      groups.find((g) => g.id === newGroupId)?.name ||
+                      (isRu ? "Без группы" : "Топсыз"),
+                  }
+                : s
+            )
+          );
+        } else {
+          alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || ""));
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error("Change group error:", err);
     } finally {
       setUpdatingId(null);
     }
@@ -43,8 +45,8 @@ export default function StudentsClient({ initialStudents = [], groups = [] }) {
 
   const filteredStudents = students.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchTerm.toLowerCase())
+      s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -97,7 +99,7 @@ export default function StudentsClient({ initialStudents = [], groups = [] }) {
                 {isRu ? "Общий балл" : "Жалпы Балл"}
               </div>
               <div className="text-xl font-extrabold text-amber-900">
-                {students.reduce((acc, s) => acc + s.points, 0)}
+                {students.reduce((acc, s) => acc + (s.points || 0), 0)}
               </div>
             </div>
           </div>
@@ -112,7 +114,7 @@ export default function StudentsClient({ initialStudents = [], groups = [] }) {
               </div>
               <div className="text-xl font-extrabold text-blue-900">
                 {students.length > 0
-                  ? Math.round(students.reduce((acc, s) => acc + s.points, 0) / students.length)
+                  ? Math.round(students.reduce((acc, s) => acc + (s.points || 0), 0) / students.length)
                   : 0}
               </div>
             </div>
@@ -148,18 +150,18 @@ export default function StudentsClient({ initialStudents = [], groups = [] }) {
                     <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="p-4 pl-6 font-bold text-gray-900">{student.name}</td>
                       <td className="p-4">
-                        <div className="text-gray-800">{student.email}</div>
-                        <div className="text-[10px] text-gray-400">{student.phone}</div>
+                        <div className="text-gray-800">{student.email || "—"}</div>
+                        <div className="text-[10px] text-gray-400">{student.phone || "—"}</div>
                       </td>
                       <td className="p-4">
                         <span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-[10px] font-bold">
-                          {student.marathonTitle}
+                          {student.marathonTitle || (isRu ? "Без марафона" : "Марафонсыз")}
                         </span>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <select
-                            value={student.groupId}
+                            value={student.groupId || ""}
                             disabled={updatingId === student.id}
                             onChange={(e) => handleGroupChange(student.id, e.target.value)}
                             className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-2.5 py-1.5 outline-none focus:border-purple-600 font-semibold text-gray-800 cursor-pointer"
@@ -177,7 +179,7 @@ export default function StudentsClient({ initialStudents = [], groups = [] }) {
                         </div>
                       </td>
                       <td className="p-4 pr-6 text-right font-extrabold text-purple-700">
-                        {student.points} {isRu ? "б" : "б"}
+                        {student.points || 0} {isRu ? "б" : "б"}
                       </td>
                     </tr>
                   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -11,6 +11,8 @@ export default function StartPage() {
   const isRu = lang === "ru";
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     // 1. localStorage-тен рөлді алу
     const role = localStorage.getItem("user_role");
 
@@ -33,8 +35,8 @@ export default function StartPage() {
         router.replace("/org/admin");
         break;
 
-      case "curator":
       case "CURATOR":
+      case "MENTOR":
         router.replace("/org/curator");
         break;
 

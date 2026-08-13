@@ -25,7 +25,8 @@ const EMPTY_TASK = {
 };
 
 export default function MarathonDetailPage({ params }) {
-  const { orgId, marathonId } = use(params);
+  const resolvedParams = use(params);
+  const marathonId = resolvedParams?.marathonId;
   const router = useRouter();
   
   const { ready, getMarathon } = useData();
@@ -39,9 +40,10 @@ export default function MarathonDetailPage({ params }) {
   const [isPending, startTransition] = useTransition();
 
   const fetchServerTasks = async () => {
+    if (!marathonId) return;
     try {
       setIsLoadingTasks(true);
-      if (actions.getTasksByMarathon) {
+      if (typeof actions.getTasksByMarathon === "function") {
         const tasksData = await actions.getTasksByMarathon(marathonId);
         if (Array.isArray(tasksData)) {
           setDbTasks(tasksData);
@@ -76,7 +78,6 @@ export default function MarathonDetailPage({ params }) {
     } : EMPTY_TASK);
   }
 
-  // Файлды тізімнен өшіру функциясы
   const handleRemoveFile = (indexToRemove) => {
     setDraft((prev) => ({
       ...prev,
@@ -84,35 +85,33 @@ export default function MarathonDetailPage({ params }) {
     }));
   };
 
-  // Тапсырманы серверге сақтау функциясы
-  // Тапсырманы серверге сақтау функциясы
-const handleSave = async (day) => {
-  if (!draft.title.trim()) {
-    setUploadError("Тапсырма атауын енгізіңіз!");
-    return;
-  }
-
-  startTransition(async () => {
-    try {
-      const payload = {
-        ...draft,
-        marathonId,
-        dayNumber: day,
-      };
-
-      // Тікелей арнайы экспортты шақырамыз
-      await actions.createOrUpdateTask(payload);
-
-      await fetchServerTasks();
-      setOpenDay(null);
-    } catch (err) {
-      console.error("Save task error:", err);
-      setUploadError("Тапсырманы сақтау кезінде қателік орын алды: " + (err.message || "Белгісіз қате"));
+  const handleSave = async (day) => {
+    if (!draft.title.trim()) {
+      setUploadError("Тапсырма атауын енгізіңіз!");
+      return;
     }
-  });
-};
 
-  // Файлдарды жүктеу және тексеру логикасы
+    startTransition(async () => {
+      try {
+        const payload = {
+          ...draft,
+          marathonId,
+          dayNumber: day,
+        };
+
+        if (typeof actions.createOrUpdateTask === "function") {
+          await actions.createOrUpdateTask(payload);
+        }
+
+        await fetchServerTasks();
+        setOpenDay(null);
+      } catch (err) {
+        console.error("Save task error:", err);
+        setUploadError("Тапсырманы сақтау кезінде қателік орын алды: " + (err.message || "Белгісіз қате"));
+      }
+    });
+  };
+
   const handleFileUpload = async (e) => {
     setUploadError("");
     const files = Array.from(e.target.files);
@@ -148,7 +147,6 @@ const handleSave = async (day) => {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-        // SDK арқылы жүктеуге тырысамыз, егер болмаса REST API арқылы (Authorization Header қосылған)
         if (supabase?.storage) {
           const { error } = await supabase.storage
             .from("submissions")
@@ -203,7 +201,7 @@ const handleSave = async (day) => {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          href={`/org//admin`}
+          href={`/org/admin`}
           className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-ink w-fit mb-3"
         >
           <ArrowLeft size={14} /> Марафондарым

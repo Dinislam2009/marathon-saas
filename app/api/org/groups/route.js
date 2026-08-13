@@ -39,7 +39,7 @@ export async function GET(request) {
   } catch (error) {
     console.error("API /api/org/groups GET error:", error);
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: error.message || "Internal Server Error" },
       { status: 500 }
     );
   }

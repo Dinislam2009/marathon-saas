@@ -6,8 +6,7 @@ import {
   UserPlus, 
   Users, 
   Inbox, 
-  Link as LinkIcon, 
-  LogOut 
+  Link as LinkIcon 
 } from "lucide-react";
 import DashboardShell from "@/components/DashboardShell";
 import { useLanguage } from "@/context/LanguageContext";
@@ -15,6 +14,9 @@ import { useLanguage } from "@/context/LanguageContext";
 export default function ManagerLayout({ children, params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
+
+  // Next.js 15 App Router асинхронды params ағыны
+  const resolvedParams = use(params);
 
   const navItems = [
     { 

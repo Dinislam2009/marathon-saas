@@ -13,11 +13,12 @@ export function DataProvider({ children }) {
 
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
-  // Марафондар тізімін жүктеу функциясы
+  // Марафондар тізімін қауіпсіз жүктеу
   const refreshData = useCallback(async () => {
     try {
-      if (actions.getMarathons) {
-        const list = await actions.getMarathons();
+      const getMarathonsFn = actions.getMarathonsByOrgId || actions.getMarathons;
+      if (typeof getMarathonsFn === "function") {
+        const list = await getMarathonsFn();
         setMarathons(list || []);
       }
     } catch (err) {
@@ -28,10 +29,10 @@ export function DataProvider({ children }) {
   useEffect(() => {
     async function init() {
       try {
-        if (actions.runDeadlineCheck) {
+        if (typeof actions.runDeadlineCheck === "function") {
           await actions.runDeadlineCheck();
         }
-        if (actions.fetchInitialState) {
+        if (typeof actions.fetchInitialState === "function") {
           const initialState = await actions.fetchInitialState();
           if (initialState?.currentStudentId) {
             setCurrentStudentId(initialState.currentStudentId);
@@ -47,6 +48,21 @@ export function DataProvider({ children }) {
     init();
   }, [refreshData, tick]);
 
+  // Серверлік функцияларды қауіпсіз орындау көмекшісі
+  const safeCall = async (fn, ...args) => {
+    if (typeof fn === "function") {
+      try {
+        const res = await fn(...args);
+        bump();
+        return res;
+      } catch (err) {
+        console.error("Action execution error:", err);
+        return { ok: false, error: err.message };
+      }
+    }
+    return null;
+  };
+
   const value = {
     ready,
     tick,
@@ -57,123 +73,33 @@ export function DataProvider({ children }) {
 
     getMarathon: (id) => marathons.find((m) => String(m.id) === String(id)),
 
-    addOrganizer: async (fields) => {
-      if (!actions.addOrganizer) return null;
-      const org = await actions.addOrganizer(fields);
-      bump();
-      return org;
-    },
-    setOrganizerSubscriptionStatus: async (orgId, status) => {
-      if (actions.setOrganizerSubscriptionStatus) {
-        await actions.setOrganizerSubscriptionStatus(orgId, status);
-        bump();
-      }
-    },
+    addOrganizer: (fields) => safeCall(actions.addOrganizer, fields),
+    setOrganizerSubscriptionStatus: (orgId, status) => safeCall(actions.setOrganizerSubscriptionStatus, orgId, status),
 
-    // ⚡ ДҰРЫСТАЛДЫ: Аргументтер бір объектіге біріктірілді ({ orgId, ...fields })
     createMarathon: async (orgId, fields) => {
-      // actions.createMarathon немесе actions.createMarathonAction кайсысы бар соны алады
       const fn = actions.createMarathonAction || actions.createMarathon;
-      if (fn) {
-        const marathon = await fn({ orgId, ...fields });
-        bump();
-        return marathon;
-      }
+      return safeCall(fn, { orgId, ...fields });
     },
 
-    upsertTask: async (marathonId, dayNumber, fields) => {
-      if (!actions.upsertTask) return null;
-      const task = await actions.upsertTask(marathonId, dayNumber, fields);
-      bump();
-      return task;
-    },
-    setStudentStatus: async (studentId, status) => {
-      if (actions.setStudentStatus) {
-        await actions.setStudentStatus(studentId, status);
-        bump();
-      }
-    },
-    updateChecklist: async (studentId, marathonId, dayNumber, patch) => {
-      if (!actions.updateChecklist) return null;
-      const submission = await actions.updateChecklist(studentId, marathonId, dayNumber, patch);
-      bump();
-      return submission;
-    },
-    resetDemoData: () => {
-      bump();
-    },
-    addHabit: async (studentId, title) => {
-      if (!actions.addHabit) return null;
-      const habit = await actions.addHabit(studentId, title);
-      bump();
-      return habit;
-    },
-    toggleHabitToday: async (habitId) => {
-      if (actions.toggleHabitToday) {
-        await actions.toggleHabitToday(habitId);
-        bump();
-      }
-    },
-    deleteHabit: async (habitId) => {
-      if (actions.deleteHabit) {
-        await actions.deleteHabit(habitId);
-        bump();
-      }
-    },
-    addMatrixTask: async (studentId, fields) => {
-      if (!actions.addMatrixTask) return null;
-      const task = await actions.addMatrixTask(studentId, fields);
-      bump();
-      return task;
-    },
-    toggleMatrixTaskDone: async (taskId) => {
-      if (actions.toggleMatrixTaskDone) {
-        await actions.toggleMatrixTaskDone(taskId);
-        bump();
-      }
-    },
-    deleteMatrixTask: async (taskId) => {
-      if (actions.deleteMatrixTask) {
-        await actions.deleteMatrixTask(taskId);
-        bump();
-      }
-    },
-    sendMessage: async (orgId, studentId, studentName, text) => {
-      if (!actions.sendMessage) return null;
-      const message = await actions.sendMessage(orgId, studentId, studentName, text);
-      bump();
-      return message;
-    },
-    addcurator: async (orgId, fields) => {
-      if (!actions.addcurator) return null;
-      const curator = await actions.addcurator(orgId, fields);
-      bump();
-      return curator;
-    },
-    assigncuratorToStudent: async (studentId, curatorId) => {
-      if (actions.assigncuratorToStudent) {
-        await actions.assigncuratorToStudent(studentId, curatorId);
-        bump();
-      }
-    },
-    addInvitation: async (marathonId, orgId, role, fields) => {
-      if (!actions.addInvitation) return null;
-      const invite = await actions.addInvitation(marathonId, orgId, role, fields);
-      bump();
-      return invite;
-    },
-    addStudentToMarathon: async (marathonId, fields) => {
-      if (!actions.addStudentToMarathon) return null;
-      const student = await actions.addStudentToMarathon(marathonId, fields);
-      bump();
-      return student;
-    },
-    addStudentInvitationBycurator: async (curatorId, marathonId, fields) => {
-      if (!actions.addStudentInvitationBycurator) return null;
-      const invite = await actions.addStudentInvitationBycurator(curatorId, marathonId, fields);
-      bump();
-      return invite;
-    },
+    upsertTask: (marathonId, dayNumber, fields) => safeCall(actions.upsertTask, marathonId, dayNumber, fields),
+    setStudentStatus: (studentId, status) => safeCall(actions.setStudentStatus, studentId, status),
+    updateChecklist: (studentId, marathonId, dayNumber, patch) => safeCall(actions.updateChecklist, studentId, marathonId, dayNumber, patch),
+    resetDemoData: () => bump(),
+
+    addHabit: (studentId, title) => safeCall(actions.addHabit, studentId, title),
+    toggleHabitToday: (habitId) => safeCall(actions.toggleHabitToday, habitId),
+    deleteHabit: (habitId) => safeCall(actions.deleteHabit, habitId),
+
+    addMatrixTask: (studentId, fields) => safeCall(actions.addMatrixTask, studentId, fields),
+    toggleMatrixTaskDone: (taskId) => safeCall(actions.toggleMatrixTaskDone, taskId),
+    deleteMatrixTask: (taskId) => safeCall(actions.deleteMatrixTask, taskId),
+
+    sendMessage: (orgId, studentId, studentName, text) => safeCall(actions.sendMessage, orgId, studentId, studentName, text),
+    addcurator: (orgId, fields) => safeCall(actions.addcurator, orgId, fields),
+    assigncuratorToStudent: (studentId, curatorId) => safeCall(actions.assigncuratorToStudent, studentId, curatorId),
+    addInvitation: (marathonId, orgId, role, fields) => safeCall(actions.addInvitation, marathonId, orgId, role, fields),
+    addStudentToMarathon: (marathonId, fields) => safeCall(actions.addStudentToMarathon, marathonId, fields),
+    addStudentInvitationBycurator: (curatorId, marathonId, fields) => safeCall(actions.addStudentInvitationBycurator, curatorId, marathonId, fields),
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

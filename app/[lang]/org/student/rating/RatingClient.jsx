@@ -21,7 +21,7 @@ export default function RatingClient({ initialLeaderboard = [], currentStudent =
   const filteredList = initialLeaderboard.filter((user) => {
     const userGroup = user.group || defaultGroup;
     const matchesTab = activeTab === "all" || userGroup === myGroup;
-    const matchesSearch = user.rawName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (user.rawName || "").toLowerCase().includes(searchTerm.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -185,7 +185,7 @@ export default function RatingClient({ initialLeaderboard = [], currentStudent =
                     user.avatarColor || "bg-purple-100 text-purple-700"
                   } font-black text-xl md:text-2xl flex items-center justify-center shadow-md relative`}
                 >
-                  {user.rawName.charAt(0)}
+                  {(user.rawName || "У").charAt(0)}
                 </div>
                 {user.isTopOne && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 p-1.5 bg-amber-500 text-white rounded-full shadow-md">
@@ -240,7 +240,7 @@ export default function RatingClient({ initialLeaderboard = [], currentStudent =
                   <div
                     className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-xs shrink-0"
                   >
-                    {user.rawName.charAt(0)}
+                    {(user.rawName || "У").charAt(0)}
                   </div>
 
                   <div className="truncate">

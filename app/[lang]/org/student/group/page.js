@@ -82,7 +82,7 @@ export default async function StudentGroupPage() {
 
       return {
         id: s.id,
-        name: isMe ? fullName : fullName,
+        name: fullName,
         rawName: fullName,
         roleIndex: index === 0 ? 1 : 2, // 1: Капитан, 2: Студент
         streak: streak,

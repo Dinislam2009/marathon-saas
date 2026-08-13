@@ -7,7 +7,7 @@ import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 import LoadingState from "@/components/LoadingState";
 
-export default function curatorMarathonsPage() {
+export default function CuratorMarathonsPage() {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
@@ -18,8 +18,10 @@ export default function curatorMarathonsPage() {
     async function loadData() {
       setLoading(true);
       try {
-        const res = await actions.getcuratorMarathonsAction();
-        setMarathons(res || []);
+        if (typeof actions.getcuratorMarathonsAction === "function") {
+          const res = await actions.getcuratorMarathonsAction();
+          setMarathons(res || []);
+        }
       } catch (err) {
         console.error("Load curator marathons error:", err);
       } finally {
@@ -30,8 +32,8 @@ export default function curatorMarathonsPage() {
   }, []);
 
   if (loading) {
-  return <LoadingState />;
-}
+    return <LoadingState />;
+  }
 
   return (
     <div className="space-y-6 w-full pb-10 font-sans text-slate-900">

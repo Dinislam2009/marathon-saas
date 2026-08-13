@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { Send, Megaphone, CheckCircle2, Loader2, Users } from "lucide-react";
+import { Send, Megaphone, CheckCircle2, Loader2 } from "lucide-react";
 import * as actions from "@/app/actions";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function OwnerBroadcastPage() {
+  const { lang } = useLanguage();
+  const isRu = lang === "ru";
+
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [targetRole, setTargetRole] = useState("ALL");
@@ -16,21 +20,40 @@ export default function OwnerBroadcastPage() {
     setLoading(true);
     setSuccess(false);
 
-    const res = await actions.createGlobalBroadcastAction({
-      title,
-      message,
-      targetRole,
-    });
+    try {
+      const broadcastFn =
+        actions.createGlobalBroadcastAction || actions.createGlobalBroadcast;
 
-    if (res.ok) {
-      setSuccess(true);
-      setTitle("");
-      setMessage("");
-      setTimeout(() => setSuccess(false), 4000);
-    } else {
-      alert("Қате: " + res.error);
+      let res = null;
+      if (typeof broadcastFn === "function") {
+        res = await broadcastFn({
+          title,
+          message,
+          targetRole,
+        });
+      }
+
+      if (res?.ok) {
+        setSuccess(true);
+        setTitle("");
+        setMessage("");
+        setTimeout(() => setSuccess(false), 4000);
+      } else {
+        alert(
+          (isRu ? "Ошибка: " : "Қате: ") +
+            (res?.error || (isRu ? "Неизвестная ошибка" : "Белгісіз қате"))
+        );
+      }
+    } catch (err) {
+      console.error("Broadcast send error:", err);
+      alert(
+        isRu
+          ? "Произошла ошибка при отправке."
+          : "Жіберу кезінде қате орын алды."
+      );
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -43,10 +66,12 @@ export default function OwnerBroadcastPage() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Глобалды Хабарландырулар
+              {isRu ? "Глобальные объявления" : "Глобалды Хабарландырулар"}
             </h1>
             <p className="text-slate-500 text-xs mt-0.5">
-              Платформадағы барлық B2B клиенттерге, кураторларға немесе оқушыларға жүйелік хабарлама жіберу.
+              {isRu
+                ? "Отправка системных сообщений всем B2B клиентам, кураторам или ученикам платформы."
+                : "Платформадағы барлық B2B клиенттерге, кураторларға немесе оқушыларға жүйелік хабарлама жіберу."}
             </p>
           </div>
         </div>
@@ -57,21 +82,23 @@ export default function OwnerBroadcastPage() {
         {success && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2">
             <CheckCircle2 size={18} />
-            Хабарландыру сәтті жіберілді! Барлық пайдаланушылардың кабинетінде көрінеді.
+            {isRu
+              ? "Объявление успешно отправлено! Оно появится в кабинетах пользователей."
+              : "Хабарландыру сәтті жіберілді! Барлық пайдаланушылардың кабинетінде көрінеді."}
           </div>
         )}
 
         <form onSubmit={handleSend} className="space-y-5">
           <div>
             <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-2">
-              Аудитория (Кімдерге жіберіледі)
+              {isRu ? "Аудитория (Получатели)" : "Аудитория (Кімдерге жіберіледі)"}
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { id: "ALL", label: "Барлығына" },
-                { id: "ORGANIZER", label: "Ұйымдарға (B2B)" },
-                { id: "MENTOR", label: "Кураторларға" },
-                { id: "STUDENT", label: "Оқушыларға" },
+                { id: "ALL", label: isRu ? "Всем" : "Барлығына" },
+                { id: "ORGANIZER", label: isRu ? "Организациям (B2B)" : "Ұйымдарға (B2B)" },
+                { id: "MENTOR", label: isRu ? "Кураторам" : "Кураторларға" },
+                { id: "STUDENT", label: isRu ? "Ученикам" : "Оқушыларға" },
               ].map((item) => (
                 <button
                   type="button"
@@ -91,12 +118,16 @@ export default function OwnerBroadcastPage() {
 
           <div>
             <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-2">
-              Хабарландыру Тақырыбы
+              {isRu ? "Заголовок объявления" : "Хабарландыру Тақырыбы"}
             </label>
             <input
               type="text"
               required
-              placeholder="Мысалы: Техникалық жұмыстар немесе Жаңа жаңарту!"
+              placeholder={
+                isRu
+                  ? "Например: Технические работы или Новое обновление!"
+                  : "Мысалы: Техникалық жұмыстар немесе Жаңа жаңарту!"
+              }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-purple-600 transition"
@@ -105,12 +136,16 @@ export default function OwnerBroadcastPage() {
 
           <div>
             <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-2">
-              Хабарлама Мәтіні
+              {isRu ? "Текст сообщения" : "Хабарлама Мәтіні"}
             </label>
             <textarea
               rows={5}
               required
-              placeholder="Толық мәліметті жазыңыз..."
+              placeholder={
+                isRu
+                  ? "Напишите подробную информацию..."
+                  : "Толық мәліметті жазыңыз..."
+              }
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 outline-none focus:border-purple-600 transition"
@@ -123,7 +158,7 @@ export default function OwnerBroadcastPage() {
             className="w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-extrabold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send size={16} />}
-            Хабарландыруды Жариялау
+            {isRu ? "Опубликовать объявление" : "Хабарландыруды Жариялау"}
           </button>
         </form>
       </div>

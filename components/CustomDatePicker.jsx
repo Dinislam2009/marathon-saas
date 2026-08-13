@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, ChevronUp, ChevronDown } from "lucide-react";
 
 export default function CustomDatePicker({ value, onChange, label, color = "purple", isRu = true }) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -53,7 +53,7 @@ export default function CustomDatePicker({ value, onChange, label, color = "purp
     setIsCalendarOpen(false);
   };
 
-  // Нақты уақытты жаңарту (Сағат пен минутты қолдан жазғанда)
+  // Уақытты жаңарту логикасы
   const updateExactTime = (newH, newM) => {
     let h = parseInt(newH, 10);
     let m = parseInt(newM, 10);
@@ -61,10 +61,10 @@ export default function CustomDatePicker({ value, onChange, label, color = "purp
     if (isNaN(h)) h = 0;
     if (isNaN(m)) m = 0;
 
-    if (h < 0) h = 0;
-    if (h > 23) h = 23;
-    if (m < 0) m = 0;
-    if (m > 59) m = 59;
+    if (h < 0) h = 23;
+    if (h > 23) h = 0;
+    if (m < 0) m = 59;
+    if (m > 59) m = 0;
 
     const formattedH = String(h).padStart(2, "0");
     const formattedM = String(m).padStart(2, "0");
@@ -74,6 +74,15 @@ export default function CustomDatePicker({ value, onChange, label, color = "purp
 
     const existingDate = value ? value.split("T")[0] : new Date().toISOString().split("T")[0];
     onChange(`${existingDate}T${formattedH}:${formattedM}`);
+  };
+
+  // Сағат пен минутты қадам бойынша арттыру/азайту
+  const adjustHours = (delta) => {
+    updateExactTime(parseInt(hours, 10) + delta, minutes);
+  };
+
+  const adjustMinutes = (delta) => {
+    updateExactTime(hours, parseInt(minutes, 10) + delta);
   };
 
   // Дүйсенбіден басталатын күнтізбе торшалары
@@ -190,7 +199,7 @@ export default function CustomDatePicker({ value, onChange, label, color = "purp
           )}
         </div>
 
-        {/* УАҚЫТТЫ ТАҢДАУ (НАҚТЫ ҚОЛДАН ЕНГІЗУ БОЛЫП ӨЗГЕРДІ) */}
+        {/* УАҚЫТТЫ ТАҢДАУ БАТЫРМАСЫ */}
         <div className="relative" ref={timeRef}>
           <button
             type="button"
@@ -204,42 +213,70 @@ export default function CustomDatePicker({ value, onChange, label, color = "purp
             <Clock size={13} className="text-slate-400" />
           </button>
 
-          {/* ПОП-АП: НАҚТЫ СAҒАТ ТАҢДАУ */}
+          {/* ПОП-АП: УАҚЫТТЫ ЫҢҒАЙЛЫ ЕНГІЗУ */}
           {isTimeOpen && (
-            <div className="absolute top-full right-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3.5 w-52 animate-in fade-in zoom-in-95 duration-150 space-y-3">
+            <div className="absolute top-full right-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 w-56 animate-in fade-in zoom-in-95 duration-150 space-y-3">
               <span className="block text-[10px] font-black uppercase text-slate-400 border-b border-slate-100 pb-1">
-                {isRu ? "Точное время" : "Нақты уақыт"}
+                {isRu ? "Выберите время" : "Уақытты таңдаңыз"}
               </span>
 
-              {/* Сағат : Минут дəл қолдан жазатын инпуттар */}
-              <div className="flex items-center justify-center gap-2">
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">{isRu ? "Час" : "Сағат"}</span>
+              {/* Сағат пен минутты батырмалар арқылы реттеу */}
+              <div className="flex items-center justify-center gap-3 py-1">
+                {/* Сағат */}
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => adjustHours(1)}
+                    className="p-1 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
+                  >
+                    <ChevronUp size={16} />
+                  </button>
                   <input
-                    type="number"
-                    min="0"
-                    max="23"
+                    type="text"
                     value={hours}
                     onChange={(e) => updateExactTime(e.target.value, minutes)}
-                    className="w-12 h-10 bg-slate-50 border border-slate-200 focus:border-purple-600 rounded-xl text-center text-sm font-black text-slate-900 outline-none"
+                    className="w-11 h-10 bg-slate-50 border border-slate-200 focus:border-purple-600 rounded-xl text-center text-sm font-black text-slate-900 outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => adjustHours(-1)}
+                    className="p-1 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
+                  >
+                    <ChevronDown size={16} />
+                  </button>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase">{isRu ? "Час" : "Сағат"}</span>
                 </div>
-                <span className="text-lg font-black text-slate-400 mt-3">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">{isRu ? "Мин" : "Мин"}</span>
+
+                <span className="text-xl font-black text-slate-400 mb-5">:</span>
+
+                {/* Минут */}
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => adjustMinutes(5)}
+                    className="p-1 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
+                  >
+                    <ChevronUp size={16} />
+                  </button>
                   <input
-                    type="number"
-                    min="0"
-                    max="59"
+                    type="text"
                     value={minutes}
                     onChange={(e) => updateExactTime(hours, e.target.value)}
-                    className="w-12 h-10 bg-slate-50 border border-slate-200 focus:border-purple-600 rounded-xl text-center text-sm font-black text-slate-900 outline-none"
+                    className="w-11 h-10 bg-slate-50 border border-slate-200 focus:border-purple-600 rounded-xl text-center text-sm font-black text-slate-900 outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => adjustMinutes(-5)}
+                    className="p-1 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
+                  >
+                    <ChevronDown size={16} />
+                  </button>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase">{isRu ? "Мин" : "Мин"}</span>
                 </div>
               </div>
 
-              {/* Быстрый пресеттер */}
-              <div className="pt-1 border-t border-slate-100 space-y-1">
+              {/* Жылдам уақыт таңдау түймелері */}
+              <div className="pt-2 border-t border-slate-100 space-y-1.5">
                 <span className="block text-[9px] font-bold text-slate-400 uppercase">
                   {isRu ? "Быстрый выбор:" : "Тез таңдау:"}
                 </span>
@@ -255,8 +292,8 @@ export default function CustomDatePicker({ value, onChange, label, color = "purp
                       }}
                       className={`px-1.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
                         `${hours}:${minutes}` === t
-                          ? "bg-purple-600 text-white"
-                          : "bg-slate-50 hover:bg-purple-50 text-slate-700"
+                          ? "bg-purple-600 text-white shadow-xs"
+                          : "bg-slate-50 hover:bg-purple-50 text-slate-700 hover:text-purple-700"
                       }`}
                     >
                       {t}

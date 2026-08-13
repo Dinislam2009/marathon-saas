@@ -5,10 +5,10 @@ import {
   CheckCircle2, XCircle, Clock, FileText, 
   ExternalLink, Search, User, Trophy, Loader2, Image as ImageIcon 
 } from "lucide-react";
-import { reviewSubmissionAction } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
-export default function curatorSubmissionsClient({ initialSubmissions = [] }) {
+export default function CuratorSubmissionsClient({ initialSubmissions = [] }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
@@ -20,30 +20,39 @@ export default function curatorSubmissionsClient({ initialSubmissions = [] }) {
   // 🔍 Фильтрация және іздеу
   const filteredSubmissions = submissions.filter((sub) => {
     const matchesFilter = filter === "ALL" ? true : sub.status === filter;
-    const matchesSearch =
-      (sub.student?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (sub.task?.title || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const q = searchTerm.trim().toLowerCase();
+    const studentName = (sub.student?.name || "").toLowerCase();
+    const taskTitle = (sub.task?.title || "").toLowerCase();
+    const matchesSearch = !q || studentName.includes(q) || taskTitle.includes(q);
 
     return matchesFilter && matchesSearch;
   });
 
   // ⚡ Тексеру функциясы
   const handleReview = async (submissionId, status, studentId, points) => {
+    if (loadingId) return;
     setLoadingId(submissionId);
-    try {
-      const res = await reviewSubmissionAction({
-        submissionId,
-        status,
-        studentId,
-        points,
-      });
 
-      if (res?.ok) {
-        setSubmissions((prev) =>
-          prev.map((s) => (s.id === submissionId ? { ...s, status } : s))
-        );
+    try {
+      const reviewFn = actions.reviewSubmissionAction || actions.reviewSubmission;
+      
+      if (typeof reviewFn === "function") {
+        const res = await reviewFn({
+          submissionId,
+          status,
+          studentId,
+          points: Number(points) || 0,
+        });
+
+        if (res?.ok) {
+          setSubmissions((prev) =>
+            prev.map((s) => (s.id === submissionId ? { ...s, status } : s))
+          );
+        } else {
+          alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || (isRu ? "Не удалось обновить" : "Жаңарту мүмкін болмады")));
+        }
       } else {
-        alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || (isRu ? "Не удалось обновить" : "Жаңарту мүмкін болмады")));
+        alert(isRu ? "Функция проверки не найдена" : "Тексеру функциясы табылмады");
       }
     } catch (err) {
       console.error("Review error:", err);
@@ -59,7 +68,7 @@ export default function curatorSubmissionsClient({ initialSubmissions = [] }) {
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <span className="px-3 py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-full border border-purple-100">
-            {isRu ? "Панель куратора" : "куратор Панелі"}
+            {isRu ? "Панель куратора" : "Куратор Панелі"}
           </span>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-2">
             {isRu ? "Отчёты учеников" : "Оқушылардың Есептері"}

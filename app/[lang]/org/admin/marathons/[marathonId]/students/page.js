@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useData } from "@/context/DataContext";
 import { STUDENT_STATUS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,9 @@ export default function MarathonPeoplePage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId, marathonId } = use(params);
+  const resolvedParams = use(params);
+  const marathonId = resolvedParams?.marathonId;
+
   const { ready, tick } = useData();
 
   const [marathon, setMarathon] = useState(null);
@@ -27,17 +29,18 @@ export default function MarathonPeoplePage({ params }) {
 
   useEffect(() => {
     async function loadData() {
+      if (!marathonId) return;
       try {
         setLoading(true);
-        if (actions.getMarathonById) {
+        if (typeof actions.getMarathonById === "function") {
           const m = await actions.getMarathonById(marathonId);
           setMarathon(m);
         }
-        if (actions.getStudentsByMarathonId) {
+        if (typeof actions.getStudentsByMarathonId === "function") {
           const st = await actions.getStudentsByMarathonId(marathonId);
           setStudents(st || []);
         }
-        if (actions.getcuratorsByMarathonId) {
+        if (typeof actions.getcuratorsByMarathonId === "function") {
           const mt = await actions.getcuratorsByMarathonId(marathonId);
           setcurators(mt || []);
         }
@@ -98,14 +101,14 @@ export default function MarathonPeoplePage({ params }) {
         ))}
       </div>
 
-      {/* ОҚУШЫЛАР НЕМЕСЕ Кураторлар КЕСТЕСІ */}
+      {/* ОҚУШЫЛАР НЕМЕСЕ КУРАТОРЛАР КЕСТЕСІ */}
       {tab === "student" ? (
         <Card padded={false} className="overflow-hidden border border-slate-200/80 rounded-2xl shadow-xs">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400 tracking-wide bg-slate-50/50">
                 <th className="px-5 py-3 font-bold">{isRu ? "Ученик" : "Оқушы"}</th>
-                <th className="px-5 py-3 font-bold">{isRu ? "Куратор" : "куратор"}</th>
+                <th className="px-5 py-3 font-bold">{isRu ? "Куратор" : "Куратор"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Баллы" : "Ұпай"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Статус" : "Күй"}</th>
               </tr>
@@ -156,7 +159,7 @@ export default function MarathonPeoplePage({ params }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400 tracking-wide bg-slate-50/50">
-                <th className="px-5 py-3 font-bold">{isRu ? "Куратор" : "куратор"}</th>
+                <th className="px-5 py-3 font-bold">{isRu ? "Куратор" : "Куратор"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Контакты" : "Байланыс"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Кол-во учеников" : "Оқушы саны"}</th>
               </tr>

@@ -24,7 +24,7 @@ export default function StudentLayout({ children, params }) {
   const resolvedParams = use(params);
   const orgId = resolvedParams?.orgId || "orgId";
 
-  // Меню тізімі (Тілге сәйкес аударылады)
+  // Меню тізімі (Тілге сәйкес динамикалық түрде аударылады)
   const studentNavItems = useMemo(() => [
     { label: isRu ? "Главная" : "Басты бет", href: `/org/student`, icon: Home, color: "text-blue-500" },
     { label: isRu ? "Задания" : "Тапсырмалар", href: `/org/student/tasks`, icon: CheckSquare, color: "text-purple-600" },

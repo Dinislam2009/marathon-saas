@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAction } from "@/app/actions";
-import curatorProfileClient from "./curatorProfileClient";
+import CuratorProfileClient from "./curatorProfileClient";
 
-export default async function curatorProfilePage() {
+export default async function CuratorProfilePage() {
   try {
     const authUser = await getCurrentUserAction();
 
@@ -11,7 +11,10 @@ export default async function curatorProfilePage() {
     if (authUser) {
       curator = await prisma.curator.findFirst({
         where: {
-          OR: [{ userId: authUser.id }, { email: authUser.email }],
+          OR: [
+            { userId: authUser.id },
+            { email: authUser.email }
+          ],
         },
         include: {
           user: true,
@@ -33,23 +36,24 @@ export default async function curatorProfilePage() {
       return (
         <div className="p-8 text-center bg-white rounded-3xl border border-gray-100 shadow-sm font-sans">
           <h3 className="text-base font-bold text-gray-800">
-            Профиль куратора не найден / куратор профилі табылмады
+            Профиль куратора не найден / Куратор профилі табылмады
           </h3>
         </div>
       );
     }
 
     // 2. Реалды метрикаларды базадан есептеу
-    const studentCount = await prisma.student.count({
-      where: { curatorId: curator.id },
-    });
-
-    const checkedSubmissionsCount = await prisma.submission.count({
-      where: {
-        student: { curatorId: curator.id },
-        status: { in: ["APPROVED", "REJECTED"] },
-      },
-    });
+    const [studentCount, checkedSubmissionsCount] = await Promise.all([
+      prisma.student.count({
+        where: { curatorId: curator.id },
+      }),
+      prisma.submission.count({
+        where: {
+          student: { curatorId: curator.id },
+          status: { in: ["APPROVED", "REJECTED"] },
+        },
+      }),
+    ]);
 
     const initialData = {
       curator: JSON.parse(JSON.stringify(curator)),
@@ -59,7 +63,7 @@ export default async function curatorProfilePage() {
       },
     };
 
-    return <curatorProfileClient initialData={initialData} />;
+    return <CuratorProfileClient initialData={initialData} />;
   } catch (error) {
     console.error("curatorProfilePage Error:", error);
     return (
@@ -67,7 +71,7 @@ export default async function curatorProfilePage() {
         <h3 className="text-base font-bold text-red-600">
           Ошибка при загрузке профиля / Профильді жүктеу кезінде қате орын алды
         </h3>
-        <p className="text-xs text-gray-400 mt-1">{error.message}</p>
+        <p className="text-xs text-gray-400 mt-1">{error?.message || "Белгісіз қате"}</p>
       </div>
     );
   }

@@ -6,13 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
-
-// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ ---
-import { 
-  verifyOtpAction, 
-  resendOtpAction, 
-  getPendingOtpAction 
-} from "@/app/actions";
+import * as actions from "@/app/actions";
 
 function maskPhone(phone) {
   if (!phone) return "";
@@ -21,10 +15,11 @@ function maskPhone(phone) {
 
 function VerifyOtpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const uid = useSearchParams().get("uid");
+  const uid = searchParams.get("uid");
   const inputsRef = useRef([]);
   const [digits, setDigits] = useState(Array(6).fill(""));
   const [error, setError] = useState("");
@@ -38,10 +33,21 @@ function VerifyOtpForm() {
   useEffect(() => {
     async function loadPendingOtp() {
       if (!uid) return;
-      const pending = await getPendingOtpAction(uid);
-      if (pending && pending.code) {
-        setDevCode(pending.code);
-        if (pending.phone) setPhone(pending.phone);
+      try {
+        const getPendingFn =
+          actions.getPendingOtpAction || actions.getPendingOtp;
+        let pending = null;
+
+        if (typeof getPendingFn === "function") {
+          pending = await getPendingFn(uid);
+        }
+
+        if (pending && pending.code) {
+          setDevCode(pending.code);
+          if (pending.phone) setPhone(pending.phone);
+        }
+      } catch (err) {
+        console.error("Pending OTP load error:", err);
       }
     }
     loadPendingOtp();
@@ -74,79 +80,120 @@ function VerifyOtpForm() {
 
   // ✅ СЕРВЕРГЕ ЖІБЕРУ ЖӘНЕ ҚАУІПСІЗ БАҒЫТТАУ ЛОГИКАСЫ
   async function submit(code) {
-    const result = await verifyOtpAction(uid, code);
-    if (!result.ok) {
-      setError(result.error);
+    try {
+      const verifyFn = actions.verifyOtpAction || actions.verifyOtp;
+      let result = null;
+
+      if (typeof verifyFn === "function") {
+        result = await verifyFn(uid, code);
+      }
+
+      if (!result || !result.ok) {
+        setError(
+          result?.error ||
+            (isRu
+              ? "Неверный код подтверждения"
+              : "Растау коды қате енгізілді")
+        );
+        setDigits(Array(6).fill(""));
+        inputsRef.current[0]?.focus();
+        return;
+      }
+
+      // ⚡ 1. Ескі сессияны толық тазалап, жаңа юзерді сақтау
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("currentUser");
+        localStorage.removeItem("current_user_id");
+        localStorage.removeItem("user_role");
+
+        if (result.user) {
+          localStorage.setItem("currentUser", JSON.stringify(result.user));
+          localStorage.setItem("current_user_id", result.user.id);
+          if (result.user.role) {
+            localStorage.setItem("user_role", result.user.role);
+          }
+        }
+      }
+
+      // ⚡ 2. Рөлге байланысты ТУРА кабинетке бағыттау
+      const userRole = String(result.user?.role || "").toUpperCase().trim();
+
+      switch (userRole) {
+        case "OWNER":
+        case "SUPER_ADMIN":
+          router.push(`/${lang}/owner`);
+          break;
+
+        case "ORGANIZER":
+        case "ADMIN":
+          router.push(`/${lang}/org/admin`);
+          break;
+
+        case "MANAGER":
+        case "SALES_MANAGER":
+          router.push(`/${lang}/org/admin/managers`);
+          break;
+
+        case "TEACHER":
+        case "INSTRUCTOR":
+          router.push(`/${lang}/org/admin/tasks`);
+          break;
+
+        case "BASCURATOR":
+        case "INSPECTOR":
+          router.push(`/${lang}/org/admin/curators`);
+          break;
+
+        case "CURATOR":
+          router.push(`/${lang}/org/curator`);
+          break;
+
+        case "STUDENT":
+        case "PARTICIPANT":
+        default:
+          router.push(`/${lang}/org/student`);
+          break;
+      }
+    } catch (err) {
+      console.error("OTP verification error:", err);
+      setError(
+        isRu
+          ? "Произошла ошибка при проверке кода."
+          : "Кодты тексеру кезінде қате орын алды."
+      );
       setDigits(Array(6).fill(""));
       inputsRef.current[0]?.focus();
-      return;
-    }
-
-    // ⚡ 1. Ескі сессияны толық тазалап, жаңа юзерді сақтау
-    localStorage.removeItem("currentUser");
-    localStorage.removeItem("current_user_id");
-    localStorage.removeItem("user_role");
-
-    if (result.user) {
-      localStorage.setItem("currentUser", JSON.stringify(result.user));
-      localStorage.setItem("current_user_id", result.user.id);
-      if (result.user.role) {
-        localStorage.setItem("user_role", result.user.role);
-      }
-    }
-
-    // ⚡ 2. Рөлге байланысты ТУРА кабинетке бағыттау
-    const userRole = String(result.user?.role || "").toUpperCase().trim();
-
-    switch (userRole) {
-      case "OWNER":
-      case "SUPER_ADMIN":
-        router.push(`/${lang}/owner`);
-        break;
-
-      case "ORGANIZER":
-      case "ADMIN":
-        router.push(`/${lang}/org/admin`);
-        break;
-
-      case "MANAGER":
-      case "SALES_MANAGER":
-        router.push(`/${lang}/org/admin/managers`);
-        break;
-
-      case "TEACHER":
-      case "INSTRUCTOR":
-        router.push(`/${lang}/org/admin/tasks`);
-        break;
-
-      case "BASCURATOR":
-      case "INSPECTOR":
-        router.push(`/${lang}/org/admin/curators`);
-        break;
-
-      case "CURATOR":
-        router.push(`/${lang}/org/curator`);
-        break;
-
-      case "STUDENT":
-      case "PARTICIPANT":
-      default:
-        router.push(`/${lang}/org/student`);
-        break;
     }
   }
 
   // Кодты қайта жіберу
   async function handleResend() {
     if (cooldown > 0) return;
-    const result = await resendOtpAction(uid, phone);
-    if (result.ok) {
-      setDevCode(result.code);
-      setCooldown(60);
-    } else {
+    try {
+      const resendFn = actions.resendOtpAction || actions.resendOtp;
+      let result = null;
+
+      if (typeof resendFn === "function") {
+        result = await resendFn(uid, phone);
+      }
+
+      if (result && result.ok) {
+        setDevCode(result.code);
+        setCooldown(60);
+      } else {
+        setError(
+          result?.error ||
+            (isRu
+              ? "Ошибка при повторной отправке кода"
+              : "Кодты қайта жіберу кезінде қате орын алды")
+        );
+      }
+    } catch (err) {
+      console.error("Resend OTP error:", err);
       setError(
-        result.error || 
-        (isRu ? "Ошибка при повторной отправке кода" : "Кодты қайта жіберу кезінде қате орын алды")
+        isRu
+          ? "Ошибка при повторной отправке кода"
+          : "Кодты қайта жіберу кезінде қате орын алды"
       );
     }
   }
@@ -154,10 +201,15 @@ function VerifyOtpForm() {
   return (
     <div className="min-h-screen bg-paper px-6 py-6 font-sans text-slate-900">
       <div className="flex items-center justify-between mb-10">
-        <Link href="/register" className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-horizon-dark transition-colors">
+        <Link
+          href="/register"
+          className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-horizon-dark transition-colors"
+        >
           <ArrowLeft size={14} /> {isRu ? "Назад" : "Артқа"}
         </Link>
-        <span className="text-sm font-medium text-horizon-dark">{isRu ? "Помощь" : "Көмек"}</span>
+        <span className="text-sm font-medium text-horizon-dark">
+          {isRu ? "Помощь" : "Көмек"}
+        </span>
       </div>
 
       <div className="max-w-sm mx-auto">
@@ -185,7 +237,11 @@ function VerifyOtpForm() {
           ))}
         </div>
 
-        {error && <p className="text-xs text-ember bg-ember-light rounded-lg px-3 py-2 mb-4">{error}</p>}
+        {error && (
+          <p className="text-xs text-ember bg-ember-light rounded-lg px-3 py-2 mb-4">
+            {error}
+          </p>
+        )}
 
         <button
           onClick={handleResend}
@@ -193,16 +249,21 @@ function VerifyOtpForm() {
           className="text-sm text-horizon-dark font-medium disabled:text-mist disabled:font-normal cursor-pointer disabled:cursor-not-allowed"
         >
           {cooldown > 0
-            ? (isRu ? `Отправить код повторно (${cooldown}с)` : `Кодты қайта жіберу (${cooldown}с)`)
-            : (isRu ? "Отправить код повторно" : "Кодты қайта жіберу")}
+            ? isRu
+              ? `Отправить код повторно (${cooldown}с)`
+              : `Кодты қайта жіберу (${cooldown}с)`
+            : isRu
+            ? "Отправить код повторно"
+            : "Кодты қайта жіберу"}
         </button>
 
         {devCode && (
           <div className="mt-8 rounded-xl border border-dashed border-horizon/40 bg-horizon/5 px-4 py-3 text-xs text-horizon-dark">
-            <strong>{isRu ? "Демо-режим:" : "Демо-режим:"}</strong> {isRu ? "код — " : "код — "}
+            <strong>{isRu ? "Демо-режим:" : "Демо-режим:"}</strong>{" "}
+            {isRu ? "код — " : "код — "}
             <span className="font-mono font-bold">{devCode}</span>.
-            {isRu 
-              ? " После подключения smsc.kz этот блок исчезнет, код будет приходить по SMS/WhatsApp." 
+            {isRu
+              ? " После подключения smsc.kz этот блок исчезнет, код будет приходить по SMS/WhatsApp."
               : " smsc.kz қосылғаннан кейін бұл блок жоғалады, код SMS/WhatsApp арқылы келеді."}
           </div>
         )}

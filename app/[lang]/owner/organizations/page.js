@@ -6,10 +6,15 @@ import { useRouter, useParams } from "next/navigation";
 import * as actions from "@/app/actions";
 import LoadingState from "@/components/LoadingState";
 import AddOrganizerModal from "@/components/AddOrganizerModal";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function OwnerOrganizersPage() {
   const router = useRouter();
-  const { lang } = useParams();
+  const params = useParams();
+  const langParam = params?.lang || "kz";
+
+  const { lang } = useLanguage();
+  const isRu = lang === "ru";
   
   const [loading, setLoading] = useState(true);
   const [organizers, setOrganizers] = useState([]);
@@ -26,9 +31,21 @@ export default function OwnerOrganizersPage() {
   };
 
   const loadData = async () => {
-    const res = await actions.getAllOrganizersAction();
-    if (res.ok) setOrganizers(res.organizers || []);
-    setLoading(false);
+    try {
+      const getOrganizersFn = actions.getAllOrganizersAction || actions.getAllOrganizers;
+      let res = null;
+      if (typeof getOrganizersFn === "function") {
+        res = await getOrganizersFn();
+      }
+
+      if (res?.ok) {
+        setOrganizers(res.organizers || []);
+      }
+    } catch (err) {
+      console.error("Data load error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -37,26 +54,51 @@ export default function OwnerOrganizersPage() {
 
   const handleImpersonate = async (orgId) => {
     setActionId(orgId);
-    const res = await actions.impersonateOrganizationAction(orgId);
-    if (res.ok) {
-      router.push(`/${lang}/org/admin?orgId=${orgId}`);
-    } else {
-      showToast("Қате: " + res.error, "error");
+    try {
+      const impersonateFn = actions.impersonateOrganizationAction || actions.impersonateOrganization;
+      let res = null;
+      if (typeof impersonateFn === "function") {
+        res = await impersonateFn(orgId);
+      }
+
+      if (res?.ok) {
+        router.push(`/${langParam}/org/admin?orgId=${orgId}`);
+      } else {
+        showToast((isRu ? "Ошибка: " : "Қате: ") + (res?.error || (isRu ? "Ошибка доступа" : "Қолжетімділік қатесі")), "error");
+        setActionId(null);
+      }
+    } catch (err) {
+      console.error("Impersonate error:", err);
+      showToast(isRu ? "Ошибка сервера" : "Серверде қате орын алды", "error");
       setActionId(null);
     }
   };
 
   const handleCheckUser = async (contactValue, isEmail) => {
-    return await actions.checkUserForOrganizerAction(contactValue, isEmail);
+    const checkFn = actions.checkUserForOrganizerAction || actions.checkUserForOrganizer;
+    if (typeof checkFn === "function") {
+      return await checkFn(contactValue, isEmail);
+    }
+    return { ok: false };
   };
 
   const handleAddOrganizer = async (data) => {
-    const res = await actions.createOrganizerUserAction(data);
-    if (res.ok) {
-      showToast("Организатор сәтті бекітілді!", "success");
-      await loadData();
-    } else {
-      showToast(res.error, "error");
+    try {
+      const createFn = actions.createOrganizerUserAction || actions.createOrganizerUser;
+      let res = null;
+      if (typeof createFn === "function") {
+        res = await createFn(data);
+      }
+
+      if (res?.ok) {
+        showToast(isRu ? "Организатор успешно прикреплен!" : "Организатор сәтті бекітілді!", "success");
+        await loadData();
+      } else {
+        showToast(res?.error || (isRu ? "Ошибка при добавлении" : "Қосу кезінде қате шықты"), "error");
+      }
+    } catch (err) {
+      console.error("Add organizer error:", err);
+      showToast(isRu ? "Ошибка сервера" : "Серверде қате орын алды", "error");
     }
   };
 
@@ -71,7 +113,7 @@ export default function OwnerOrganizersPage() {
 
   return (
     <div className="space-y-6 w-full pb-12 font-sans text-slate-900 relative">
-      {/* 🔔 ӘДЕМІ TOAST ХАБАРЛАМА */}
+      {/* 🔔 TOAST ХАБАРЛАМА */}
       {toast.show && (
         <div
           className={`fixed top-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl text-xs font-bold border transition-all animate-bounce ${
@@ -89,10 +131,12 @@ export default function OwnerOrganizersPage() {
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Организаторлар
+            {isRu ? "Организаторы" : "Организаторлар"}
           </h1>
           <p className="text-slate-500 text-xs mt-0.5">
-            Платформаны жалға алған B2B клиенттер (Организатор аккаунттары).
+            {isRu
+              ? "B2B клиенты, арендующие платформу (Аккаунты организаторов)."
+              : "Платформаны жалға алған B2B клиенттер (Организатор аккаунттары)."}
           </p>
         </div>
 
@@ -100,7 +144,7 @@ export default function OwnerOrganizersPage() {
           <div className="relative w-full sm:w-64">
             <input
               type="text"
-              placeholder="Аты, email, телефон..."
+              placeholder={isRu ? "Имя, email, телефон..." : "Аты, email, телефон..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-purple-600 transition"
@@ -113,7 +157,7 @@ export default function OwnerOrganizersPage() {
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl transition cursor-pointer shadow-md shadow-purple-200"
           >
             <Plus size={16} />
-            Организатор Қосу
+            {isRu ? "Добавить Организатора" : "Организатор Қосу"}
           </button>
         </div>
       </div>
@@ -124,18 +168,18 @@ export default function OwnerOrganizersPage() {
           <table className="w-full text-left text-xs font-medium text-slate-600">
             <thead className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-black text-slate-400 tracking-wider">
               <tr>
-                <th className="px-6 py-4">Организатор</th>
-                <th className="px-6 py-4">Байланыс Мәліметі</th>
-                <th className="px-6 py-4 text-center">Марафондар</th>
-                <th className="px-6 py-4 text-center">Оқушылар Саны</th>
-                <th className="px-6 py-4 text-right">Кабинетіне Кіру</th>
+                <th className="px-6 py-4">{isRu ? "Организатор" : "Организатор"}</th>
+                <th className="px-6 py-4">{isRu ? "Контакты" : "Байланыс Мәліметі"}</th>
+                <th className="px-6 py-4 text-center">{isRu ? "Марафоны" : "Марафондар"}</th>
+                <th className="px-6 py-4 text-center">{isRu ? "Кол-во учеников" : "Оқушылар Саны"}</th>
+                <th className="px-6 py-4 text-right">{isRu ? "Вход в кабинет" : "Кабинетіне Кіру"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-semibold">
-                    Организаторлар табылмады.
+                    {isRu ? "Организаторы не найдены." : "Организаторлар табылмады."}
                   </td>
                 </tr>
               ) : (
@@ -164,12 +208,12 @@ export default function OwnerOrganizersPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-xl font-bold text-[11px]">
-                        {org.marathonsCount} марафон
+                        {org.marathonsCount} {isRu ? "марафон(ов)" : "марафон"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-xl font-black text-[11px]">
-                        {org.studentsCount} оқушы
+                        {org.studentsCount} {isRu ? "учеников" : "оқушы"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -183,7 +227,7 @@ export default function OwnerOrganizersPage() {
                         ) : (
                           <ExternalLink className="w-3.5 h-3.5" />
                         )}
-                        Кабинетке Кіру
+                        {isRu ? "Войти в кабинет" : "Кабинетке Кіру"}
                       </button>
                     </td>
                   </tr>

@@ -6,7 +6,7 @@ import {
   CheckCircle2, Sparkles, ShieldCheck, Edit3,
   BookOpen, ExternalLink, Send, Globe, Video, PlaySquare, Save, Loader2, Lock
 } from "lucide-react";
-import { updateStudentProfile } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function ProfileClient({ initialStudent }) {
@@ -48,18 +48,23 @@ export default function ProfileClient({ initialStudent }) {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      const res = await updateStudentProfile({
-        id: student.id,
-        name: student.name,
-        targetUniversity: student.targetUniversity,
-        targetMajor: student.targetMajor,
-        targetScore: student.targetScore,
-      });
+      const updateFn = actions.updateStudentProfile || actions.updateStudentProfileAction;
+      if (typeof updateFn === "function") {
+        const res = await updateFn({
+          id: student.id,
+          name: student.name,
+          targetUniversity: student.targetUniversity,
+          targetMajor: student.targetMajor,
+          targetScore: Number(student.targetScore),
+        });
 
-      if (res?.ok) {
-        setIsEditing(false);
+        if (res?.ok) {
+          setIsEditing(false);
+        } else {
+          alert((isRu ? "Произошла ошибка: " : "Қате шықты: ") + (res?.error || (isRu ? "Неизвестная ошибка" : "Белгісіз қате")));
+        }
       } else {
-        alert((isRu ? "Произошла ошибка: " : "Қате шықты: ") + (res?.error || (isRu ? "Неизвестная ошибка" : "Белгісіз қате")));
+        setIsEditing(false);
       }
     } catch (error) {
       console.error("Сақтау қатесі:", error);

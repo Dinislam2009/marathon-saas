@@ -19,9 +19,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
-
-// --- ⚡ СЕРВЕРЛІК ACTION-ДАРДЫ ИМПОРТТАУ ---
-import { getCurrentUserAction } from "@/app/actions";
+import * as actions from "@/app/actions";
 
 // ---- Scroll-triggered visibility hook (IntersectionObserver) ----
 function useInView(threshold = 0.3) {
@@ -220,7 +218,7 @@ function LegalModal({ open, onClose, title, children }) {
 }
 
 export default function LandingPage() {
-  const { lang, setLang } = useLanguage();
+  const { lang, setLang, changeLanguage } = useLanguage();
   const isRu = lang === "ru";
 
   const [loggedIn, setLoggedIn] = useState(false);
@@ -229,16 +227,35 @@ export default function LandingPage() {
 
   useEffect(() => {
     async function checkAuth() {
+      if (typeof window === "undefined") return;
       const savedUserId = localStorage.getItem("current_user_id"); 
       if (savedUserId) {
-        const user = await getCurrentUserAction(savedUserId);
-        setLoggedIn(Boolean(user));
+        try {
+          const getUserFn = actions.getCurrentUserAction || actions.getCurrentUser;
+          let user = null;
+          if (typeof getUserFn === "function") {
+            user = await getUserFn(savedUserId);
+          }
+          setLoggedIn(Boolean(user));
+        } catch (err) {
+          console.error("Auth check error:", err);
+          setLoggedIn(false);
+        }
       } else {
         setLoggedIn(false);
       }
     }
     checkAuth();
   }, []);
+
+  const handleLanguageToggle = () => {
+    const nextLang = isRu ? "kk" : "ru";
+    if (typeof setLang === "function") {
+      setLang(nextLang);
+    } else if (typeof changeLanguage === "function") {
+      changeLanguage(nextLang);
+    }
+  };
 
   const navLinks = [
     { href: "#how-it-works", label: isRu ? "Как это работает" : "Бұл қалай жұмыс істейді" },
@@ -311,7 +328,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             {/* 🌐 Language Switcher */}
             <button
-              onClick={() => setLang(isRu ? "kk" : "ru")}
+              onClick={handleLanguageToggle}
               className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700 transition-colors cursor-pointer border border-gray-200"
             >
               {isRu ? "KZ" : "RU"}

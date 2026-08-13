@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { registerUser } from "@/app/actions"; 
+import * as actions from "@/app/actions";
+import { registerUser as registerUserFn } from "@/app/actions"; 
 import { formatKzPhone, isValidKzPhone } from "@/lib/utils";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
@@ -59,7 +60,13 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await registerUser(form);
+      const actionToCall = actions.registerUser || actions.registerUserAction || registerUserFn;
+      let res = null;
+
+      if (typeof actionToCall === "function") {
+        res = await actionToCall(form);
+      }
+
       setLoading(false);
 
       if (!res || res.error) {
@@ -80,6 +87,7 @@ export default function RegisterPage() {
         );
       }
     } catch (err) {
+      console.error("Register error:", err);
       setLoading(false);
       setError(
         isRu 
@@ -114,7 +122,7 @@ export default function RegisterPage() {
                 required
                 value={form.firstName}
                 onChange={(e) => set("firstName", e.target.value)}
-                className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
+                className="rounded-xl border border-mist-light px-3.5 py-3 text-sm outline-none focus:border-horizon-dark transition-colors"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
@@ -123,7 +131,7 @@ export default function RegisterPage() {
                 required
                 value={form.lastName}
                 onChange={(e) => set("lastName", e.target.value)}
-                className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
+                className="rounded-xl border border-mist-light px-3.5 py-3 text-sm outline-none focus:border-horizon-dark transition-colors"
               />
             </label>
           </div>
@@ -135,7 +143,7 @@ export default function RegisterPage() {
               type="email"
               value={form.email}
               onChange={(e) => set("email", e.target.value)}
-              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
+              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm outline-none focus:border-horizon-dark transition-colors"
             />
           </label>
 
@@ -149,7 +157,7 @@ export default function RegisterPage() {
               value={form.phone}
               onChange={(e) => set("phone", formatKzPhone(e.target.value))}
               placeholder="+7 (7XX) XXX-XX-XX"
-              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
+              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm outline-none focus:border-horizon-dark transition-colors"
             />
             <span className="text-xs text-mist">
               {isRu ? "Принимаются только номера Казахстана" : "Тек Қазақстан нөмірлері қабылданады"}
@@ -166,7 +174,7 @@ export default function RegisterPage() {
               value={form.password}
               onChange={(e) => set("password", e.target.value)}
               placeholder={isRu ? "не менее 6 символов" : "кемінде 6 таңба"}
-              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
+              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm outline-none focus:border-horizon-dark transition-colors"
             />
           </label>
 
@@ -179,7 +187,7 @@ export default function RegisterPage() {
               type="password"
               value={form.confirmPassword}
               onChange={(e) => set("confirmPassword", e.target.value)}
-              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm"
+              className="rounded-xl border border-mist-light px-3.5 py-3 text-sm outline-none focus:border-horizon-dark transition-colors"
             />
           </label>
 

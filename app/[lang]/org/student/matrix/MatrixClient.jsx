@@ -10,7 +10,7 @@ import {
   CheckCircle2, 
   Circle 
 } from "lucide-react";
-import { addMatrixTask, toggleMatrixTaskDone, deleteMatrixTask } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function MatrixClient({ studentId, initialTasks = [] }) {
@@ -29,7 +29,10 @@ export default function MatrixClient({ studentId, initialTasks = [] }) {
     );
 
     try {
-      await toggleMatrixTaskDone(id);
+      const toggleFn = actions.toggleMatrixTaskDone || actions.toggleMatrixTaskAction;
+      if (typeof toggleFn === "function") {
+        await toggleFn(id);
+      }
     } catch (e) {
       console.error("Toggle matrix task error:", e);
     }
@@ -40,7 +43,10 @@ export default function MatrixClient({ studentId, initialTasks = [] }) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
     try {
-      await deleteMatrixTask(id);
+      const deleteFn = actions.deleteMatrixTask || actions.deleteMatrixTaskAction;
+      if (typeof deleteFn === "function") {
+        await deleteFn(id);
+      }
     } catch (e) {
       console.error("Delete matrix task error:", e);
     }
@@ -54,10 +60,14 @@ export default function MatrixClient({ studentId, initialTasks = [] }) {
     setLoading(true);
 
     try {
-      const res = await addMatrixTask(studentId, {
-        title: newTaskText.trim(),
-        quadrant: selectedQuadrant,
-      });
+      const addFn = actions.addMatrixTask || actions.addMatrixTaskAction;
+      let res = null;
+      if (typeof addFn === "function") {
+        res = await addFn(studentId, {
+          title: newTaskText.trim(),
+          quadrant: selectedQuadrant,
+        });
+      }
 
       const addedObj = res?.data || {
         id: Date.now().toString(),

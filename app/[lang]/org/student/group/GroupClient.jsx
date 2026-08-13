@@ -25,11 +25,11 @@ export default function GroupClient({ initialData }) {
   // Нақты статистика
   const totalStudents = members.length;
   const avgStreak = totalStudents > 0 
-    ? Math.round(members.reduce((acc, m) => acc + m.streak, 0) / totalStudents) 
+    ? Math.round(members.reduce((acc, m) => acc + (m.streak || 0), 0) / totalStudents) 
     : 0;
 
   const filteredMembers = members.filter((m) =>
-    m.rawName.toLowerCase().includes(searchTerm.toLowerCase())
+    (m.rawName || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -153,7 +153,7 @@ export default function GroupClient({ initialData }) {
                   </span>
 
                   <div className={`w-10 h-10 rounded-2xl ${member.avatarColor} font-bold flex items-center justify-center text-sm relative shrink-0`}>
-                    {member.rawName.charAt(0)}
+                    {(member.rawName || "У").charAt(0)}
                   </div>
 
                   <div>

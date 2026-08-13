@@ -5,7 +5,7 @@ import {
   CheckCircle2, Lock, Send, Loader2, Trophy, 
   Sparkles, ArrowRight, PlayCircle, AlertCircle, UploadCloud, FileCheck
 } from "lucide-react";
-import { submitTaskAction } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 const getKinescopeUrl = (url) => {
@@ -170,7 +170,7 @@ export default function StudentTasksClient({ initialData }) {
     const prevDayTasks = tasks.filter((t) => Number(t.dayNumber) === dayNum - 1);
     if (prevDayTasks.length > 0) {
       const isPrevDayDone = prevDayTasks.every((pt) => 
-        submissions.some((s) => s.taskId === pt.id && s.status === "SUBMITTED")
+        submissions.some((s) => s.taskId === pt.id && (s.status === "SUBMITTED" || s.status === "submitted" || s.status === "APPROVED"))
       );
       if (!isPrevDayDone) return false;
     }
@@ -189,7 +189,7 @@ export default function StudentTasksClient({ initialData }) {
 
   // ⚡ Нақты ОСЫ тапсырманың орындалғанын тексеру
   const isTaskSubmitted = (taskId) => {
-    return submissions.some((s) => s.taskId === taskId && s.status === "SUBMITTED");
+    return submissions.some((s) => s.taskId === taskId && (s.status === "SUBMITTED" || s.status === "submitted" || s.status === "APPROVED"));
   };
 
   // 📁 Файл таңдағанда тексеру (Макс 10MB)
@@ -231,7 +231,7 @@ export default function StudentTasksClient({ initialData }) {
     try {
       let fileUrl = null;
 
-      // Файлды base64 немесе formData ретінде дайындау
+      // Файлды base64 ретінде дайындау
       if (uploadedFile) {
         fileUrl = await new Promise((resolve) => {
           const reader = new FileReader();
@@ -240,14 +240,19 @@ export default function StudentTasksClient({ initialData }) {
         });
       }
 
-      const res = await submitTaskAction({
-        studentId: student.id,
-        taskId: task.id,
-        dayNumber: activeDay,
-        checklist: taskChecklist,
-        fileUrl: fileUrl,
-        marathonId: marathon?.id,
-      });
+      const submitFn = actions.submitTaskAction || actions.submitTask;
+      let res = null;
+
+      if (typeof submitFn === "function") {
+        res = await submitFn({
+          studentId: student.id,
+          taskId: task.id,
+          dayNumber: activeDay,
+          checklist: taskChecklist,
+          fileUrl: fileUrl,
+          marathonId: marathon?.id,
+        });
+      }
 
       if (res?.ok) {
         const pointsEarned = res?.earnedPoints || task.points || 10;

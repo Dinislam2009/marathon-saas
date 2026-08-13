@@ -4,7 +4,7 @@ import { use } from "react";
 import { 
   LayoutGrid, 
   Users, 
-  UserCheck, // 👈 Менеджер иконкасы
+  UserCheck, 
   ShieldCheck, 
   Settings, 
   User, 
@@ -18,7 +18,9 @@ import { useLanguage } from "@/context/LanguageContext";
 export default function AdminLayout({ children, params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
-  const { orgId } = use(params);
+  
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
 
   const navItems = [
     { 
@@ -47,7 +49,7 @@ export default function AdminLayout({ children, params }) {
       icon: ShieldCheck 
     },
     { 
-      href: `/${lang}/org/admin/managers`, // 👈 ТУРА ОСЫ ЖЕРГЕ ҚОСЫЛДЫ
+      href: `/${lang}/org/admin/managers`, 
       label: isRu ? "Менеджеры" : "Менеджерлер", 
       icon: UserCheck 
     },

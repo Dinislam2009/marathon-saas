@@ -92,7 +92,6 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
           return;
         }
 
-        // ⛔ 1. РӨЛДЕРДІ ТЕКСЕРУ: OWNER немесе ORGANIZER-ді Куратор қылуға тыйым салу
         if (user.role === "OWNER") {
           setStatus("invalid_role");
           setStatusMessage(
@@ -115,7 +114,6 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
           return;
         }
 
-        // ⚠️ 2. МАРАФОНҒА БҰРЫННАН ҚОСЫЛҒАНЫН ТЕКСЕРУ
         if (result.status === "already_in_this_marathon") {
           setStatus("already_in_this_marathon");
           setStatusMessage(
@@ -127,7 +125,6 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
           return;
         }
 
-        // ✅ 3. ҚОСУҒА ДАЙЫН (Ученик немесе жеке пайдаланушы)
         setStatus("ready");
         setFoundUser(user);
       } else {
@@ -162,7 +159,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
       setFoundUser(null);
       onClose();
     } catch (err) {
-      console.error(err);
+      console.error("Add curator error:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -240,7 +237,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
               </div>
             )}
 
-            {/* ✅ READY (ФОТОДАҒЫДАЙ ӘДЕМІ КАРТОЧКА) */}
+            {/* ✅ READY */}
             {status === "ready" && foundUser && (
               <div className="mt-3 p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200 space-y-2">
                 <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
@@ -270,7 +267,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
               </div>
             )}
 
-            {/* ⛔ INVALID ROLE (OWNER / ORGANIZER ШЕКТЕУІ) */}
+            {/* ⛔ INVALID ROLE */}
             {status === "invalid_role" && (
               <div className="mt-3 p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-700 space-y-1">
                 <p className="font-bold">⛔ {statusMessage}</p>
@@ -464,14 +461,15 @@ export default function CuratorsPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId } = use(params);
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
+
   const { ready, tick, triggerUpdate } = useData();
 
   const [curators, setCurators] = useState([]);
   const [marathons, setMarathons] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Модаль терезелер күйі
   const [inviteOpen, setInviteOpen] = useState(false);
   const [accessModalcurator, setAccessModalcurator] = useState(null);
   const [deleteModalcurator, setDeleteModalcurator] = useState(null);
@@ -483,7 +481,6 @@ export default function CuratorsPage({ params }) {
         const res = await actions.getcuratorsByOrgId(orgId);
         const rawList = res || [];
 
-        // Дубликаттарды тазалау
         const uniqueList = Array.from(
           new Map(
             rawList.map((m) => [

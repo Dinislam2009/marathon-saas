@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
-import { getCurrentUserAction } from "@/app/actions";
+import * as actions from "@/app/actions";
 
 // ---- 📄 LEGAL TEXT CONSTANTS ----
 const PRIVACY_TEXT_RU = `ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ И ОБРАБОТКИ ПЕРСОНАЛЬНЫХ ДАННЫХ
@@ -248,21 +248,27 @@ export default function LandingPage() {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   useEffect(() => {
-  // ⚡ Авторизацияны фонда тексеру, беттің ашылуын бөгемейді
-  const savedUserId = localStorage.getItem("current_user_id");
-  if (savedUserId) {
-    getCurrentUserAction(savedUserId).then((user) => {
-      setLoggedIn(Boolean(user));
-    });
-  }
-}, []);
+    if (typeof window === "undefined") return;
+
+    const savedUserId = localStorage.getItem("current_user_id");
+    if (savedUserId) {
+      const getUserFn = actions.getCurrentUserAction || actions.getCurrentUser;
+      if (typeof getUserFn === "function") {
+        getUserFn(savedUserId)
+          .then((user) => setLoggedIn(Boolean(user)))
+          .catch(() => setLoggedIn(false));
+      }
+    }
+  }, []);
 
   const handleToggleLanguage = () => {
     const nextLang = isRu ? "kk" : "ru";
     if (changeLanguage) {
       changeLanguage(nextLang);
     }
-    window.location.href = `/${nextLang}`;
+    if (typeof window !== "undefined") {
+      window.location.href = `/${nextLang}`;
+    }
   };
 
   const navLinks = [

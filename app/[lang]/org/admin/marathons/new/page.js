@@ -11,7 +11,9 @@ export default function NewMarathonPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId } = use(params);
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
+
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +31,6 @@ export default function NewMarathonPage({ params }) {
     try {
       const res = await createMarathonAction({ orgId, ...form });
       if (res?.ok) {
-        // ⚡ ОСЫ ЖЕРДЕ ТІЛДІ ЕСКЕРЕ ОТЫРЫП БАСТЫ МАРАФОНДАР ТІЗІМІНЕ БАҒЫТТАЙМЫЗ
         router.push(`/${lang}/org/admin`);
       } else {
         alert(
@@ -38,7 +39,7 @@ export default function NewMarathonPage({ params }) {
         );
       }
     } catch (err) {
-      console.error(err);
+      console.error("Create marathon error:", err);
     } finally {
       setLoading(false);
     }

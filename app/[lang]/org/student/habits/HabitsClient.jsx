@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { CheckCircle2, Circle, Flame, Plus, Trash2, X } from "lucide-react";
-import { addHabit, toggleHabitToday, deleteHabit } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function HabitsClient({ studentId, initialHabits = [] }) {
@@ -31,7 +31,10 @@ export default function HabitsClient({ studentId, initialHabits = [] }) {
     );
 
     try {
-      await toggleHabitToday(id);
+      const toggleFn = actions.toggleHabitToday || actions.toggleHabitAction;
+      if (typeof toggleFn === "function") {
+        await toggleFn(id);
+      }
     } catch (e) {
       console.error("Toggle error:", e);
     }
@@ -44,7 +47,12 @@ export default function HabitsClient({ studentId, initialHabits = [] }) {
 
     setLoading(true);
     try {
-      const res = await addHabit(studentId, newTitle.trim());
+      const addFn = actions.addHabit || actions.addHabitAction;
+      let res = null;
+      if (typeof addFn === "function") {
+        res = await addFn(studentId, newTitle.trim());
+      }
+
       const newHabitObj = res?.data || {
         id: Date.now().toString(),
         title: newTitle.trim(),
@@ -70,7 +78,10 @@ export default function HabitsClient({ studentId, initialHabits = [] }) {
   const handleDelete = async (id) => {
     setHabits((prev) => prev.filter((h) => h.id !== id));
     try {
-      await deleteHabit(id);
+      const deleteFn = actions.deleteHabit || actions.deleteHabitAction;
+      if (typeof deleteFn === "function") {
+        await deleteFn(id);
+      }
     } catch (e) {
       console.error("Delete error:", e);
     }

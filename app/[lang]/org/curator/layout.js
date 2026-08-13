@@ -4,7 +4,7 @@ import { Home, BookOpen, Users, BarChart3, User, ClipboardList } from "lucide-re
 import DashboardShell from "@/components/DashboardShell";
 import { useLanguage } from "@/context/LanguageContext";
 
-export default function curatorLayout({ children }) {
+export default function CuratorLayout({ children }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
@@ -44,8 +44,8 @@ export default function curatorLayout({ children }) {
   return (
     <DashboardShell 
       theme="ink" 
-      eyebrow={isRu ? "Куратор" : "куратор"} 
-      title={isRu ? "Кабинет куратора" : "куратор кабинеті"} 
+      eyebrow={isRu ? "Куратор" : "Куратор"} 
+      title={isRu ? "Кабинет куратора" : "Куратор кабинеті"} 
       navItems={navItems}
     >
       {children}

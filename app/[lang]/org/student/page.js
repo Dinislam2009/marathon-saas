@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useData } from "@/context/DataContext";
 import { useLanguage } from "@/context/LanguageContext";
 import LoadingState from "@/components/LoadingState";
-import { getStudentDashboardAction, submitTaskAction } from "@/app/actions";
 import YoutubeIcon from "@/components/YoutubeIcon";
+import * as actions from "@/app/actions";
 import { 
   Lock, 
   AlertCircle, 
@@ -43,12 +43,17 @@ export default function StudentDashboardPage() {
       let activeStudentId = currentStudentId;
       let activeUserId = null;
 
-      if (!activeStudentId) {
+      if (!activeStudentId && typeof window !== "undefined") {
         const userObj = JSON.parse(localStorage.getItem("currentUser") || "{}");
         activeUserId = userObj?.id;
       }
 
-      const res = await getStudentDashboardAction(activeStudentId, activeUserId);
+      const getDashboardFn = actions.getStudentDashboardAction || actions.getStudentDashboard;
+      let res = null;
+
+      if (typeof getDashboardFn === "function") {
+        res = await getDashboardFn(activeStudentId, activeUserId);
+      }
 
       if (res?.ok && res?.data) {
         setData(res.data);
@@ -79,11 +84,17 @@ export default function StudentDashboardPage() {
 
     try {
       setSubmitting(true);
-      const res = await submitTaskAction({
-        studentId: data.student.id,
-        dayNumber: data.task.dayNumber,
-        fileUrl: fileUrlInput.trim() || null,
-      });
+
+      const submitFn = actions.submitTaskAction || actions.submitTask;
+      let res = null;
+
+      if (typeof submitFn === "function") {
+        res = await submitFn({
+          studentId: data.student.id,
+          dayNumber: data.task.dayNumber,
+          fileUrl: fileUrlInput.trim() || null,
+        });
+      }
 
       if (res?.ok) {
         // Оптимистік түрде интерфейсті бірден жаңарту
@@ -107,8 +118,8 @@ export default function StudentDashboardPage() {
   };
 
   if (loading) {
-  return <LoadingState />;
-}
+    return <LoadingState />;
+  }
 
   if (error && !data) {
     return (
@@ -172,7 +183,7 @@ export default function StudentDashboardPage() {
 
   const dayNumber = task?.dayNumber || 1;
   const totalDays = marathon.durationDays || 21;
-  const isSubmitted = submission && submission.status === "SUBMITTED";
+  const isSubmitted = submission && (submission.status === "SUBMITTED" || submission.status === "submitted" || submission.status === "APPROVED");
 
   const displayTaskTitle = isRu ? (task?.titleRu || task?.title) : (task?.titleKz || task?.title);
   const displayTaskContent = isRu ? (task?.contentRu || task?.content) : (task?.contentKz || task?.content);

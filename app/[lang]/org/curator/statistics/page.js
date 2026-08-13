@@ -1,12 +1,12 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { getcuratorMarathons } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { Users, CheckCircle, Flame, Clock } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import LoadingState from "@/components/LoadingState";
 
-export default function curatorStatisticsPage({ params }) {
+export default function CuratorStatisticsPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
@@ -18,25 +18,33 @@ export default function curatorStatisticsPage({ params }) {
 
   useEffect(() => {
     async function loadData() {
-      let currentUserId = localStorage.getItem("current_user_id");
-      if (!currentUserId) {
-        const userObj = JSON.parse(localStorage.getItem("currentUser") || "{}");
-        currentUserId = userObj?.id;
-      }
+      try {
+        let currentUserId = typeof window !== "undefined" ? localStorage.getItem("current_user_id") : null;
+        if (!currentUserId && typeof window !== "undefined") {
+          const userObj = JSON.parse(localStorage.getItem("currentUser") || "{}");
+          currentUserId = userObj?.id;
+        }
 
-      const marathons = await getcuratorMarathons(currentUserId, orgId);
-      if (marathons && marathons.length > 0) {
-        setMarathon(marathons[0]);
+        const fn = actions.getcuratorMarathons || actions.getcuratorMarathonsAction;
+        if (typeof fn === "function") {
+          const marathons = await fn(currentUserId, orgId);
+          if (marathons && marathons.length > 0) {
+            setMarathon(marathons[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Load curator statistics error:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     loadData();
   }, [orgId]);
 
   if (loading) {
-  return <LoadingState />;
-}
+    return <LoadingState />;
+  }
 
   if (!marathon) {
     return (
@@ -56,7 +64,7 @@ export default function curatorStatisticsPage({ params }) {
         </h1>
         <p className="text-sm text-slate-500 mt-1 font-medium">
           {isRu ? "Длительность марафона: " : "Марафон ұзақтығы: "}
-          {marathon.durationDays} {isRu ? "дней" : "күн"}
+          {marathon.durationDays || 21} {isRu ? "дней" : "күн"}
         </p>
       </div>
 
@@ -126,7 +134,7 @@ export default function curatorStatisticsPage({ params }) {
               <div key={student.id} className="py-3 flex items-center justify-between">
                 <div>
                   <p className="font-bold text-sm text-slate-900">{student.name}</p>
-                  <p className="text-xs text-slate-400 font-medium">{student.email}</p>
+                  <p className="text-xs text-slate-400 font-medium">{student.email || "—"}</p>
                 </div>
                 <span className="text-xs px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 font-bold">
                   {student.points || 0} {isRu ? "баллов" : "балл"}

@@ -79,7 +79,7 @@ function AddStudentModal({ isOpen, onClose, marathons, onAddStudent, isRu }) {
   const verifyStudent = async (value, isEmail, marathonId) => {
     setStatus("checking");
     try {
-      if (actions.checkStudentForMarathonAction) {
+      if (typeof actions.checkStudentForMarathonAction === "function") {
         const result = await actions.checkStudentForMarathonAction(value, isEmail, marathonId);
         const user = result?.user;
 
@@ -89,7 +89,6 @@ function AddStudentModal({ isOpen, onClose, marathons, onAddStudent, isRu }) {
           return;
         }
 
-        // ⛔ 1. РӨЛДЕРДІ ТЕКСЕРУ (OWNER, ORGANIZER, CURATOR қатысушы бола алмайды)
         if (user.role === "OWNER" || user.role === "ORGANIZER" || user.role === "CURATOR") {
           setStatus("invalid_role");
           setStatusMessage(
@@ -101,7 +100,6 @@ function AddStudentModal({ isOpen, onClose, marathons, onAddStudent, isRu }) {
           return;
         }
 
-        // ⚠️ 2. БҰРЫННАН ОСЫ МАРАФОНДА БАР ЕКЕНІН ТЕКСЕРУ
         if (result.status === "already_in_this_marathon") {
           setStatus("already_in_this_marathon");
           setStatusMessage(
@@ -113,7 +111,6 @@ function AddStudentModal({ isOpen, onClose, marathons, onAddStudent, isRu }) {
           return;
         }
 
-        // ✅ 3. ҚОСУҒА ДАЙЫН
         setStatus("ready");
         setFoundUser(user);
       } else {
@@ -224,7 +221,7 @@ function AddStudentModal({ isOpen, onClose, marathons, onAddStudent, isRu }) {
               </div>
             )}
 
-            {/* ✅ READY (ФОТОДАҒЫДАЙ ДӘЛ КАРТОЧКА) */}
+            {/* ✅ READY */}
             {status === "ready" && foundUser && (
               <div className="mt-3 p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200 space-y-2">
                 <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
@@ -295,7 +292,8 @@ export default function AdminStudentsPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId } = use(params);
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
 
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState([]);
@@ -304,19 +302,23 @@ export default function AdminStudentsPage({ params }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [assigningId, setAssigningId] = useState(null);
 
-  // Модаль терезе стейті
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Деректерді жүктеу
   const fetchData = useCallback(async () => {
+    if (!orgId) return;
     setLoading(true);
     try {
-      const activeMarathons = await actions.getMarathonsByOrgId(orgId);
-      setMarathons(activeMarathons || []);
+      let activeMarathons = [];
+      if (typeof actions.getMarathonsByOrgId === "function") {
+        activeMarathons = await actions.getMarathonsByOrgId(orgId);
+        setMarathons(activeMarathons || []);
+      }
       const validMarathonIds = new Set((activeMarathons || []).map((m) => m.id));
 
-      const studentsList = await actions.getStudentsByOrgId(orgId);
-      setStudents(studentsList || []);
+      if (typeof actions.getStudentsByOrgId === "function") {
+        const studentsList = await actions.getStudentsByOrgId(orgId);
+        setStudents(studentsList || []);
+      }
 
       const res = await fetch(`/api/org/groups?orgId=${orgId}`);
       const json = await res.json();
@@ -338,10 +340,9 @@ export default function AdminStudentsPage({ params }) {
     fetchData();
   }, [fetchData]);
 
-  // Оқушыны марафонға қосу орындау
   const handleAddStudentToMarathon = async (data) => {
     try {
-      if (actions.addStudentToMarathonAction) {
+      if (typeof actions.addStudentToMarathonAction === "function") {
         const res = await actions.addStudentToMarathonAction(data);
         if (res?.ok) {
           await fetchData();
@@ -354,18 +355,19 @@ export default function AdminStudentsPage({ params }) {
     }
   };
 
-  // Оқушыны топқа бекіту
   const handleAssignGroup = async (studentId, groupId) => {
     try {
       setAssigningId(studentId);
-      const res = await actions.assignStudentToGroupAction(studentId, groupId);
-      if (res?.ok) {
-        setStudents((prev) =>
-          prev.map((s) => (s.id === studentId ? { ...s, groupId: groupId || null } : s))
-        );
-        await fetchData();
-      } else {
-        alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || ""));
+      if (typeof actions.assignStudentToGroupAction === "function") {
+        const res = await actions.assignStudentToGroupAction(studentId, groupId);
+        if (res?.ok) {
+          setStudents((prev) =>
+            prev.map((s) => (s.id === studentId ? { ...s, groupId: groupId || null } : s))
+          );
+          await fetchData();
+        } else {
+          alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || ""));
+        }
       }
     } catch (err) {
       console.error("Assign group error:", err);

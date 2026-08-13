@@ -8,7 +8,6 @@ import { loginUser } from "@/app/actions";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
 
-// Пайдаланушы рөліне сай тура бағыттау жолын анықтайтын көмекші функция
 const getRedirectPathByRole = (role, lang = "ru") => {
   const normalizedRole = String(role || "").toUpperCase().trim();
 
@@ -23,7 +22,7 @@ const getRedirectPathByRole = (role, lang = "ru") => {
 
     case "MANAGER":
     case "SALES_MANAGER":
-      return `/${lang}/org/manager`; // 👈 Менеджердің жеке кабинетіне бағыттау
+      return `/${lang}/org/manager`;
 
     case "TEACHER":
     case "INSTRUCTOR":
@@ -68,6 +67,7 @@ export default function LoginPage() {
     }
 
     setIdentifier(val);
+    setError("");
   };
 
   async function handleSubmit(e) {
@@ -79,7 +79,7 @@ export default function LoginPage() {
       const result = await loginUser(identifier, password);
       setLoading(false);
 
-      if (!result || result.error) {
+      if (!result || !result.ok || result.error) {
         setError(result?.error || (isRu ? "Произошла ошибка" : "Қате орын алды"));
         return;
       }
@@ -91,7 +91,6 @@ export default function LoginPage() {
         }
       }
 
-      // ⚡ Менеджер немесе басқа рөлді өз туған кабинетіне жіберу
       const targetPath = getRedirectPathByRole(result.user?.role, lang);
       router.replace(targetPath);
 

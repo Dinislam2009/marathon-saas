@@ -83,8 +83,9 @@ function AddStudentModal({ isOpen, onClose, marathons, onAddStudent, isRu }) {
     setStatus("checking");
     setSubmitError("");
     try {
-      if (typeof actions.checkStudentForMarathonAction === "function") {
-        const result = await actions.checkStudentForMarathonAction(value, isEmail, marathonId);
+      const checkFn = actions.checkStudentForMarathonAction || actions.checkStudent;
+      if (typeof checkFn === "function") {
+        const result = await checkFn(value, isEmail, marathonId);
         const user = result?.user;
 
         if (!result || result.status === "not_found" || !user) {
@@ -308,13 +309,15 @@ export default function ManagerDashboardPage({ params }) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      if (typeof actions.getMarathonsByOrgId === "function") {
-        const activeMarathons = await actions.getMarathonsByOrgId(orgId);
+      const getMarathonsFn = actions.getMarathonsByOrgId || actions.getMarathonsAction;
+      if (typeof getMarathonsFn === "function" && orgId) {
+        const activeMarathons = await getMarathonsFn(orgId);
         setMarathons(activeMarathons || []);
       }
 
-      if (typeof actions.getStudentsByOrgId === "function") {
-        const studentsList = await actions.getStudentsByOrgId(orgId);
+      const getStudentsFn = actions.getStudentsByOrgId || actions.getStudentsByOrgIdAction;
+      if (typeof getStudentsFn === "function" && orgId) {
+        const studentsList = await getStudentsFn(orgId);
         setStudents(studentsList || []);
       }
 
@@ -339,8 +342,9 @@ export default function ManagerDashboardPage({ params }) {
 
   const handleAddStudentToMarathon = async (data) => {
     try {
-      if (typeof actions.addStudentToMarathonAction === "function") {
-        const res = await actions.addStudentToMarathonAction(data);
+      const addFn = actions.addStudentToMarathonAction || actions.addStudentToMarathon;
+      if (typeof addFn === "function") {
+        const res = await addFn(data);
         if (res?.ok) {
           await fetchData();
           return { ok: true };
@@ -357,11 +361,12 @@ export default function ManagerDashboardPage({ params }) {
   const handleAssignGroup = async (studentId, groupId) => {
     try {
       setAssigningId(studentId);
-      if (typeof actions.assignStudentToGroupAction === "function") {
-        const res = await actions.assignStudentToGroupAction(studentId, groupId);
+      const assignFn = actions.assignStudentToGroupAction || actions.assignStudentToGroup;
+      if (typeof assignFn === "function") {
+        const res = await assignFn(studentId, groupId);
         if (res?.ok) {
           setStudents((prev) =>
-            prev.map((s) => (s.id === studentId ? { ...s, groupId: groupId || null } : s))
+            prev.map((s) => (String(s.id) === String(studentId) ? { ...s, groupId: groupId || null } : s))
           );
           await fetchData();
         } else {
@@ -452,12 +457,12 @@ export default function ManagerDashboardPage({ params }) {
               ) : (
                 filteredStudents.map((student) => {
                   const availableGroups = groups.filter(
-                    (g) => !student.marathonId || g.marathonId === student.marathonId
+                    (g) => !student.marathonId || String(g.marathonId) === String(student.marathonId)
                   );
 
                   return (
                     <tr key={student.id} className="hover:bg-slate-50/60 transition">
-                      <td className="px-6 py-4 font-bold text-slate-900">{student.name}</td>
+                      <td className="px-6 py-4 font-bold text-slate-900">{student.name || "—"}</td>
                       <td className="px-6 py-4 space-y-0.5">
                         <div className="font-semibold text-slate-800">{student.email || "—"}</div>
                         <div className="text-[11px] text-slate-400 font-mono">{student.phone || "—"}</div>

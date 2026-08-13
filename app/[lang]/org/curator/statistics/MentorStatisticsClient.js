@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Eye } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
-export default function curatorStatisticsClient({
+export default function CuratorStatisticsClient({
   marathonTitle = "Марафон",
   tasks = [],
   submissions = [],
@@ -16,8 +16,8 @@ export default function curatorStatisticsClient({
   const [selectedDayNumber, setSelectedDayNumber] = useState(1);
 
   // Таңдалған күннің Task мағлұматы мен Submission тізімі
-  const activeTask = tasks.find((t) => t.dayNumber === selectedDayNumber);
-  const daySubmissions = submissions.filter((s) => s.dayNumber === selectedDayNumber);
+  const activeTask = tasks.find((t) => Number(t.dayNumber) === Number(selectedDayNumber));
+  const daySubmissions = submissions.filter((s) => Number(s.dayNumber) === Number(selectedDayNumber));
 
   // Метрикаларды есептеу
   const submittedCount = daySubmissions.length;
@@ -45,7 +45,7 @@ export default function curatorStatisticsClient({
       <div className="grid grid-cols-7 gap-2">
         {[1, 2, 3, 4, 5, 6, 7].map((dayNum) => {
           const isActive = selectedDayNumber === dayNum;
-          const hasTask = tasks.some((t) => t.dayNumber === dayNum);
+          const hasTask = tasks.some((t) => Number(t.dayNumber) === dayNum);
           
           return (
             <button
@@ -109,7 +109,7 @@ export default function curatorStatisticsClient({
           <div>
             <p className="text-slate-400 text-xs font-bold">{isRu ? "Опоздали/Не сдали" : "Кешіккендер/Тапсырмаған"}</p>
             <p className="text-amber-600 font-black text-lg mt-0.5">
-              {totalStudentsCount - submittedCount} {isRu ? "учеников" : "оқушы"}
+              {Math.max(0, totalStudentsCount - submittedCount)} {isRu ? "учеников" : "оқушы"}
             </p>
           </div>
         </div>
@@ -155,7 +155,7 @@ export default function curatorStatisticsClient({
                       href={sub.fileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1.5 text-slate-400 hover:text-purple-600 transition"
+                      className="p-1.5 text-slate-400 hover:text-purple-600 transition cursor-pointer"
                       title={isRu ? "Просмотреть файл" : "Файлды көру"}
                     >
                       <Eye size={18} />

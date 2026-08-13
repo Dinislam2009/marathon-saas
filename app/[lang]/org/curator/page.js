@@ -35,7 +35,7 @@ function completionRate(student, marathon, allSubmissions = {}) {
   );
   
   const submitted = studentSubmissions.filter(
-    (s) => s.status === SUBMISSION_STATUS.SUBMITTED && s.dayNumber <= possible
+    (s) => s.status === SUBMISSION_STATUS.SUBMITTED && Number(s.dayNumber) <= possible
   ).length;
   
   return Math.round((submitted / possible) * 100);
@@ -88,18 +88,20 @@ function ActivityChart({ data, isRu }) {
   );
 }
 
-export default function curatorDashboardPage({ params }) {
+export default function CuratorDashboardPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId } = use(params);
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
+
   const { ready, state } = useData();
   const [activeTab, setActiveTab] = useState("pending");
 
   // 1. Алдымен Кураторлар тізімін анықтаймыз
   const curators = useMemo(() => {
     if (!ready || !state?.curators) return [];
-    return Object.values(state.curators).filter((m) => m.orgId === orgId);
+    return Object.values(state.curators).filter((m) => String(m.orgId) === String(orgId));
   }, [ready, state?.curators, orgId]);
 
   // 2. куратор анықталған соң ID-ді аламыз
@@ -108,20 +110,20 @@ export default function curatorDashboardPage({ params }) {
   // Ағымдағы кураторға бекітілген оқушылар
   const students = useMemo(() => {
     if (!curatorId || !state?.students) return [];
-    return Object.values(state.students).filter((s) => s.curatorId === curatorId);
+    return Object.values(state.students).filter((s) => String(s.curatorId) === String(curatorId));
   }, [curatorId, state?.students]);
 
   // Марафондар тізімі
   const marathons = useMemo(() => {
     if (!ready || !state?.marathons) return [];
-    return Object.values(state.marathons).filter((m) => m.orgId === orgId);
+    return Object.values(state.marathons).filter((m) => String(m.orgId) === String(orgId));
   }, [ready, state?.marathons, orgId]);
 
   // Есептер (Submissions) тізімі
   const submissionsList = useMemo(() => {
     if (!ready || !state?.submissions || !students.length) return [];
-    const studentIds = new Set(students.map((s) => s.id));
-    return Object.values(state.submissions).filter((s) => studentIds.has(s.studentId));
+    const studentIds = new Set(students.map((s) => String(s.id)));
+    return Object.values(state.submissions).filter((s) => studentIds.has(String(s.studentId)));
   }, [ready, state?.submissions, students]);
 
   // Қауіпті аймақтағы оқушылар (Үлгерімі 50%-дан төмен)
@@ -136,7 +138,7 @@ export default function curatorDashboardPage({ params }) {
   if (!ready) return <LoadingState />;
 
   const activeMarathons = marathons.filter((m) => m.status === MARATHON_STATUS.ACTIVE);
-  const currentcurator = curators.find((m) => m.id === curatorId);
+  const currentCurator = curators.find((m) => String(m.id) === String(curatorId));
 
   const avgCompletion = students.length
     ? Math.round(
@@ -163,7 +165,7 @@ export default function curatorDashboardPage({ params }) {
               <Sparkles className="w-3.5 h-3.5 text-amber-300" /> {isRu ? "Кабинет главного куратора" : "Бас Куратор Кабинеті"}
             </span>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight mt-2">
-              {isRu ? "Привет," : "Сәлем,"} {currentcurator?.name || (isRu ? "Куратор" : "Куратор")}! 👋
+              {isRu ? "Привет," : "Сәлем,"} {currentCurator?.name || (isRu ? "Куратор" : "Куратор")}! 👋
             </h1>
             <p className="text-purple-100 text-xs sm:text-sm font-medium mt-1">
               {isRu ? "Ожидают проверки " : "Тексеруді күтіп тұрған "}
@@ -329,7 +331,7 @@ export default function curatorDashboardPage({ params }) {
                 submissionsList
                   .filter((s) => activeTab === "all" || s.status === "PENDING")
                   .map((sub) => {
-                    const studentObj = students.find((st) => st.id === sub.studentId);
+                    const studentObj = students.find((st) => String(st.id) === String(sub.studentId));
                     const studentName = studentObj?.name || (isRu ? "Ученик" : "Оқушы");
                     const checklist = sub.checklist || { routine: false, video: false, homework: false };
 
@@ -430,7 +432,7 @@ export default function curatorDashboardPage({ params }) {
                     const start = new Date(m.startDate);
                     const end = new Date(m.startDate);
                     end.setDate(end.getDate() + (m.durationDays || 21) - 1);
-                    const count = students.filter((s) => s.marathonId === m.id).length;
+                    const count = students.filter((s) => String(s.marathonId) === String(m.id)).length;
                     return (
                       <tr key={m.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="py-3 px-2 font-bold text-gray-800">{m.title}</td>

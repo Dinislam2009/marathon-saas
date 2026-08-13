@@ -12,7 +12,7 @@ function AddManagerModal({ isOpen, onClose, onRefresh, isRu, orgId }) {
   const [contactInput, setContactInput] = useState("");
   const [status, setStatus] = useState("idle");
   const [statusMessage, setStatusMessage] = useState("");
-  const [submitError, setSubmitError] = useState(""); // 👈 Уродливый alert() орнына сәнді қателік стейті
+  const [submitError, setSubmitError] = useState("");
   const [foundUser, setFoundUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,7 +38,7 @@ function AddManagerModal({ isOpen, onClose, onRefresh, isRu, orgId }) {
 
   const handleInputChange = (e) => {
     const val = e.target.value;
-    setSubmitError(""); // Жолды өзгерткенде қатені тазалау
+    setSubmitError("");
 
     if (!val.trim()) {
       setContactInput("");
@@ -55,15 +55,25 @@ function AddManagerModal({ isOpen, onClose, onRefresh, isRu, orgId }) {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setStatus("checking");
-      const res = await actions.checkUserForManagerAction(formattedVal.trim(), isEmail);
-      if (res?.status === "ready") {
-        setStatus("ready");
-        setFoundUser(res.user);
-      } else if (res?.status === "invalid_role" || res?.status === "already_manager") {
-        setStatus(res.status);
-        setStatusMessage(res.message);
-        setFoundUser(res.user);
-      } else {
+      try {
+        if (typeof actions.checkUserForManagerAction === "function") {
+          const res = await actions.checkUserForManagerAction(formattedVal.trim(), isEmail);
+          if (res?.status === "ready") {
+            setStatus("ready");
+            setFoundUser(res.user);
+          } else if (res?.status === "invalid_role" || res?.status === "already_manager") {
+            setStatus(res.status);
+            setStatusMessage(res.message || "");
+            setFoundUser(res.user || null);
+          } else {
+            setStatus("not_found");
+            setFoundUser(null);
+          }
+        } else {
+          setStatus("ready");
+        }
+      } catch (err) {
+        console.error("Check user for manager error:", err);
         setStatus("not_found");
         setFoundUser(null);
       }
@@ -77,18 +87,19 @@ function AddManagerModal({ isOpen, onClose, onRefresh, isRu, orgId }) {
 
     try {
       setIsSubmitting(true);
-      const res = await actions.assignManagerRoleAction(foundUser.id, orgId);
-      
-      if (res?.ok) {
-        onRefresh();
-        onClose();
-      } else {
-        // ⛔ Браузерлік alert() алып тасталды, орнына модаль ішіндегі әдемі стиль
-        setSubmitError(res?.error || (isRu ? "Ошибка при назначении" : "Тағайындау кезінде қате орын алды"));
+      if (typeof actions.assignManagerRoleAction === "function") {
+        const res = await actions.assignManagerRoleAction(foundUser.id, orgId);
+        
+        if (res?.ok) {
+          onRefresh();
+          onClose();
+        } else {
+          setSubmitError(res?.error || (isRu ? "Ошибка при назначении" : "Тағайындау кезінде қате орын алды"));
+        }
       }
     } catch (err) {
-      console.error(err);
-      setSubmitError(err.message || "Ошибка сервера");
+      console.error("Assign manager error:", err);
+      setSubmitError(err.message || "Серверлік қате орын алды");
     } finally {
       setIsSubmitting(false);
     }
@@ -152,7 +163,6 @@ function AddManagerModal({ isOpen, onClose, onRefresh, isRu, orgId }) {
               </div>
             )}
 
-            {/* 🔴 ӘДЕМІ ІШКІ ҚАТЕЛІК КАРТОЧКАСЫ (ALERT АУЫСТЫРЫЛДЫ) */}
             {submitError && (
               <div className="mt-3 p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-700 font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -180,10 +190,11 @@ function AddManagerModal({ isOpen, onClose, onRefresh, isRu, orgId }) {
 export default function AdminManagersPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
-  const { orgId: paramOrgId } = use(params);
+
+  const resolvedParams = use(params);
+  const paramOrgId = resolvedParams?.orgId;
 
   const searchParams = useSearchParams();
-  // URL параметрінен немесе пропстан orgId-ді алу
   const orgId = searchParams.get("orgId") || paramOrgId;
 
   const [loading, setLoading] = useState(true);
@@ -194,10 +205,12 @@ export default function AdminManagersPage({ params }) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await actions.getManagersByOrgId(orgId);
-      setManagers(list || []);
+      if (typeof actions.getManagersByOrgId === "function") {
+        const list = await actions.getManagersByOrgId(orgId);
+        setManagers(list || []);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Fetch managers error:", err);
     } finally {
       setLoading(false);
     }
@@ -211,12 +224,12 @@ export default function AdminManagersPage({ params }) {
 
   const filtered = managers.filter(
     (m) =>
-      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.phone?.includes(searchQuery)
   );
 
-  const totalStudentsAdded = managers.reduce((acc, m) => acc + m.studentsAdded, 0);
+  const totalStudentsAdded = managers.reduce((acc, m) => acc + (m.studentsAdded || 0), 0);
 
   return (
     <div className="space-y-6 w-full pb-12 font-sans text-slate-900">
@@ -320,7 +333,7 @@ export default function AdminManagersPage({ params }) {
                     <div className="text-[11px] text-slate-400 font-mono">{m.phone || "—"}</div>
                   </td>
                   <td className="px-6 py-4 font-black text-emerald-600 text-sm">
-                    {m.studentsAdded} {isRu ? "учеников" : "оқушы"}
+                    {m.studentsAdded || 0} {isRu ? "учеников" : "оқушы"}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-xl font-extrabold text-[10px] uppercase">

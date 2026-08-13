@@ -15,10 +15,10 @@ import {
   Loader2,
   Globe,
 } from "lucide-react";
-import { updatecuratorProfileAction } from "@/app/actions";
+import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
-export default function curatorProfileClient({ initialData }) {
+export default function CuratorProfileClient({ initialData }) {
   const { lang, changeLanguage } = useLanguage();
   const isRu = lang === "ru";
 
@@ -28,7 +28,7 @@ export default function curatorProfileClient({ initialData }) {
   const [saved, setSaved] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: curator?.name || curator?.user?.name || (isRu ? "Куратор" : "куратор"),
+    name: curator?.name || curator?.user?.name || (isRu ? "Куратор" : "Куратор"),
     email: curator?.email || curator?.user?.email || "",
     phone: curator?.phone || curator?.user?.phone || "",
     avatarUrl: curator?.avatarUrl || curator?.user?.image || "",
@@ -52,23 +52,27 @@ export default function curatorProfileClient({ initialData }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!curator?.id || saving) return;
+
     setSaving(true);
 
     try {
-      const res = await updatecuratorProfileAction({
-        curatorId: curator.id,
-        name: formData.name,
-        avatarUrl: formData.avatarUrl,
-      });
+      if (typeof actions.updatecuratorProfileAction === "function") {
+        const res = await actions.updatecuratorProfileAction({
+          curatorId: curator.id,
+          name: formData.name,
+          avatarUrl: formData.avatarUrl,
+        });
 
-      if (res?.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      } else {
-        alert(isRu ? "Произошла ошибка при сохранении" : "Қате орын алды");
+        if (res?.ok) {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 3000);
+        } else {
+          alert(isRu ? "Произошла ошибка при сохранении" : "Қате орын алды");
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error("Save profile error:", err);
     } finally {
       setSaving(false);
     }
@@ -85,7 +89,7 @@ export default function curatorProfileClient({ initialData }) {
           <div>
             <span className="bg-white/20 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/20 inline-flex items-center gap-1.5">
               <Sparkles size={14} className="text-amber-300" />
-              QADAM • {isRu ? "Статус: Куратор" : "Мәртебе: куратор"}
+              QADAM • {isRu ? "Статус: Куратор" : "Мәртебе: Куратор"}
             </span>
           </div>
 
@@ -122,7 +126,7 @@ export default function curatorProfileClient({ initialData }) {
                 <span>{formData.email || "—"}</span>
                 <span>•</span>
                 <span className="text-purple-700 font-bold">
-                  {isRu ? "Куратор" : "куратор"}
+                  {isRu ? "Куратор" : "Куратор"}
                 </span>
               </p>
             </div>

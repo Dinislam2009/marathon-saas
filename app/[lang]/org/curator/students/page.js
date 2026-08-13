@@ -148,7 +148,7 @@ function AddStudentModal({ isOpen, onClose, marathons, onAdd, onCheckStudent }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 font-sans">
       <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl transition-all">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-extrabold text-gray-900">
@@ -276,11 +276,13 @@ function AddStudentModal({ isOpen, onClose, marathons, onAdd, onCheckStudent }) 
 }
 
 // 2. БЕТТІҢ НЕГІЗГІ КОМПОНЕНТІ
-export default function curatorStudentsPage({ params }) {
+export default function CuratorStudentsPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId } = use(params);
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
+
   const { ready, state, refreshData, triggerUpdate } = useData();
 
   const [search, setSearch] = useState("");
@@ -291,6 +293,7 @@ export default function curatorStudentsPage({ params }) {
 
   // ⚡ Базадан марафондар мен оқушыларды ТІКЕЛЕЙ жүктеу
   const fetchLocalData = async () => {
+    if (!orgId) return;
     try {
       setLoadingDb(true);
       if (typeof actions.getMarathonsByOrgId === "function") {
@@ -298,7 +301,6 @@ export default function curatorStudentsPage({ params }) {
         setDbMarathons(mRes || []);
       }
 
-      // Барлық студенттерді базадан тікелей тартып алу
       if (typeof actions.getStudentsByOrgId === "function") {
         const sRes = await actions.getStudentsByOrgId(orgId);
         setDbStudents(sRes || []);
@@ -326,7 +328,7 @@ export default function curatorStudentsPage({ params }) {
     const list = dbStudents.length > 0 ? dbStudents : (state?.students ? Object.values(state.students) : []);
 
     return list.map((s) => {
-      const m = state?.marathons?.[s.marathonId] || dbMarathons.find(m => m.id === s.marathonId);
+      const m = state?.marathons?.[s.marathonId] || dbMarathons.find(m => String(m.id) === String(s.marathonId));
       return {
         ...s,
         marathonTitle: m ? m.title : s.marathon?.title || (isRu ? "Марафон" : "Марафон"),
@@ -342,7 +344,7 @@ export default function curatorStudentsPage({ params }) {
       return (
         s.name?.toLowerCase().includes(q) ||
         s.email?.toLowerCase().includes(q) ||
-        (s.phone && s.phone.includes(q)) ||
+        (s.phone && String(s.phone).includes(q)) ||
         s.marathonTitle?.toLowerCase().includes(q)
       );
     });
@@ -354,24 +356,25 @@ export default function curatorStudentsPage({ params }) {
 
   // ⚡ Оқушыны марафонға қосу
   const handleAddStudent = async (marathonId, studentData) => {
-    if (typeof actions.addStudentToMarathon === "function") {
-      await actions.addStudentToMarathon({
+    const fn = actions.addStudentToMarathon || actions.addStudentToMarathonAction;
+    if (typeof fn === "function") {
+      await fn({
         orgId,
         marathonId,
         ...studentData,
       });
     }
     
-    // Деректерді лезде жаңарту
     await fetchLocalData();
-    if (refreshData) refreshData();
-    if (triggerUpdate) triggerUpdate();
+    if (typeof refreshData === "function") refreshData();
+    if (typeof triggerUpdate === "function") triggerUpdate();
   };
 
   // ⚡ Тексеру
   const handleCheckStudent = async (value, isEmail, marathonId) => {
-    if (typeof actions.checkStudent === "function") {
-      return await actions.checkStudent(value, isEmail, marathonId);
+    const fn = actions.checkStudent || actions.checkStudentForMarathonAction;
+    if (typeof fn === "function") {
+      return await fn(value, isEmail, marathonId);
     }
     return { status: "ready" };
   };

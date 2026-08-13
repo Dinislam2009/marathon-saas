@@ -12,7 +12,8 @@ export default function AdminStatsPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId } = use(params);
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("marathon");
@@ -23,19 +24,27 @@ export default function AdminStatsPage({ params }) {
   const [groups, setGroups] = useState([]);
 
   const loadData = useCallback(async () => {
+    if (!orgId) return;
     setLoading(true);
     try {
       // 1. Марафондарды тікелей алу
-      const marathonsList = await actions.getMarathonsByOrgId(orgId);
-      const activeMarathons = marathonsList || [];
+      let activeMarathons = [];
+      if (typeof actions.getMarathonsByOrgId === "function") {
+        const marathonsList = await actions.getMarathonsByOrgId(orgId);
+        activeMarathons = marathonsList || [];
+      }
       setMarathons(activeMarathons);
 
       // 2. Оқушылар мен Кураторларды алу
-      const studentsList = await actions.getStudentsByOrgId(orgId);
-      setStudents(studentsList || []);
+      if (typeof actions.getStudentsByOrgId === "function") {
+        const studentsList = await actions.getStudentsByOrgId(orgId);
+        setStudents(studentsList || []);
+      }
 
-      const curatorsList = await actions.getcuratorsByOrgId(orgId);
-      setcurators(curatorsList || []);
+      if (typeof actions.getcuratorsByOrgId === "function") {
+        const curatorsList = await actions.getcuratorsByOrgId(orgId);
+        setcurators(curatorsList || []);
+      }
 
       // 3. Топтарды алу және ТЕК белсенді марафондарға тиесілісін сүзу
       const resGroups = await fetch(`/api/org/groups?orgId=${orgId}`);
@@ -44,7 +53,6 @@ export default function AdminStatsPage({ params }) {
         const activeMarathonIds = new Set(activeMarathons.map((m) => m.id));
         const activeMarathonTitles = new Set(activeMarathons.map((m) => m.title));
 
-        // ⚡ ТЕК ОСЫ УАҚЫТТАҒЫ МАРАФОНДАРДЫҢ ТОПТАРЫН ҚАЛДЫРУ
         const filteredGroups = (jsonGroups.groups || []).filter(
           (g) =>
             activeMarathonIds.has(g.marathonId) ||
@@ -65,10 +73,10 @@ export default function AdminStatsPage({ params }) {
   }, [loadData]);
 
   if (loading) {
-  return <LoadingState />;
-}
+    return <LoadingState />;
+  }
 
-  // ⚡ Кураторлар АНАЛИТИКАСЫ
+  // Кураторлар аналитикасы
   const curatorsAnalytics = curators.map((m, idx) => {
     const mStudents = students.filter(
       (s) => s.curatorId === m.id || s.marathonTitle === m.marathonTitle
@@ -266,7 +274,7 @@ export default function AdminStatsPage({ params }) {
                           {m.title}
                         </td>
                         <td className="px-4 py-3">
-                          {m.durationDays || 14} {isRu ? "дней" : "күн"}
+                          {m.durationDays || 21} {isRu ? "дней" : "күн"}
                         </td>
                         <td className="px-4 py-3 font-semibold">
                           {students.length} {isRu ? "учеников" : "оқушы"}
@@ -284,7 +292,7 @@ export default function AdminStatsPage({ params }) {
         </div>
       )}
 
-      {/* 3. Кураторлар АНАЛИТИКАСЫ ТАБЫ */}
+      {/* 3. КУРАТОРЛАР АНАЛИТИКАСЫ ТАБЫ */}
       {activeTab === "curator" && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
@@ -302,7 +310,7 @@ export default function AdminStatsPage({ params }) {
                 <thead className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-black text-slate-400 tracking-wider">
                   <tr>
                     <th className="px-4 py-3">{isRu ? "Рейтинг" : "Рейтинг"}</th>
-                    <th className="px-4 py-3">{isRu ? "ФИО куратора" : "куратор Аты-жөні"}</th>
+                    <th className="px-4 py-3">{isRu ? "ФИО куратора" : "Куратор Аты-жөні"}</th>
                     <th className="px-4 py-3">{isRu ? "Закреплённая группа" : "Бекітілген Топ"}</th>
                     <th className="px-4 py-3">{isRu ? "Проверка отчётов" : "Тексерілмеген Кезек"}</th>
                     <th className="px-4 py-3">{isRu ? "Успеваемость учеников" : "Оқушы Үлгерімі"}</th>

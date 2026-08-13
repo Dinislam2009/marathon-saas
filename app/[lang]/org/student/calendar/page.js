@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -93,6 +93,13 @@ export default function StudentCalendarPage({ initialTasks = {}, streakCount = 1
     },
     ...initialTasks
   });
+
+  // initialTasks жаңарған жағдайда стейтке қосу
+  useEffect(() => {
+    if (Object.keys(initialTasks).length > 0) {
+      setEventsData((prev) => ({ ...prev, ...initialTasks }));
+    }
+  }, [initialTasks]);
 
   // 3. Айды ауыстыру функциялары
   const handlePrevMonth = () => {

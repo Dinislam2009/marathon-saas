@@ -16,7 +16,10 @@ import { useLanguage } from "@/context/LanguageContext";
 export default function TenantAdminHome({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
-  const { orgId } = use(params);
+
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
+
   const { ready, tick } = useData();
   const [marathons, setMarathons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,12 +42,13 @@ export default function TenantAdminHome({ params }) {
   });
 
   const loadMarathons = async () => {
+    if (!orgId) return;
     try {
       setLoading(true);
-      if (actions.getMarathonsByOrgId) {
+      if (typeof actions.getMarathonsByOrgId === "function") {
         const res = await actions.getMarathonsByOrgId(orgId);
         setMarathons(res || []);
-      } else if (actions.getMarathons) {
+      } else if (typeof actions.getMarathons === "function") {
         const all = await actions.getMarathons();
         const filtered = (all || []).filter(
           (m) => String(m.orgId) === String(orgId) || String(m.organizerId) === String(orgId)
@@ -84,12 +88,14 @@ export default function TenantAdminHome({ params }) {
 
     setSaving(true);
     try {
-      const res = await actions.updateMarathonAction(editingMarathon.id, editForm);
-      if (res?.ok) {
-        setShowEditModal(false);
-        await loadMarathons();
-      } else {
-        alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || (isRu ? "Не удалось отредактировать" : "Өңдеу мүмкін болмады")));
+      if (typeof actions.updateMarathonAction === "function") {
+        const res = await actions.updateMarathonAction(editingMarathon.id, editForm);
+        if (res?.ok) {
+          setShowEditModal(false);
+          await loadMarathons();
+        } else {
+          alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || (isRu ? "Не удалось отредактировать" : "Өңдеу мүмкін болмады")));
+        }
       }
     } catch (err) {
       console.error("Save error:", err);
@@ -104,12 +110,14 @@ export default function TenantAdminHome({ params }) {
 
     setDeleting(true);
     try {
-      const res = await actions.deleteMarathonAction(deleteConfirmId);
-      if (res?.ok) {
-        setDeleteConfirmId(null);
-        await loadMarathons();
-      } else {
-        alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || (isRu ? "Не удалось удалить" : "Өшіру мүмкін болмады")));
+      if (typeof actions.deleteMarathonAction === "function") {
+        const res = await actions.deleteMarathonAction(deleteConfirmId);
+        if (res?.ok) {
+          setDeleteConfirmId(null);
+          await loadMarathons();
+        } else {
+          alert((isRu ? "Ошибка: " : "Қате: ") + (res?.error || (isRu ? "Не удалось удалить" : "Өшіру мүмкін болмады")));
+        }
       }
     } catch (err) {
       console.error("Delete error:", err);

@@ -13,7 +13,8 @@ export default function AdminTasksPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { orgId } = use(params);
+  const resolvedParams = use(params);
+  const orgId = resolvedParams?.orgId;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +40,7 @@ export default function AdminTasksPage({ params }) {
   // 1. Марафонның тапсырмаларын жүктеу
   const loadTasksForMarathon = async (marathonId) => {
     try {
-      if (actions.getTasksByMarathonId) {
+      if (typeof actions.getTasksByMarathonId === "function") {
         const tasks = await actions.getTasksByMarathonId(marathonId);
         setExistingTasks(tasks || []);
       } else {
@@ -54,10 +55,11 @@ export default function AdminTasksPage({ params }) {
 
   // 2. Тек белсенді марафондарды тікелей жүктеу
   const fetchMarathonsAndTasks = useCallback(async () => {
+    if (!orgId) return;
     setLoading(true);
     try {
       let list = [];
-      if (actions.getMarathonsByOrgId) {
+      if (typeof actions.getMarathonsByOrgId === "function") {
         list = await actions.getMarathonsByOrgId(orgId);
       } else {
         const res = await fetch(`/api/org/groups?orgId=${orgId}`);
@@ -130,7 +132,7 @@ export default function AdminTasksPage({ params }) {
     if (!confirm(isRu ? "Вы действительно хотите удалить это задание?" : "Осы тапсырманы өшіргіңіз келе ме?")) return;
     try {
       const fn = actions.deleteTaskAction || actions.deleteTask;
-      if (fn) {
+      if (typeof fn === "function") {
         const res = await fn(taskId);
         if (res?.ok || res?.success) {
           await loadTasksForMarathon(selectedMarathon.id);
@@ -150,7 +152,7 @@ export default function AdminTasksPage({ params }) {
     setSaving(true);
     try {
       const fn = actions.saveTaskAction || actions.upsertTask;
-      if (!fn) {
+      if (typeof fn !== "function") {
         alert(isRu ? "Функция сохранения задания не найдена" : "Тапсырманы сақтау функциясы табылмады");
         return;
       }
@@ -191,7 +193,6 @@ export default function AdminTasksPage({ params }) {
     }
   };
 
-  // ДЕДЛАЙНДЫ БЫСТРЫЙ ПРЕCЕТПЕН ОРНАТУ
   const applyQuickPreset = (daysToAdd, setHours = 23, setMinutes = 59) => {
     const now = new Date();
     now.setDate(now.getDate() + daysToAdd);
@@ -410,53 +411,50 @@ export default function AdminTasksPage({ params }) {
                 </div>
               </div>
 
-              {/* ⚡ ЗАМАНАУИ ДЕДЛАЙН ЖӘНЕ УАҚЫТ КАРТОЧКАСЫ */}
-<div className="p-4 rounded-3xl bg-slate-50 border border-slate-200/80 space-y-3.5">
-  <div className="flex items-center justify-between">
-    <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-      <CalendarDays size={15} className="text-purple-600" />
-      {isRu ? "Срок открытия и Дедлайн" : "Ашылу мерзімі мен Дедлайн"}
-    </span>
+              <div className="p-4 rounded-3xl bg-slate-50 border border-slate-200/80 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarDays size={15} className="text-purple-600" />
+                    {isRu ? "Срок открытия и Дедлайн" : "Ашылу мерзімі мен Дедлайн"}
+                  </span>
 
-    {/* Быстрый Пресеттер */}
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        onClick={() => applyQuickPreset(1, 23, 59)}
-        className="px-2.5 py-1 bg-white hover:bg-purple-600 hover:text-white text-[10px] font-extrabold text-purple-700 rounded-xl border border-purple-200 transition cursor-pointer shadow-2xs"
-      >
-        {isRu ? "+1 день" : "+1 күн"}
-      </button>
-      <button
-        type="button"
-        onClick={() => applyQuickPreset(3, 23, 59)}
-        className="px-2.5 py-1 bg-white hover:bg-purple-600 hover:text-white text-[10px] font-extrabold text-purple-700 rounded-xl border border-purple-200 transition cursor-pointer shadow-2xs"
-      >
-        {isRu ? "+3 дня" : "+3 күн"}
-      </button>
-    </div>
-  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => applyQuickPreset(1, 23, 59)}
+                      className="px-2.5 py-1 bg-white hover:bg-purple-600 hover:text-white text-[10px] font-extrabold text-purple-700 rounded-xl border border-purple-200 transition cursor-pointer shadow-2xs"
+                    >
+                      {isRu ? "+1 день" : "+1 күн"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyQuickPreset(3, 23, 59)}
+                      className="px-2.5 py-1 bg-white hover:bg-purple-600 hover:text-white text-[10px] font-extrabold text-purple-700 rounded-xl border border-purple-200 transition cursor-pointer shadow-2xs"
+                    >
+                      {isRu ? "+3 дня" : "+3 күн"}
+                    </button>
+                  </div>
+                </div>
 
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    {/* Ашылуы */}
-    <CustomDatePicker
-      label={isRu ? "Открытие ученикам" : "Оқушыларға ашылуы"}
-      value={taskForm.availableAt}
-      onChange={(val) => setTaskForm({ ...taskForm, availableAt: val })}
-      color="purple"
-      isRu={isRu}
-    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <CustomDatePicker
+                    label={isRu ? "Открытие ученикам" : "Оқушыларға ашылуы"}
+                    value={taskForm.availableAt}
+                    onChange={(val) => setTaskForm({ ...taskForm, availableAt: val })}
+                    color="purple"
+                    isRu={isRu}
+                  />
 
-    {/* Дедлайн */}
-    <CustomDatePicker
-      label={isRu ? "Дедлайн сдачи" : "Дедлайн (Соңғы сәт)"}
-      value={taskForm.deadlineAt}
-      onChange={(val) => setTaskForm({ ...taskForm, deadlineAt: val })}
-      color="rose"
-      isRu={isRu}
-    />
-  </div>
-</div>
+                  <CustomDatePicker
+                    label={isRu ? "Дедлайн сдачи" : "Дедлайн (Соңғы сәт)"}
+                    value={taskForm.deadlineAt}
+                    onChange={(val) => setTaskForm({ ...taskForm, deadlineAt: val })}
+                    color="rose"
+                    isRu={isRu}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-600 mb-1 flex items-center gap-1">
                   <Video size={13} /> {isRu ? "Ссылка на видео (YouTube / Loom)" : "Видео Сілтемесі (YouTube / Loom)"}

@@ -9,11 +9,12 @@ import CreateAnnouncementModal from "@/components/CreateAnnouncementModal";
 import { useLanguage } from "@/context/LanguageContext";
 import LoadingState from "@/components/LoadingState";
 
-export default function curatorMarathonDetailPage({ params }) {
+export default function CuratorMarathonDetailPage({ params }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
-  const { marathonId } = use(params);
+  const resolvedParams = use(params);
+  const marathonId = resolvedParams?.marathonId;
 
   const [marathon, setMarathon] = useState(null);
   const [dbTasks, setDbTasks] = useState([]);
@@ -23,15 +24,16 @@ export default function curatorMarathonDetailPage({ params }) {
 
   useEffect(() => {
     async function loadData() {
+      if (!marathonId) return;
       setLoading(true);
       try {
-        if (actions.getcuratorMarathonsAction) {
+        if (typeof actions.getcuratorMarathonsAction === "function") {
           const marathons = await actions.getcuratorMarathonsAction();
-          const found = marathons?.find((m) => m.id === marathonId);
+          const found = marathons?.find((m) => String(m.id) === String(marathonId));
           setMarathon(found || null);
         }
 
-        if (actions.getTasksByMarathon) {
+        if (typeof actions.getTasksByMarathon === "function") {
           const tasksData = await actions.getTasksByMarathon(marathonId);
           if (Array.isArray(tasksData)) {
             setDbTasks(tasksData);
@@ -47,8 +49,8 @@ export default function curatorMarathonDetailPage({ params }) {
   }, [marathonId]);
 
   if (loading) {
-  return <LoadingState />;
-}
+    return <LoadingState />;
+  }
 
   if (!marathon) {
     return (
@@ -207,7 +209,7 @@ export default function curatorMarathonDetailPage({ params }) {
         onClose={() => setIsAnnouncementOpen(false)}
         marathonId={marathonId}
         authorRole="curator"
-        authorName={isRu ? "Куратор" : "куратор"}
+        authorName={isRu ? "Куратор" : "Куратор"}
       />
     </div>
   );
