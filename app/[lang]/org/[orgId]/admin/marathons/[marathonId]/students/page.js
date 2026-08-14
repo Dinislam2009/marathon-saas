@@ -18,12 +18,13 @@ export default function MarathonPeoplePage({ params }) {
 
   const resolvedParams = use(params);
   const marathonId = resolvedParams?.marathonId;
+  const orgId = resolvedParams?.orgId; // 👈 orgId алынды
 
   const { ready, tick } = useData();
 
   const [marathon, setMarathon] = useState(null);
   const [students, setStudents] = useState([]);
-  const [curators, setcurators] = useState([]);
+  const [curators, setCurators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("student");
 
@@ -32,17 +33,26 @@ export default function MarathonPeoplePage({ params }) {
       if (!marathonId) return;
       try {
         setLoading(true);
-        if (typeof actions.getMarathonById === "function") {
-          const m = await actions.getMarathonById(marathonId);
+
+        // 1. Марафон ақпаратын жүктеу
+        const getMarathonFn = actions.getMarathonById || actions.getmarathonById;
+        if (typeof getMarathonFn === "function") {
+          const m = await getMarathonFn(marathonId);
           setMarathon(m);
         }
-        if (typeof actions.getStudentsByMarathonId === "function") {
-          const st = await actions.getStudentsByMarathonId(marathonId);
+
+        // 2. Оқушыларды жүктеу
+        const getStudentsFn = actions.getStudentsByMarathonId || actions.getstudentsByMarathonId;
+        if (typeof getStudentsFn === "function") {
+          const st = await getStudentsFn(marathonId);
           setStudents(st || []);
         }
-        if (typeof actions.getcuratorsByMarathonId === "function") {
-          const mt = await actions.getcuratorsByMarathonId(marathonId);
-          setcurators(mt || []);
+
+        // 3. Кураторларды жүктеу (Бас/Кіші әріптерге қауіпсіз тексеру)
+        const getCuratorsFn = actions.getCuratorsByMarathonId || actions.getcuratorsByMarathonId;
+        if (typeof getCuratorsFn === "function") {
+          const mt = await getCuratorsFn(marathonId);
+          setCurators(mt || []);
         }
       } catch (err) {
         console.error("Failed to load people data:", err);
@@ -58,18 +68,23 @@ export default function MarathonPeoplePage({ params }) {
 
   if (!ready || loading) return <LoadingState />;
 
+  // Маршрутты қатесіз құру
+  const backUrl = orgId 
+    ? `/${lang}/org/${orgId}/admin/marathons/${marathonId}`
+    : `/${lang}/org/admin`;
+
   return (
     <div key={tick} className="flex flex-col gap-6 font-sans text-slate-900 pb-8">
       <div>
         <Link
-          href={`/${lang}/org/admin/marathons/${marathonId}`}
-          className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-ink w-fit mb-3 transition"
+          href={backUrl}
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 w-fit mb-3 transition font-medium"
         >
           <ArrowLeft size={14} /> {marathon?.title || (isRu ? "Назад к марафону" : "Марафонға қайту")}
         </Link>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <h1 className="font-display text-2xl font-black text-slate-900">
-            {isRu ? "Участники" : "Адамдар"}
+            {isRu ? "Участники марафона" : "Марафон қатысушылары"}
           </h1>
         </div>
       </div>

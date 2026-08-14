@@ -10,7 +10,7 @@ import * as actions from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 // --- 1. КУРАТОРДЫ ҚОСУ МОДАЛЬ ТЕРЕЗЕСІ ---
-function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, isRu }) {
+function AddCuratorModal({ isOpen, onClose, marathons, onAdd, onCheckCurator, isRu }) {
   const [selectedMarathon, setSelectedMarathon] = useState("");
   const [contactInput, setContactInput] = useState("");
   const [status, setStatus] = useState("idle");
@@ -44,7 +44,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
   const scheduleVerify = (value, isEmail, marathonId) => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      verifycurator(value, isEmail, marathonId);
+      verifyCurator(value, isEmail, marathonId);
     }, 300);
   };
 
@@ -79,11 +79,11 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
     }
   };
 
-  const verifycurator = async (value, isEmail, marathonId) => {
+  const verifyCurator = async (value, isEmail, marathonId) => {
     setStatus("checking");
     try {
-      if (onCheckcurator) {
-        const result = await onCheckcurator(value, isEmail, marathonId);
+      if (onCheckCurator) {
+        const result = await onCheckCurator(value, isEmail, marathonId);
         const user = result?.curator || result?.user;
 
         if (!result || result.status === "not_found" || !user) {
@@ -129,16 +129,10 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
     e.preventDefault();
     if (!selectedMarathon || status !== "ready") return;
 
-    const trimmed = contactInput.trim();
-    const isEmail = trimmed.includes("@");
-
     try {
       setIsSubmitting(true);
       await onAdd(selectedMarathon, {
         userId: foundUser?.id,
-        name: foundUser?.name || foundUser?.fullName || "",
-        email: isEmail ? trimmed.toLowerCase() : foundUser?.email || null,
-        phone: !isEmail ? trimmed : foundUser?.phone || "",
       });
 
       setContactInput("");
@@ -152,6 +146,13 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getUserDisplayName = (u) => {
+    if (!u) return "—";
+    if (u.name) return u.name;
+    if (u.firstName || u.lastName) return `${u.firstName || ""} ${u.lastName || ""}`.trim();
+    return u.email || u.phone || "—";
   };
 
   return (
@@ -237,7 +238,7 @@ function AddcuratorModal({ isOpen, onClose, marathons, onAdd, onCheckcurator, is
                 <div className="text-xs space-y-1 text-emerald-950 font-medium">
                   <p>
                     <span className="text-emerald-700 font-bold">{isRu ? "ФИО: " : "Аты-жөні: "}</span>
-                    {foundUser.name || foundUser.fullName || "—"}
+                    {getUserDisplayName(foundUser)}
                   </p>
                   <p>
                     <span className="text-emerald-700 font-bold">{isRu ? "Почта: " : "Поштасы: "}</span>
@@ -312,6 +313,8 @@ function ManageAccessModal({ isOpen, onClose, curator, allMarathons, onSave, isR
     }
   };
 
+  const curatorName = curator.name || `${curator.firstName || ""} ${curator.lastName || ""}`.trim() || curator.email;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs font-sans p-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl transition-all">
@@ -321,7 +324,7 @@ function ManageAccessModal({ isOpen, onClose, curator, allMarathons, onSave, isR
               {isRu ? "Привязать марафон" : "Марафонды бекіту"}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Куратор: <span className="font-bold text-gray-800">{curator.name || curator.fullName}</span>
+              Куратор: <span className="font-bold text-gray-800">{curatorName}</span>
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer">
@@ -382,6 +385,8 @@ function DeleteConfirmModal({ isOpen, onClose, curator, onDelete, isRu }) {
     }
   };
 
+  const curatorName = curator.name || `${curator.firstName || ""} ${curator.lastName || ""}`.trim() || curator.email;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs font-sans p-4">
       <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl text-center">
@@ -394,7 +399,7 @@ function DeleteConfirmModal({ isOpen, onClose, curator, onDelete, isRu }) {
         </h3>
         <p className="text-xs text-gray-500 mb-6 font-medium">
           {isRu ? "Вы уверены, что хотите удалить куратора " : "Сенімдісіз бе, кураторды өшіру "}{" "}
-          <span className="font-bold text-gray-800">{curator.name || curator.fullName}</span>?
+          <span className="font-bold text-gray-800">{curatorName}</span>?
         </p>
 
         <div className="flex items-center gap-3">
@@ -436,10 +441,12 @@ export default function CuratorsPage({ params }) {
     if (!orgId) return;
     try {
       setLoading(true);
-      if (typeof actions.getcuratorsByOrgId === "function") {
-        const res = await actions.getcuratorsByOrgId(orgId);
+
+      if (typeof actions.getCuratorsByOrgId === "function") {
+        const res = await actions.getCuratorsByOrgId(orgId);
         setCurators(res || []);
       }
+
       if (typeof actions.getMarathonsByOrgId === "function") {
         const mRes = await actions.getMarathonsByOrgId(orgId);
         setMarathons(mRes || []);
@@ -457,9 +464,9 @@ export default function CuratorsPage({ params }) {
     }
   }, [ready, orgId, tick]);
 
-  const handleAddcurator = async (marathonId, curatorData) => {
-    if (typeof actions.addcurator === "function") {
-      await actions.addcurator({
+  const handleAddCurator = async (marathonId, curatorData) => {
+    if (typeof actions.addCurator === "function") {
+      await actions.addCurator({
         orgId,
         marathonId,
         ...curatorData,
@@ -469,24 +476,24 @@ export default function CuratorsPage({ params }) {
     }
   };
 
-  const handleCheckcurator = async (value, isEmail, marathonId) => {
-    if (typeof actions.checkcurator === "function") {
-      return await actions.checkcurator(value, isEmail, marathonId);
+  const handleCheckCurator = async (value, isEmail, marathonId) => {
+    if (typeof actions.checkCurator === "function") {
+      return await actions.checkCurator(value, isEmail, marathonId);
     }
     return { status: "ready" };
   };
 
   const handleSaveAccess = async (curatorId, marathonId) => {
-    if (typeof actions.updatecuratorMarathons === "function") {
-      await actions.updatecuratorMarathons(curatorId, marathonId);
+    if (typeof actions.updateCuratorMarathons === "function") {
+      await actions.updateCuratorMarathons(curatorId, marathonId);
       await fetchData();
       if (triggerUpdate) triggerUpdate();
     }
   };
 
-  const handleDeletecurator = async (curatorId) => {
-    if (typeof actions.deletecurator === "function") {
-      await actions.deletecurator(curatorId);
+  const handleDeleteCurator = async (curatorId) => {
+    if (typeof actions.deleteCurator === "function") {
+      await actions.deleteCurator(curatorId);
       await fetchData();
       if (triggerUpdate) triggerUpdate();
     }
@@ -534,13 +541,14 @@ export default function CuratorsPage({ params }) {
               curators.map((curator, index) => {
                 const assignedMarathon = curator.marathons?.[0]?.title;
                 const studentCount = curator._count?.students || 0;
+                const displayName = curator.name || `${curator.firstName || ""} ${curator.lastName || ""}`.trim() || (isRu ? "Без имени" : "Аты жоқ");
 
                 return (
                   <tr
                     key={curator.id || `curator-${index}`}
                     className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors"
                   >
-                    <td className="p-4 font-bold text-slate-900">{curator.name || curator.fullName || (isRu ? "Без имени" : "Аты жоқ")}</td>
+                    <td className="p-4 font-bold text-slate-900">{displayName}</td>
                     <td className="p-4 text-slate-500 font-medium">{curator.email || "—"}</td>
                     <td className="p-4 text-slate-500 font-medium">{curator.phone || "—"}</td>
                     <td className="p-4">
@@ -585,12 +593,12 @@ export default function CuratorsPage({ params }) {
         </table>
       </Card>
 
-      <AddcuratorModal
+      <AddCuratorModal
         isOpen={inviteOpen}
         onClose={() => setInviteOpen(false)}
         marathons={marathons}
-        onAdd={handleAddcurator}
-        onCheckcurator={handleCheckcurator}
+        onAdd={handleAddCurator}
+        onCheckCurator={handleCheckCurator}
         isRu={isRu}
       />
 
@@ -607,7 +615,7 @@ export default function CuratorsPage({ params }) {
         isOpen={Boolean(deleteModalcurator)}
         onClose={() => setDeleteModalcurator(null)}
         curator={deleteModalcurator}
-        onDelete={handleDeletecurator}
+        onDelete={handleDeleteCurator}
         isRu={isRu}
       />
     </div>

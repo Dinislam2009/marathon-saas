@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs"; // Парольді салыстыру/хэштеу үшін
 import * as auth from "@/lib/auth";
 
 const safeJson = (data) => JSON.parse(JSON.stringify(data));
@@ -774,39 +775,31 @@ export async function getGlobalBroadcasts(userRole = "ALL") {
 // --- 5. МАРАФОНДАРМЕН ЖҰМЫС ------------------
 // ==========================================
 
+// Қауіпсіз статус анықтағыш көмекші
+function getValidStatus(statusStr) {
+  const s = String(statusStr || "").toUpperCase();
+  if (s === "DRAFT") return "DRAFT";
+  if (s === "COMPLETED" || s === "FINISHED") return "COMPLETED";
+  return "ACTIVE"; // Дефолтты түрде әрқашан ACTIVE
+}
+
 export async function getMarathonsByOrgId(orgId) {
   try {
-    if (!orgId || orgId === "main" || orgId === "undefined") return [];
+    if (!orgId) return [];
 
-    // 1. Ағымдағы ұйымды (Organizer) тауып, соған байланысқан User-ді анықтаймыз
-    const currentOrg = await prisma.organizer.findFirst({
-      where: {
-        OR: [
-          { id: String(orgId) },
-          { userId: String(orgId) },
-        ],
-      },
-      select: { id: true, userId: true },
-    });
-
-    if (!currentOrg) return [];
-
-    // 2. Осы қолданушының БАРЛЫҚ марафонын тартамыз (қандай organizerId болса да)
     const marathons = await prisma.marathon.findMany({
-      where: {
-        OR: [
-          { organizerId: currentOrg.id },
-          ...(currentOrg.userId ? [{ organizer: { userId: currentOrg.userId } }] : []),
-        ],
-      },
+      where: { organizerId: String(orgId) },
       include: {
-        _count: { select: { students: true, tasks: true } },
-        tasks: { select: { dayNumber: true } },
+        _count: {
+          select: { students: true, tasks: true },
+        },
+        students: { select: { id: true } },
+        tasks: { select: { id: true, dayNumber: true } },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return safeJson(marathons);
+    return JSON.parse(JSON.stringify(marathons));
   } catch (error) {
     console.error("getMarathonsByOrgId error:", error);
     return [];
@@ -877,27 +870,63 @@ export async function createMarathon({ orgId, title, description, durationDays }
   }
 }
 
-export async function updateMarathon(marathonId, data) {
+// Датаны қауіпсіз түрде жарамды Date объектісіне айналдыру көмекшісі
+function parseToValidDate(dateStr) {
+  if (!dateStr) return null;
+
+  // 1. Стандартты ISO / Date форматын тексеру
+  let d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return d;
+
+  // 2. Егер "16.08.2026T10:00" сияқты нүктелі форматта келсе
+  if (typeof dateStr === "string" && dateStr.includes(".")) {
+    const [datePart, timePart = "00:00"] = dateStr.split("T");
+    const [day, month, year] = datePart.split(".");
+    if (day && month && year) {
+      d = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${timePart}`);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  return null;
+}
+
+export async function updateMarathon(id, data) {
   try {
-    if (!marathonId) {
-      return { ok: false, error: "Марафон ID-і көрсетілмеген!" };
+    if (!id) return { ok: false, error: "ID табылмады" };
+
+    let parsedDate = new Date();
+    if (data.startDate) {
+      const d = new Date(data.startDate);
+      if (!isNaN(d.getTime())) {
+        parsedDate = d;
+      }
     }
 
-    const { title, description, startDate, durationDays, status } = data || {};
+    // 🎯 ENUM мәнін қатаң тексереміз ("ACTIVE", "DRAFT", "COMPLETED")
+    const safeStatus = getValidStatus(data.status);
 
-    const updatedMarathon = await prisma.marathon.update({
-      where: { id: String(marathonId) },
+    const updated = await prisma.marathon.update({
+      where: { id: String(id) },
       data: {
-        ...(title ? { title: title.trim() } : {}),
-        ...(description !== undefined ? { description: description?.trim() || null } : {}),
-        ...(startDate ? { startDate: new Date(startDate) } : {}),
-        ...(durationDays ? { durationDays: Number(durationDays) } : {}),
-        ...(status ? { status } : {}),
+        title: data.title || "Марафон",
+        description: data.description || "",
+        startDate: parsedDate,
+        durationDays: Number(data.durationDays) || 21,
+        status: safeStatus,
+      },
+      include: {
+        _count: {
+          select: { students: true, tasks: true },
+        },
+        students: { select: { id: true } },
+        tasks: { select: { id: true, dayNumber: true } },
       },
     });
 
-    revalidatePath("/org/admin");
-    return { ok: true, marathon: updatedMarathon };
+    revalidatePath("/", "layout");
+
+    return { ok: true, marathon: JSON.parse(JSON.stringify(updated)) };
   } catch (error) {
     console.error("updateMarathon error:", error);
     return { ok: false, error: error.message };
@@ -928,6 +957,34 @@ export async function getMarathons() {
     return [];
   }
 }
+export async function getCuratorMarathons(orgId) {
+  try {
+    if (!orgId) return [];
+
+    const marathons = await prisma.marathon.findMany({
+      where: { organizerId: String(orgId) },
+      include: {
+        _count: {
+          select: { students: true, tasks: true },
+        },
+        students: { select: { id: true } },
+        tasks: { select: { id: true, dayNumber: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return JSON.parse(JSON.stringify(marathons));
+  } catch (error) {
+    console.error("getCuratorMarathons error:", error);
+    return [];
+  }
+}
+
+// Кіші "c" әрпімен шақырылса да қате бермеуі үшін алиас қосамыз:
+export async function getcuratorMarathons(orgId) {
+  return await getCuratorMarathons(orgId);
+}
+
 
 // ==========================================
 // --- 6. ТАПСЫРМАЛАР ЖӘНЕ ЖҮКТЕМЕЛЕР ----
@@ -1380,213 +1437,197 @@ export async function getGroups(orgId) {
 }
 
 // ==========================================
-// --- 8. КУРАТОРЛАРДЫ БАСҚАРУ -----------------
+// --- 8. КУРАТОРЛАРДЫ БАСҚАРУ --------------
 // ==========================================
 
+// 1. Ұйымның барлық кураторларын алу
 export async function getCuratorsByOrgId(orgId) {
   try {
-    if (!orgId || orgId === "main" || orgId === "undefined") return [];
+    if (!orgId) return [];
 
-    const targetOrgId = String(orgId);
-
-    const organizer = await prisma.organizer.findFirst({
-      where: { OR: [{ id: targetOrgId }, { userId: targetOrgId }] },
-      select: { id: true, userId: true },
-    });
-
-    const validOrgIds = Array.from(
-      new Set([targetOrgId, organizer?.id, organizer?.userId].filter(Boolean))
-    );
-
+    // 1. Кураторлар тізімін аламыз
     const curators = await prisma.curator.findMany({
-      where: { organizerId: { in: validOrgIds } },
+      where: {
+        organizerId: orgId,
+      },
       include: {
-        group: { select: { id: true, name: true } },
-        students: { select: { id: true, points: true } },
+        marathons: {
+          select: { id: true, title: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    const formatted = curators.map((c) => ({
-      id: c.id,
-      name: c.name || "Куратор",
-      email: c.email || "—",
-      phone: c.phone || "—",
-      groupName: c.group?.name || "",
-      studentsCount: c.students?.length || 0,
-    }));
+    // 2. Әр куратордың ТОПТАРЫНДАҒЫ оқушылар санын жинақтап есептейміз
+    const curatorsWithStudentsCount = await Promise.all(
+      curators.map(async (c) => {
+        // Осы кураторға бекітілген топтарды іздейміз
+        const groups = await prisma.group.findMany({
+          where: {
+            OR: [
+              { curatorId: c.id },
+              { curatorId: c.userId },
+            ],
+          },
+          select: {
+            _count: {
+              select: { students: true },
+            },
+          },
+        });
 
-    return safeJson(formatted);
+        // БАРЛЫҚ топтарындағы оқушылар санын қосамыз
+        const totalStudentsInGroups = groups.reduce(
+          (acc, group) => acc + (group._count?.students || 0),
+          0
+        );
+
+        return {
+          ...c,
+          _count: {
+            students: totalStudentsInGroups,
+          },
+        };
+      })
+    );
+
+    return JSON.parse(JSON.stringify(curatorsWithStudentsCount));
   } catch (error) {
     console.error("getCuratorsByOrgId error:", error);
     return [];
   }
 }
-export const getcuratorsByOrgId = getCuratorsByOrgId;
 
+export async function getcuratorsByOrgId(orgId) {
+  return getCuratorsByOrgId(orgId);
+}
+
+// 2. Кураторды Пошта/Телефон бойынша тексеру
 export async function checkCurator(value, isEmail, marathonId) {
   try {
-    if (!value || typeof value !== "string") {
-      return { status: "not_found", message: "Енгізілген мәлімет дұрыс емес" };
-    }
-
-    const formatted = value.trim();
-    let user = null;
-
-    if (isEmail) {
-      user = await prisma.user.findFirst({
-        where: { email: { equals: formatted.toLowerCase(), mode: "insensitive" } },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true },
-      });
-    } else {
-      const cleanDigits = formatted.replace(/\D/g, "");
-      const last10Digits = cleanDigits.slice(-10);
-
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { phone: formatted },
-            { phone: { contains: last10Digits } },
-          ],
-        },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true },
-      });
-    }
+    const user = await prisma.user.findFirst({
+      where: isEmail
+        ? { email: value.toLowerCase() }
+        : { phone: value },
+    });
 
     if (!user) {
-      return { 
-        status: "not_found", 
-        message: "Пайдаланушы базада табылмады! Тек платформада тіркелген қолданушыларды куратор етіп тағайындауға болады." 
-      };
+      return { status: "not_found" };
     }
 
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Пайдаланушы";
+    if (user.role === "OWNER" || user.role === "ORGANIZER") {
+      return { status: "invalid_role", curator: user };
+    }
 
-    // Егер бұл марафонға бұрыннан қосылған болса:
     if (marathonId) {
-      const existingInMarathon = await prisma.curator.findFirst({
+      const alreadyInMarathon = await prisma.marathon.findFirst({
         where: {
-          email: user.email,
-          marathons: { some: { id: String(marathonId) } },
+          id: marathonId,
+          curators: { some: { id: user.id } },
         },
       });
 
-      if (existingInMarathon) {
-        return {
-          status: "already_in_this_marathon",
-          message: "Куратор бұл марафонға бұрыннан қосылған.",
-          user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
-        };
+      if (alreadyInMarathon) {
+        return { status: "already_in_this_marathon", curator: user };
       }
     }
 
-    return {
-      status: "ready",
-      user: { id: user.id, name: fullName, email: user.email, phone: user.phone, role: user.role },
-    };
-  } catch (err) {
-    console.error("checkCurator error:", err);
-    return { status: "not_found", message: `Сервер қатесі: ${err.message}` };
+    return { status: "ready", curator: user };
+  } catch (error) {
+    console.error("checkCurator error:", error);
+    return { status: "not_found" };
   }
 }
-export const checkcurator = checkCurator;
 
+export async function checkcurator(value, isEmail, marathonId) {
+  return checkCurator(value, isEmail, marathonId);
+}
+
+// 3. Кураторды өшіру (рөлін PARTICIPANT ету)
 export async function deleteCurator(curatorId) {
   try {
-    if (!curatorId) return { ok: false, error: "Куратор ID-і көрсетілмеген!" };
-
-    await prisma.student.updateMany({
-      where: { curatorId: String(curatorId) },
-      data: { curatorId: null },
+    await prisma.user.update({
+      where: { id: curatorId },
+      data: {
+        role: "PARTICIPANT",
+        marathons: { set: [] },
+      },
     });
 
-    await prisma.group.updateMany({
-      where: { curatorId: String(curatorId) },
-      data: { curatorId: null },
-    });
-
-    await prisma.curator.delete({
-      where: { id: String(curatorId) },
-    });
-
-    revalidatePath("/org/admin/curators");
+    revalidatePath("/[lang]/org/[orgId]/admin/curators", "page");
     return { ok: true };
   } catch (error) {
     console.error("deleteCurator error:", error);
-    return { ok: false, error: error.message };
+    return { ok: false };
   }
 }
-export const deletecurator = deleteCurator;
 
-export async function updateCuratorMarathons(curatorId, marathonIds) {
+export async function deletecurator(curatorId) {
+  return deleteCurator(curatorId);
+}
+
+// 4. Куратордың марафонын ауыстыру / бекіту
+export async function updateCuratorMarathons(curatorId, marathonId) {
   try {
-    if (!curatorId) {
-      return { ok: false, error: "Куратор ID-і көрсетілмеген!" };
+    await prisma.user.update({
+      where: { id: curatorId },
+      data: {
+        marathons: { set: [] },
+      },
+    });
+
+    if (marathonId) {
+      await prisma.user.update({
+        where: { id: curatorId },
+        data: {
+          marathons: {
+            connect: { id: marathonId },
+          },
+        },
+      });
     }
 
-    const ids = Array.isArray(marathonIds) ? marathonIds : [marathonIds].filter(Boolean);
+    revalidatePath("/[lang]/org/[orgId]/admin/curators", "page");
+    return { ok: true };
+  } catch (error) {
+    console.error("updateCuratorMarathons error:", error);
+    return { ok: false };
+  }
+}
 
-    await prisma.curator.update({
-      where: { id: String(curatorId) },
+export async function updatecuratorMarathons(curatorId, marathonId) {
+  return updateCuratorMarathons(curatorId, marathonId);
+}
+
+// 5. Жаңа куратор қосу
+export async function addCurator({ orgId, marathonId, userId }) {
+  try {
+    if (!userId || !marathonId) return { ok: false, error: "Параметрлер толық емес" };
+
+    await prisma.user.update({
+      where: { id: userId },
       data: {
+        role: "CURATOR",
+        organizerId: orgId,
         marathons: {
-          set: ids.map((id) => ({ id: String(id) })),
+          connect: { id: marathonId },
         },
       },
     });
 
-    revalidatePath("/org/admin/curators");
+    revalidatePath("/[lang]/org/[orgId]/admin/curators", "page");
     return { ok: true };
   } catch (error) {
-    console.error("updateCuratorMarathons error:", error);
+    console.error("addCurator error:", error);
     return { ok: false, error: error.message };
   }
 }
-export const updatecuratorMarathons = updateCuratorMarathons;
 
-export async function addCurator(arg1, arg2) {
-  try {
-    let orgId, marathonId, curatorData;
-
-    // Сәйкестік икемділігі (1 немесе 2 аргументпен шақырылғанда)
-    if (typeof arg1 === "object" && arg1 !== null) {
-      orgId = arg1.orgId;
-      marathonId = arg1.marathonId;
-      curatorData = arg1;
-    } else {
-      orgId = arg1;
-      curatorData = arg2 || {};
-      marathonId = curatorData.marathonId;
-    }
-
-    const { name, fullName, phone, email } = curatorData;
-
-    let targetOrgId = String(orgId);
-    const currentOrg = await prisma.organizer.findFirst({
-      where: { OR: [{ id: targetOrgId }, { userId: targetOrgId }] },
-      select: { id: true },
-    });
-    if (currentOrg) targetOrgId = currentOrg.id;
-
-    const curator = await prisma.curator.create({
-      data: {
-        name: fullName || name || "Куратор",
-        phone: phone ? String(phone).trim() : "",
-        email: email ? String(email).trim().toLowerCase() : "",
-        organizerId: targetOrgId,
-        ...(marathonId ? { marathons: { connect: [{ id: String(marathonId) }] } } : {}),
-      },
-    });
-
-    revalidatePath("/org/admin/curators");
-    return safeJson({ ok: true, curator });
-  } catch (e) {
-    console.error("addCurator error:", e);
-    return { ok: false, error: e.message };
-  }
+export async function addcurator(params) {
+  return addCurator(params);
 }
-export const addcurator = addCurator;
 
+// 6. Оқушыға куратор бекіту
 export async function assignCuratorToStudent(studentId, curatorId) {
   try {
     if (studentId) {
@@ -1595,13 +1636,17 @@ export async function assignCuratorToStudent(studentId, curatorId) {
         data: { curatorId: curatorId ? String(curatorId) : null },
       });
     }
-    revalidatePath("/");
+    revalidatePath("/[lang]/org/[orgId]/admin/students", "page");
     return { ok: true };
   } catch (e) {
+    console.error("assignCuratorToStudent error:", e);
     return { ok: false, error: e.message };
   }
 }
-export const assigncuratorToStudent = assignCuratorToStudent;
+
+export async function assigncuratorToStudent(studentId, curatorId) {
+  return assignCuratorToStudent(studentId, curatorId);
+}
 
 // ==========================================
 // --- 9. МЕНЕДЖЕРЛЕРДІ БАСҚАРУ ----------------
@@ -2495,6 +2540,64 @@ export async function getOrganizerProfile(orgId) {
   } catch (error) {
     console.error("getOrganizerProfile error:", error);
     return null;
+  }
+}
+
+export async function changeOrganizerPassword(orgId, { currentPassword, newPassword }) {
+  try {
+    if (!orgId || !currentPassword || !newPassword) {
+      return { ok: false, error: "Барлық өрісті толтырыңыз" };
+    }
+
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: orgId },
+          { organizerId: orgId },
+          { organizer: { id: orgId } },
+        ],
+      },
+    });
+
+    if (!user) {
+      return { ok: false, error: "Пайдаланушы табылмады" };
+    }
+
+    // Тексеру үшін консольге шығарып көреміз:
+    const dbPassword = user.passwordHash || user.password; // Егер өріс аты password болса
+    console.log("Енгізілген пароль:", currentPassword);
+    console.log("Базадағы пароль:", dbPassword);
+
+    // 1. Егер базадағы пароль хэштелмеген (plain text) болса:
+    let isMatch = false;
+    if (dbPassword === currentPassword) {
+      isMatch = true;
+    } else {
+      // 2. Егер хэштелген болса, bcrypt арқылы тексереміз:
+      isMatch = await bcrypt.compare(currentPassword, dbPassword);
+    }
+
+    if (!isMatch) {
+      return { ok: false, error: "Ағымдағы пароль қате" };
+    }
+
+    // Жаңа парольді хэштеп сақтау
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Өріс атына байланысты сақтау
+    const updateData = user.passwordHash 
+      ? { passwordHash: newHashedPassword } 
+      : { password: newHashedPassword };
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+    });
+
+    return { ok: true };
+  } catch (error) {
+    console.error("Password change error:", error);
+    return { ok: false, error: "Парольді ауыстыру кезінде қате орын алды" };
   }
 }
 

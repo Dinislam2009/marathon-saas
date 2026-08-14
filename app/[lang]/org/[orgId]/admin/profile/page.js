@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, use } from "react";
+import React, { useState, useEffect, useCallback, use } from "react";
 import { 
   User, Mail, Phone, ShieldCheck, KeyRound, Save, CheckCircle, Sparkles, 
-  Globe, Camera, Loader2, Info 
+  Globe, Loader2, Info, X, Lock
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import * as actions from "@/app/actions";
@@ -21,13 +21,17 @@ export default function AdminProfilePage({ params }) {
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const fileInputRef = useRef(null);
+  // Модальды терезе күйлері
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passData, setPassData] = useState({ currentPassword: "", newPassword: "" });
+  const [passSaving, setPassSaving] = useState(false);
+  const [passError, setPassError] = useState("");
+  const [passSuccess, setPassSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    image: null,
     role: "ORGANIZER",
   });
 
@@ -43,7 +47,6 @@ export default function AdminProfilePage({ params }) {
             name: profile.name || "",
             email: profile.email || "",
             phone: profile.phone || "",
-            image: profile.image || null,
             role: profile.role || "ORGANIZER",
           });
         }
@@ -59,24 +62,7 @@ export default function AdminProfilePage({ params }) {
     fetchProfile();
   }, [fetchProfile]);
 
-  // 2. АВАТАР ФОТОСЫН ТАҢДАУ ЖӘНЕ BASE64-КЕ АЙНАЛДЫРУ
-  const handleAvatarChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert(isRu ? "Файл слишком большой (макс: 5 МБ)" : "Файл тым үлкен (макс: 5 МБ)");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormData((prev) => ({ ...prev, image: reader.result }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 3. ӨЗГЕРІСТЕРДІ БАЗАҒА САҚТАУ
+  // 2. ӨЗГЕРІСТЕРДІ БАЗАҒА САҚТАУ
   const handleSave = async (e) => {
     e.preventDefault();
     if (saving) return;
@@ -101,65 +87,66 @@ export default function AdminProfilePage({ params }) {
     }
   };
 
+  // 3. ПАРОЛЬДІ АУЫСТЫРУ
+  const handlePasswordChangeSubmit = async (e) => {
+    e.preventDefault();
+    if (passSaving) return;
+
+    if (passData.newPassword.length < 6) {
+      setPassError(isRu ? "Пароль должен быть не менее 6 символов" : "Пароль кемінде 6 символдан тұруы керек");
+      return;
+    }
+
+    setPassSaving(true);
+    setPassError("");
+    setPassSuccess(false);
+
+    try {
+      if (typeof actions.changeOrganizerPassword === "function") {
+        const res = await actions.changeOrganizerPassword(orgId, passData);
+        if (res?.ok) {
+          setPassSuccess(true);
+          setPassData({ currentPassword: "", newPassword: "" });
+          setTimeout(() => {
+            setPassSuccess(false);
+            setIsPasswordModalOpen(false);
+          }, 2000);
+        } else {
+          setPassError(res?.error || (isRu ? "Неверный текущий пароль" : "Қазіргі пароль қате"));
+        }
+      }
+    } catch (err) {
+      setPassError(err.message);
+    } finally {
+      setPassSaving(false);
+    }
+  };
+
   if (loading) return <LoadingState />;
 
   return (
-    <div className="w-full space-y-6 font-sans text-slate-900 pb-12">
-      {/* 1. Баннер мен Аватар */}
+    <div className="w-full space-y-6 font-sans text-slate-900 pb-12 relative">
+      {/* 1. БАННЕР МЕН ПРОФИЛЬ ДЕРЕКТЕРІ */}
       <div className="bg-white border border-slate-200/80 rounded-3xl overflow-hidden shadow-xs w-full">
-        <div className="h-40 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 p-6 sm:p-8 flex justify-between items-start relative overflow-hidden">
+        <div className="h-32 sm:h-36 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 p-6 sm:p-8 flex justify-between items-start relative">
           <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
           
-          <div>
-            <span className="bg-white/10 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/20 inline-flex items-center gap-1.5">
-              <Sparkles size={14} className="text-amber-300" />
-              {isRu ? "Владелец платформы (Owner)" : "Платформа Иесі (Owner)"}
-            </span>
-          </div>
+          <span className="bg-white/10 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/20 inline-flex items-center gap-1.5 relative z-10">
+            <Sparkles size={14} className="text-amber-300" />
+            {isRu ? "Владелец платформы (Owner)" : "Платформа Иесі (Owner)"}
+          </span>
         </div>
 
-        <div className="px-6 sm:px-8 pb-6 pt-0 flex flex-col md:flex-row md:items-end justify-between gap-6 -mt-14">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-5">
-            {/* АВАТАР БЛОГЫ & СУРЕТ ЖҮКТЕУ */}
-            <div className="w-28 h-28 rounded-2xl bg-white p-1.5 shadow-lg relative shrink-0 group">
-              <div className="w-full h-full rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-3xl overflow-hidden relative">
-                {formData.image ? (
-                  <img
-                    src={formData.image}
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  formData.name?.charAt(0) || "O"
-                )}
-
-                {/* Камера Батырмасы */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer"
-                  title={isRu ? "Изменить аватар" : "Суретті ауыстыру"}
-                >
-                  <Camera size={20} />
-                  <span className="text-[9px] font-bold mt-1">
-                    {isRu ? "Изменить" : "Ауыстыру"}
-                  </span>
-                </button>
-              </div>
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleAvatarChange}
-                accept="image/*"
-                className="hidden"
-              />
+        <div className="px-6 sm:px-8 pb-6 pt-0 flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-12 relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-900 text-white p-1 shadow-xl border-4 border-white shrink-0 flex items-center justify-center font-black text-2xl sm:text-3xl">
+              {formData.name?.charAt(0) || "O"}
             </div>
 
-            <div className="mb-1 space-y-1">
-              <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                {formData.name || (isRu ? "Организатор" : "Организатор")}
-                <ShieldCheck size={22} className="text-purple-600" />
+            <div className="sm:mb-1 space-y-0.5">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+                {formData.name || (isRu ? "Организатор" : "Ұйымдастырушы")}
+                <ShieldCheck size={20} className="text-purple-600 shrink-0" />
               </h1>
               <p className="text-xs text-slate-500 font-medium">{formData.email || "—"}</p>
             </div>
@@ -167,13 +154,13 @@ export default function AdminProfilePage({ params }) {
         </div>
       </div>
 
-      {/* 2. Профиль пішіні */}
+      {/* 2. ПРОФИЛЬ ПІШІНІ */}
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
         <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
           <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
             <div>
               <h2 className="font-bold text-slate-900 text-lg">
-                {isRu ? "Данные организатора" : "Организатор деректері"}
+                {isRu ? "Данные организатора" : "Ұйымдастырушы деректері"}
               </h2>
               <p className="text-slate-400 text-xs mt-0.5">
                 {isRu ? "Личная информация владельца аккаунта" : "Аккаунт иесінің жеке ақпараты"}
@@ -259,9 +246,9 @@ export default function AdminProfilePage({ params }) {
           </div>
         </div>
 
-        {/* Оң жақ баған: Тіл таңдау & Пароль қауіпсіздігі */}
+        {/* Оң жақ баған */}
         <div className="space-y-6">
-          {/* Тіл Ауыстырғыш Блогы */}
+          {/* Тіл таңдау */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="p-2.5 bg-purple-50 text-purple-700 rounded-2xl">
@@ -304,7 +291,7 @@ export default function AdminProfilePage({ params }) {
             </div>
           </div>
 
-          {/* Қауіпсіздік Блогы */}
+          {/* Пароль қауіпсіздігі */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="p-2.5 bg-purple-50 text-purple-700 rounded-2xl">
@@ -322,7 +309,7 @@ export default function AdminProfilePage({ params }) {
 
             <button
               type="button"
-              onClick={() => alert(isRu ? "Инструкция по смене пароля отправлена на пошту" : "Парольді өзгерту сілтемесі поштаңызға жіберілді")}
+              onClick={() => setIsPasswordModalOpen(true)}
               className="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-semibold text-xs rounded-xl transition flex items-center justify-between cursor-pointer"
             >
               <span>{isRu ? "Изменить пароль" : "Парольді өзгерту"}</span>
@@ -331,6 +318,96 @@ export default function AdminProfilePage({ params }) {
           </div>
         </div>
       </form>
+
+      {/* 3. ПАРОЛЬДІ ӨЗГЕРТУ МОДАЛЬДЫ ТЕРЕЗЕСІ (MODAL) */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-6 relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setIsPasswordModalOpen(false)}
+              className="absolute right-5 top-5 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl">
+                <Lock size={22} />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-lg">
+                  {isRu ? "Смена пароля" : "Парольді өзгерту"}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {isRu ? "Введите текущий и новый пароль" : "Ағымдағы және жаңа парольді енгізіңіз"}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handlePasswordChangeSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  {isRu ? "Текущий пароль" : "Ағымдағы пароль"}
+                </label>
+                <input
+                  type="password"
+                  value={passData.currentPassword}
+                  onChange={(e) => setPassData({ ...passData, currentPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-purple-600 focus:bg-white transition"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  {isRu ? "Новый пароль" : "Жаңа пароль"}
+                </label>
+                <input
+                  type="password"
+                  value={passData.newPassword}
+                  onChange={(e) => setPassData({ ...passData, newPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-purple-600 focus:bg-white transition"
+                  required
+                />
+              </div>
+
+              {passError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 flex items-center gap-2">
+                  <Info size={16} />
+                  <span>{passError}</span>
+                </div>
+              )}
+
+              {passSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 flex items-center gap-2">
+                  <CheckCircle size={16} />
+                  <span>{isRu ? "Пароль успешно изменен!" : "Пароль сәтті өзгертілді!"}</span>
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  {isRu ? "Отмена" : "Бас тарту"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={passSaving}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md shadow-purple-200 transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {passSaving && <Loader2 size={16} className="animate-spin" />}
+                  {isRu ? "Обновить пароль" : "Парольді жаңарту"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

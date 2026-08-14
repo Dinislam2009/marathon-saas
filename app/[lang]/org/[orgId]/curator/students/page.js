@@ -356,7 +356,7 @@ export default function CuratorStudentsPage({ params }) {
 
   // ⚡ Оқушыны марафонға қосу
   const handleAddStudent = async (marathonId, studentData) => {
-    const fn = actions.addStudentToMarathon || actions.addStudentToMarathon;
+    const fn = actions.addStudentToMarathon;
     if (typeof fn === "function") {
       await fn({
         orgId,
@@ -370,9 +370,9 @@ export default function CuratorStudentsPage({ params }) {
     if (typeof triggerUpdate === "function") triggerUpdate();
   };
 
-  // ⚡ Тексеру
+  // ⚡ Тексеру (checkStudentForMarathon қолданылады)
   const handleCheckStudent = async (value, isEmail, marathonId) => {
-    const fn = actions.checkStudent || actions.checkStudentForMarathon;
+    const fn = actions.checkStudentForMarathon;
     if (typeof fn === "function") {
       return await fn(value, isEmail, marathonId);
     }

@@ -89,7 +89,7 @@ model Group {
   maxSize       Int            @default(30)
   createdAt     DateTime       @default(now())
   marathonId    String
-  curatorId     String?        @unique
+  curatorId     String?
 
   announcements Announcement[]
   curator       Curator?       @relation(fields: [curatorId], references: [id])
@@ -97,6 +97,7 @@ model Group {
   students      Student[]
 
   @@index([marathonId])
+  @@index([curatorId])
 }
 
 model Curator {
@@ -108,7 +109,7 @@ model Curator {
   createdAt   DateTime   @default(now())
   organizerId String
 
-  group       Group?
+  groups      Group[]
   students    Student[]
   organizer   Organizer  @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   user        User?      @relation(fields: [userId], references: [id])

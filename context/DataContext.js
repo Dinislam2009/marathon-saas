@@ -11,12 +11,13 @@ export function DataProvider({ children }) {
   const [currentStudentId, setCurrentStudentId] = useState(null);
   const [marathons, setMarathons] = useState([]);
 
+  // Компоненттерді қайта рендерлеуге арналған триггер
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
-  // Марафондарды қауіпсіз әрі жеңіл жүктеу
+  // Марафондарды базадан қайта жүктеу
   const refreshData = useCallback(async (orgId) => {
     try {
-      const getMarathonsFn = actions.getMarathonsByOrgId || actions.getMarathons;
+      const getMarathonsFn = actions["getMarathonsByOrgId"] || actions["getMarathons"];
       if (typeof getMarathonsFn === "function") {
         const list = await getMarathonsFn(orgId);
         setMarathons(list || []);
@@ -26,22 +27,21 @@ export function DataProvider({ children }) {
     }
   }, []);
 
-  // Бірінші жүктелгенде ТЕК 1 РЕТ орындалуы тиіс
+  // Алғашқы жүктелгенде орындалатын инициализация
   useEffect(() => {
     let isMounted = true;
 
     async function init() {
       try {
-        if (typeof actions.runDeadlineCheck === "function") {
-          await actions.runDeadlineCheck();
+        if (typeof actions["runDeadlineCheck"] === "function") {
+          await actions["runDeadlineCheck"]();
         }
-        if (typeof actions.fetchInitialState === "function") {
-          const initialState = await actions.fetchInitialState();
+        if (typeof actions["fetchInitialState"] === "function") {
+          const initialState = await actions["fetchInitialState"]();
           if (isMounted && initialState?.currentStudentId) {
             setCurrentStudentId(initialState.currentStudentId);
           }
         }
-        // Бұл жерде ауыр DB сұранысын күтіп тұрмаймыз
       } catch (err) {
         console.error("Initialization error:", err);
       } finally {
@@ -54,7 +54,7 @@ export function DataProvider({ children }) {
     return () => {
       isMounted = false;
     };
-  }, []); // ⚡ tick-ті алып тастадық, тек бірінші рет 1 рет іске қосылады
+  }, []);
 
   // Серверлік функцияларды қауіпсіз орындау көмекшісі
   const safeCall = async (fn, ...args) => {
@@ -71,9 +71,15 @@ export function DataProvider({ children }) {
     return null;
   };
 
+  // actions.js ішінен функцияны екі түрлі стильмен де табуға арналған көмекші
+  const getAction = (camelName, lowerName) => {
+    return actions[camelName] || actions[lowerName];
+  };
+
   const value = {
     ready,
     tick,
+    triggerUpdate: bump,
     currentStudentId,
     setCurrentStudentId,
     marathons,
@@ -81,32 +87,68 @@ export function DataProvider({ children }) {
 
     getMarathon: (id) => marathons.find((m) => String(m.id) === String(id)),
 
-    addOrganizer: (fields) => safeCall(actions.addOrganizer, fields),
-    setOrganizerSubscriptionStatus: (orgId, status) => safeCall(actions.setOrganizerSubscriptionStatus, orgId, status),
+    // Организатор
+    addOrganizer: (fields) => safeCall(actions["addOrganizer"], fields),
+    setOrganizerSubscriptionStatus: (orgId, status) =>
+      safeCall(actions["setOrganizerSubscriptionStatus"], orgId, status),
 
+    // Марафондар
     createMarathon: async (orgId, fields) => {
-  return safeCall(actions.createMarathon, { orgId, ...fields });
-},
+      return safeCall(actions["createMarathon"], { orgId, ...fields });
+    },
 
-    upsertTask: (marathonId, dayNumber, fields) => safeCall(actions.upsertTask, marathonId, dayNumber, fields),
-    setStudentStatus: (studentId, status) => safeCall(actions.setStudentStatus, studentId, status),
-    updateChecklist: (studentId, marathonId, dayNumber, patch) => safeCall(actions.updateChecklist, studentId, marathonId, dayNumber, patch),
+    // Тапсырмалар
+    upsertTask: (marathonId, dayNumber, fields) =>
+      safeCall(actions["upsertTask"], marathonId, dayNumber, fields),
+    setStudentStatus: (studentId, status) =>
+      safeCall(actions["setStudentStatus"], studentId, status),
+    updateChecklist: (studentId, marathonId, dayNumber, patch) =>
+      safeCall(actions["updateChecklist"], studentId, marathonId, dayNumber, patch),
     resetDemoData: () => bump(),
 
-    addHabit: (studentId, title) => safeCall(actions.addHabit, studentId, title),
-    toggleHabitToday: (habitId) => safeCall(actions.toggleHabitToday, habitId),
-    deleteHabit: (habitId) => safeCall(actions.deleteHabit, habitId),
+    // Әдеттер
+    addHabit: (studentId, title) => safeCall(actions["addHabit"], studentId, title),
+    toggleHabitToday: (habitId) => safeCall(actions["toggleHabitToday"], habitId),
+    deleteHabit: (habitId) => safeCall(actions["deleteHabit"], habitId),
 
-    addMatrixTask: (studentId, fields) => safeCall(actions.addMatrixTask, studentId, fields),
-    toggleMatrixTaskDone: (taskId) => safeCall(actions.toggleMatrixTaskDone, taskId),
-    deleteMatrixTask: (taskId) => safeCall(actions.deleteMatrixTask, taskId),
+    // Матрица Эйзенхауэра
+    addMatrixTask: (studentId, fields) => safeCall(actions["addMatrixTask"], studentId, fields),
+    toggleMatrixTaskDone: (taskId) => safeCall(actions["toggleMatrixTaskDone"], taskId),
+    deleteMatrixTask: (taskId) => safeCall(actions["deleteMatrixTask"], taskId),
 
-    sendMessage: (orgId, studentId, studentName, text) => safeCall(actions.sendMessage, orgId, studentId, studentName, text),
-    addcurator: (orgId, fields) => safeCall(actions.addcurator, orgId, fields),
-    assigncuratorToStudent: (studentId, curatorId) => safeCall(actions.assigncuratorToStudent, studentId, curatorId),
-    addInvitation: (marathonId, orgId, role, fields) => safeCall(actions.addInvitation, marathonId, orgId, role, fields),
-    addStudentToMarathon: (marathonId, fields) => safeCall(actions.addStudentToMarathon, marathonId, fields),
-    addStudentInvitationBycurator: (curatorId, marathonId, fields) => safeCall(actions.addStudentInvitationBycurator, curatorId, marathonId, fields),
+    // Чат
+    sendMessage: (orgId, studentId, studentName, text) =>
+      safeCall(actions["sendMessage"], orgId, studentId, studentName, text),
+
+    // Куратор функциялары
+    addCurator: (data) => safeCall(getAction("addCurator", "addcurator"), data),
+    addcurator: (data) => safeCall(getAction("addCurator", "addcurator"), data),
+
+    assignCuratorToStudent: (studentId, curatorId) =>
+      safeCall(getAction("assignCuratorToStudent", "assigncuratorToStudent"), studentId, curatorId),
+    assigncuratorToStudent: (studentId, curatorId) =>
+      safeCall(getAction("assignCuratorToStudent", "assigncuratorToStudent"), studentId, curatorId),
+
+    addStudentInvitationByCurator: (curatorId, marathonId, fields) =>
+      safeCall(
+        getAction("addStudentInvitationByCurator", "addStudentInvitationBycurator"),
+        curatorId,
+        marathonId,
+        fields
+      ),
+    addStudentInvitationBycurator: (curatorId, marathonId, fields) =>
+      safeCall(
+        getAction("addStudentInvitationByCurator", "addStudentInvitationBycurator"),
+        curatorId,
+        marathonId,
+        fields
+      ),
+
+    // Шақырулар мен Оқушылар
+    addInvitation: (marathonId, orgId, role, fields) =>
+      safeCall(actions["addInvitation"], marathonId, orgId, role, fields),
+    addStudentToMarathon: (marathonId, fields) =>
+      safeCall(actions["addStudentToMarathon"], marathonId, fields),
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
