@@ -13,13 +13,20 @@ model User {
   email           String      @unique
   phone           String      @unique
   passwordHash    String
-  firstName       String
-  lastName        String
+  firstName       String      
+  lastName        String      
   verified        Boolean     @default(false)
   role            Role        @default(PARTICIPANT)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-  organizer       Organizer?
+
+  // 1. Ұйымға мүшелік (Команда мүшесі)
+  organizerId     String?
+  organizer       Organizer?  @relation("OrganizationUsers", fields: [organizerId], references: [id])
+
+  // 2. Өзі ашқан ұйым (Иесі)
+  ownedOrganizer  Organizer?  @relation("OrganizerOwner")
+
   pendingOtp      PendingOtp?
   student         Student?
   curator         Curator?
@@ -36,13 +43,22 @@ model Organizer {
   email              String
   subscriptionStatus SubscriptionStatus @default(TRIAL)
   subscriptionPlan   String             @default("Сынақ мерзімі")
+  maxMarathons       Int                @default(2)   // 👈 ҚОСУ КЕРЕК
+  maxStudents        Int                @default(50)  // 👈 ҚОСУ КЕРЕК
   monthlyFee         Int                @default(0)
   nextPaymentDate    DateTime?
   createdAt          DateTime           @default(now())
+
   chatMessages       ChatMessage[]
   invitations        Invitation[]
   marathons          Marathon[]
-  user               User?              @relation(fields: [userId], references: [id])
+
+  // 1. Ұйым иесі (Owner)
+  user               User?              @relation("OrganizerOwner", fields: [userId], references: [id])
+
+  // 2. Ұйымға тіркелген барлық пайдаланушылар
+  users              User[]             @relation("OrganizationUsers")
+
   curators           Curator[]
 }
 
@@ -55,6 +71,7 @@ model Marathon {
   status        MarathonStatus @default(ACTIVE)
   createdAt     DateTime       @default(now())
   organizerId   String
+
   announcements Announcement[]
   groups        Group[]
   invitations   Invitation[]
@@ -73,6 +90,7 @@ model Group {
   createdAt     DateTime       @default(now())
   marathonId    String
   curatorId     String?        @unique
+
   announcements Announcement[]
   curator       Curator?       @relation(fields: [curatorId], references: [id])
   marathon      Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
@@ -89,6 +107,7 @@ model Curator {
   phone       String
   createdAt   DateTime   @default(now())
   organizerId String
+
   group       Group?
   students    Student[]
   organizer   Organizer  @relation(fields: [organizerId], references: [id], onDelete: Cascade)
@@ -114,10 +133,10 @@ model Student {
   marathonId       String
   groupId          String?
   curatorId        String?
-  managerId String?
-  manager   User?   @relation("ManagerToStudent", fields: [managerId], references: [id])
+  managerId        String?
   paymentStatus    String?       @default("PAID")
 
+  manager          User?         @relation("ManagerToStudent", fields: [managerId], references: [id])
   chatMessages     ChatMessage[]
   habits           Habit[]
   matrixTasks      MatrixTask[]
@@ -148,6 +167,7 @@ model Task {
   status           TaskStatus       @default(DRAFT)
   createdAt        DateTime         @default(now())
   marathonId       String
+
   submissions      Submission[]
   marathon         Marathon         @relation(fields: [marathonId], references: [id], onDelete: Cascade)
 
@@ -164,6 +184,7 @@ model Submission {
   submittedAt DateTime?
   studentId   String
   taskId      String?
+
   student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
   task        Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
@@ -184,6 +205,7 @@ model Invitation {
   createdAt       DateTime       @default(now())
   marathonId      String
   organizerId     String
+
   marathon        Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
   organizer       Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
 
@@ -197,6 +219,7 @@ model Habit {
   doneDates Json     @default("[]")
   createdAt DateTime @default(now())
   studentId String
+
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
@@ -210,6 +233,7 @@ model MatrixTask {
   done      Boolean  @default(false)
   createdAt DateTime @default(now())
   studentId String
+
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
@@ -222,6 +246,7 @@ model ChatMessage {
   createdAt   DateTime  @default(now())
   organizerId String
   studentId   String?
+
   organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   student     Student?  @relation(fields: [studentId], references: [id])
 
@@ -236,6 +261,7 @@ model PendingOtp {
   expiresAt DateTime
   createdAt DateTime @default(now())
   userId    String   @unique
+
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([phone])
@@ -250,6 +276,7 @@ model Announcement {
   marathonId String
   groupId    String?
   createdAt  DateTime @default(now())
+
   group      Group?   @relation(fields: [groupId], references: [id])
   marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
 

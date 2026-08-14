@@ -4,10 +4,9 @@ import { DataProvider } from "@/context/DataContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import "./globals.css";
 
-// ⚡ Montserrat қазақша әріптерді (cyrillic-ext) 100% толық қолдайды
 const montserrat = Montserrat({
   subsets: ["latin", "cyrillic", "cyrillic-ext"],
-  variable: "--font-unbounded", // Дизайн бұзылмас үшін CSS айнымалысын сақтадық
+  variable: "--font-unbounded",
   display: "swap",
 });
 
@@ -22,17 +21,21 @@ export const metadata = {
   description: "Марафон және интенсивтер ұйымдастыруға арналған SaaS платформа",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children, params }) {
+  // ⚡ URL-дегі [lang] параметрін аламыз (әдепкісі 'kk')
+  const resolvedParams = await params;
+  const lang = resolvedParams?.lang || "kk";
+
   return (
-    <html lang="kk" className={`${montserrat.variable} ${golos.variable}`}>
+    <html lang={lang} className={`${montserrat.variable} ${golos.variable}`}>
       <head>
-        {/* ⚡ Kinescope Player SDK скрипті */}
+        {/* Kinescope Player SDK */}
         <Script 
           src="https://player.kinescope.io/latest/iframe.player.js" 
           strategy="afterInteractive" 
         />
       </head>
-      <body>
+      <body className="antialiased font-sans">
         <LanguageProvider>
           <DataProvider>
             {children}

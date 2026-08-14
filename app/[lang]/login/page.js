@@ -8,39 +8,34 @@ import { loginUser } from "@/app/actions";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
 
-const getRedirectPathByRole = (role, lang = "ru") => {
-  const normalizedRole = String(role || "").toUpperCase().trim();
+const getRedirectPathByRole = (user, lang = "ru") => {
+  const normalizedRole = String(user?.role || "").toUpperCase().trim();
+  const orgId = user?.organizerId || user?.orgId || "main";
 
   switch (normalizedRole) {
     case "OWNER":
     case "SUPER_ADMIN":
-      return `/${lang}/owner`;
+      return `/${lang}/org/${orgId}/owner`;
 
     case "ORGANIZER":
     case "ADMIN":
-      return `/${lang}/org/admin`;
+      return `/${lang}/org/${orgId}/admin`;
 
     case "MANAGER":
     case "SALES_MANAGER":
-      return `/${lang}/org/manager`;
-
-    case "TEACHER":
-    case "INSTRUCTOR":
-      return `/${lang}/org/admin/tasks`;
-
-    case "BASCURATOR":
-    case "INSPECTOR":
-      return `/${lang}/org/admin/curators`;
+      return `/${lang}/org/${orgId}/manager`;
 
     case "CURATOR":
-      return `/${lang}/org/curator`;
+    case "BASCURATOR":
+      // ⚡ Енді Куратор өз ұйымының ID-імен тура Куратор кабинетіне өтеді
+      return `/${lang}/org/${orgId}/curator`;
 
     case "STUDENT":
     case "PARTICIPANT":
-      return `/${lang}/org/student`;
+      return `/${lang}/org/${orgId}/student`;
 
     default:
-      return `/${lang}`;
+      return `/${lang}/login`;
   }
 };
 
@@ -80,23 +75,29 @@ export default function LoginPage() {
       setLoading(false);
 
       if (!result || !result.ok || result.error) {
+        // ⚡ Сервер қайтарған нақты қатені экранға шығарамыз
         setError(result?.error || (isRu ? "Произошла ошибка" : "Қате орын алды"));
         return;
       }
 
       if (result.user && result.user.id) {
         localStorage.setItem("current_user_id", result.user.id);
+        localStorage.setItem("currentUser", JSON.stringify(result.user));
         if (result.user.role) {
           localStorage.setItem("user_role", result.user.role);
         }
+        if (result.user.organizerId) {
+          localStorage.setItem("current_org_id", result.user.organizerId);
+        }
       }
 
-      const targetPath = getRedirectPathByRole(result.user?.role, lang);
+      const targetPath = getRedirectPathByRole(result.user, lang);
       router.replace(targetPath);
 
     } catch (err) {
       setLoading(false);
-      setError(isRu ? "Ошибка связи с сервером или произошла ошибка." : "Сервермен байланыс үзілді немесе қате шықты.");
+      // ⚡ Шынайы қате мәтінін көрсетеді
+      setError(err?.message || (isRu ? "Ошибка связи с сервером." : "Серверде қате орын алды."));
     }
   }
 
@@ -156,7 +157,7 @@ export default function LoginPage() {
               </div>
               
               <div className="text-right mt-1">
-                <Link href="/forgot-password" className="text-xs text-mist hover:text-horizon-dark transition-colors">
+                <Link href={`/${lang}/forgot-password`} className="text-xs text-mist hover:text-horizon-dark transition-colors">
                   {isRu ? "Забыли пароль?" : "Құпия сөзді ұмыттыңыз ба?"}
                 </Link>
               </div>
@@ -171,7 +172,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-mist mt-6">
             {isRu ? "Нет аккаунта? " : "Аккаунтыңыз жоқ па? "}
-            <Link href="/register" className="text-horizon-dark font-medium">
+            <Link href={`/${lang}/register`} className="text-horizon-dark font-medium">
               {isRu ? "Регистрация" : "Тіркелу"}
             </Link>
           </p>

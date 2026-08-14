@@ -13,12 +13,12 @@ export function DataProvider({ children }) {
 
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
-  // Марафондар тізімін қауіпсіз жүктеу
-  const refreshData = useCallback(async () => {
+  // Марафондарды қауіпсіз әрі жеңіл жүктеу
+  const refreshData = useCallback(async (orgId) => {
     try {
       const getMarathonsFn = actions.getMarathonsByOrgId || actions.getMarathons;
       if (typeof getMarathonsFn === "function") {
-        const list = await getMarathonsFn();
+        const list = await getMarathonsFn(orgId);
         setMarathons(list || []);
       }
     } catch (err) {
@@ -26,7 +26,10 @@ export function DataProvider({ children }) {
     }
   }, []);
 
+  // Бірінші жүктелгенде ТЕК 1 РЕТ орындалуы тиіс
   useEffect(() => {
+    let isMounted = true;
+
     async function init() {
       try {
         if (typeof actions.runDeadlineCheck === "function") {
@@ -34,19 +37,24 @@ export function DataProvider({ children }) {
         }
         if (typeof actions.fetchInitialState === "function") {
           const initialState = await actions.fetchInitialState();
-          if (initialState?.currentStudentId) {
+          if (isMounted && initialState?.currentStudentId) {
             setCurrentStudentId(initialState.currentStudentId);
           }
         }
-        await refreshData();
+        // Бұл жерде ауыр DB сұранысын күтіп тұрмаймыз
       } catch (err) {
         console.error("Initialization error:", err);
       } finally {
-        setReady(true);
+        if (isMounted) setReady(true);
       }
     }
+
     init();
-  }, [refreshData, tick]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []); // ⚡ tick-ті алып тастадық, тек бірінші рет 1 рет іске қосылады
 
   // Серверлік функцияларды қауіпсіз орындау көмекшісі
   const safeCall = async (fn, ...args) => {
@@ -77,9 +85,8 @@ export function DataProvider({ children }) {
     setOrganizerSubscriptionStatus: (orgId, status) => safeCall(actions.setOrganizerSubscriptionStatus, orgId, status),
 
     createMarathon: async (orgId, fields) => {
-      const fn = actions.createMarathonAction || actions.createMarathon;
-      return safeCall(fn, { orgId, ...fields });
-    },
+  return safeCall(actions.createMarathon, { orgId, ...fields });
+},
 
     upsertTask: (marathonId, dayNumber, fields) => safeCall(actions.upsertTask, marathonId, dayNumber, fields),
     setStudentStatus: (studentId, status) => safeCall(actions.setStudentStatus, studentId, status),

@@ -60,7 +60,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const actionToCall = actions.registerUser || actions.registerUserAction || registerUserFn;
+      const actionToCall = actions.registerUser || registerUserFn;
       let res = null;
 
       if (typeof actionToCall === "function") {
@@ -78,7 +78,8 @@ export default function RegisterPage() {
       }
 
       if (res.user && res.user.id) {
-        router.push(`/verify-otp?uid=${res.user.id}`);
+        // ⚡ Тіл префиксін ескеріп /verify-otp бетіне жібереміз
+        router.push(`/${lang}/verify-otp?uid=${res.user.id}`);
       } else {
         setError(
           isRu 
@@ -99,7 +100,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-paper px-6 py-8 font-sans text-slate-900">
-      <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-mist mb-6 hover:text-horizon-dark transition-colors">
+      <Link href={`/${lang}/login`} className="inline-flex items-center gap-1.5 text-sm text-mist mb-6 hover:text-horizon-dark transition-colors">
         <ArrowLeft size={14} /> {isRu ? "Назад" : "Артқа"}
       </Link>
 
@@ -109,7 +110,7 @@ export default function RegisterPage() {
         </h1>
         <p className="text-sm text-mist text-center mb-6">
           {isRu ? "Уже есть аккаунт? " : "Аккаунтыңыз бар ма? "}
-          <Link href="/login" className="text-horizon-dark font-medium">
+          <Link href={`/${lang}/login`} className="text-horizon-dark font-medium">
             {isRu ? "Вход" : "Кіру"}
           </Link>
         </p>

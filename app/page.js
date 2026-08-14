@@ -222,29 +222,28 @@ export default function LandingPage() {
   const isRu = lang === "ru";
 
   const [loggedIn, setLoggedIn] = useState(false);
+  const [orgId, setOrgId] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   useEffect(() => {
     async function checkAuth() {
-      if (typeof window === "undefined") return;
       const savedUserId = localStorage.getItem("current_user_id"); 
-      if (savedUserId) {
-        try {
-          const getUserFn = actions.getCurrentUserAction || actions.getCurrentUser;
-          let user = null;
-          if (typeof getUserFn === "function") {
-            user = await getUserFn(savedUserId);
-          }
-          setLoggedIn(Boolean(user));
-        } catch (err) {
-          console.error("Auth check error:", err);
-          setLoggedIn(false);
-        }
-      } else {
+      const savedOrgId = localStorage.getItem("current_org_id") || "";
+      const savedRole = localStorage.getItem("user_role") || "";
+
+      setOrgId(savedOrgId);
+      setUserRole(savedRole);
+
+      if (!savedUserId) {
         setLoggedIn(false);
+        return;
       }
+
+      setLoggedIn(true);
     }
+
     checkAuth();
   }, []);
 
@@ -255,6 +254,15 @@ export default function LandingPage() {
     } else if (typeof changeLanguage === "function") {
       changeLanguage(nextLang);
     }
+  };
+
+  // ⚡ Рөлге сай сілтеме құрастыру
+  const getCabinetUrl = () => {
+    const role = String(userRole).toUpperCase();
+    if (role === "CURATOR") return orgId ? `/${lang}/org/${orgId}/curator` : `/${lang}/login`;
+    if (role === "MANAGER") return orgId ? `/${lang}/org/${orgId}/manager` : `/${lang}/login`;
+    if (role === "STUDENT") return orgId ? `/${lang}/org/${orgId}/student` : `/${lang}/login`;
+    return orgId ? `/${lang}/org/${orgId}/admin` : `/${lang}/login`;
   };
 
   const navLinks = [
@@ -335,15 +343,17 @@ export default function LandingPage() {
             </button>
 
             {loggedIn ? (
-              <Link href="/start">
-                <Button size="sm" className="cursor-pointer">{isRu ? "В кабинет" : "Кабинетке"}</Button>
+              <Link href={getCabinetUrl()}>
+                <Button size="sm" className="cursor-pointer">
+                  {isRu ? "В кабинет" : "Кабинетке"}
+                </Button>
               </Link>
             ) : (
               <>
-                <Link href="/login">
+                <Link href={`/${lang}/login`}>
                   <Button variant="secondary" size="sm" className="cursor-pointer">{isRu ? "Вход" : "Кіру"}</Button>
                 </Link>
-                <Link href="/register">
+                <Link href={`/${lang}/register`}>
                   <button className="h-9 px-4 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-horizon to-horizon-deep shadow-lg shadow-horizon/30 hover:from-horizon-dark hover:to-[#4C1D95] transition-all cursor-pointer">
                     {isRu ? "Регистрация" : "Тіркелу"}
                   </button>
@@ -375,7 +385,7 @@ export default function LandingPage() {
               : "Loopit интерактивті кеңістігін жалға алыңыз. Өз бағдарламаларыңызды жасап, аудиторияны баурап алыңыз және қатысушыларды нәтижеге жеткізіңіз."}
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
-            <Link href="/register">
+            <Link href={`/${lang}/register`}>
               <button className="h-12 px-6 rounded-xl text-base font-medium text-white bg-gradient-to-r from-horizon to-horizon-deep shadow-lg shadow-horizon/30 hover:from-horizon-dark hover:to-[#4C1D95] hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 cursor-pointer">
                 {isRu ? "Создать пространство" : "Кеңістік құру"} <ArrowRight size={16} />
               </button>
@@ -513,7 +523,7 @@ export default function LandingPage() {
             ? "Готовы перевести вовлечённость вашего комьюнити на новый уровень?" 
             : "Комьюнити белсенділігін жаңа деңгейге көтеруге дайынсыз ба?"}
         </h2>
-        <Link href="/register">
+        <Link href={`/${lang}/register`}>
           <button className="h-12 px-7 rounded-xl text-base font-medium text-white bg-gradient-to-r from-horizon to-horizon-deep shadow-lg shadow-horizon/30 hover:from-horizon-dark hover:to-[#4C1D95] hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 cursor-pointer">
             {isRu ? "Запустить платформу" : "Платформаны іске қосу"} <ArrowRight size={16} />
           </button>

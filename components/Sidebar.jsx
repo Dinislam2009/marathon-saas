@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname, useParams, useSearchParams } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { 
   LayoutGrid, 
   Layers, 
@@ -18,56 +18,56 @@ import {
 export default function Sidebar() {
   const pathname = usePathname();
   const params = useParams();
-  const searchParams = useSearchParams();
 
   const lang = params?.lang || "ru";
-  const orgId = searchParams.get("orgId") || "";
+  const orgId = params?.orgId || "";
   const isRu = lang === "ru";
 
+  // ⚡ Барлық сілтемелер жаңа /[lang]/org/[orgId]/admin/... құрылымында
   const navItems = [
     {
       label: isRu ? "Марафоны" : "Марафондар",
-      href: `/${lang}/org/admin${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin`,
       icon: LayoutGrid,
     },
     {
       label: isRu ? "Группы" : "Топтар",
-      href: `/${lang}/org/admin/groups${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin/groups`,
       icon: Layers,
     },
     {
       label: isRu ? "Задания" : "Тапсырмалар",
-      href: `/${lang}/org/admin/tasks${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin/tasks`,
       icon: BookOpen,
     },
     {
       label: isRu ? "Статистика" : "Статистика",
-      href: `/${lang}/org/admin/analytics${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin/analytics`,
       icon: BarChart2,
     },
     {
       label: isRu ? "Кураторы" : "Кураторлар",
-      href: `/${lang}/org/admin/curators${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin/curators`,
       icon: ShieldCheck,
     },
     {
-      label: isRu ? "Менеджеры" : "Менеджерлер", // 👈 Осы жаңа Менеджерлер бөлімі қосылды!
-      href: `/${lang}/org/admin/managers${orgId ? `?orgId=${orgId}` : ""}`,
+      label: isRu ? "Менеджеры" : "Менеджерлер",
+      href: `/${lang}/org/${orgId}/admin/managers`,
       icon: UserCheck,
     },
     {
       label: isRu ? "Ученики" : "Оқушылар",
-      href: `/${lang}/org/admin/students${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin/students`,
       icon: Users,
     },
     {
       label: isRu ? "Настройки" : "Баптаулар",
-      href: `/${lang}/org/admin/settings${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin/settings`,
       icon: Settings,
     },
     {
       label: isRu ? "Профиль" : "Профиль",
-      href: `/${lang}/org/admin/profile${orgId ? `?orgId=${orgId}` : ""}`,
+      href: `/${lang}/org/${orgId}/admin/profile`,
       icon: User,
     },
   ];
@@ -79,7 +79,7 @@ export default function Sidebar() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-extrabold text-purple-600 tracking-tight">
-              {isRu ? "Кабинет организатора" : "Уйымдастырушы кабинети"}
+              {isRu ? "Кабинет организатора" : "Ұйымдастырушы кабинеті"}
             </h1>
             <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-black rounded-md border border-purple-100 uppercase">
               {lang.toUpperCase()}
@@ -94,9 +94,7 @@ export default function Sidebar() {
         <nav className="space-y-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const currentBasePath = pathname.split("?")[0];
-            const targetBasePath = item.href.split("?")[0];
-            const isActive = currentBasePath === targetBasePath;
+            const isActive = pathname === item.href;
 
             return (
               <Link

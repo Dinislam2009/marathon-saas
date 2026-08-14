@@ -14,10 +14,14 @@ import {
   Loader2, 
   ShieldCheck 
 } from "lucide-react";
-import { sendResetOtpAction, resetPasswordWithOtpAction } from "@/app/actions";
+import { sendResetOtp, resetPasswordWithOtp } from "@/app/actions";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const { lang } = useLanguage();
+  const isRu = lang === "ru";
+
   const [step, setStep] = useState(1); // 1: Нөмір/Email енгізу, 2: OTP + Жаңа пароль
 
   const [identifier, setIdentifier] = useState("");
@@ -48,7 +52,7 @@ export default function ForgotPasswordPage() {
   async function handleSendOtp(e) {
     e.preventDefault();
     if (!identifier.trim()) {
-      setError("Email немесе телефон нөмірін енгізіңіз");
+      setError(isRu ? "Введите Email или номер телефона" : "Email немесе телефон нөмірін енгізіңіз");
       return;
     }
 
@@ -56,21 +60,21 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await sendResetOtpAction(identifier);
+      const res = await sendResetOtp(identifier);
       setLoading(false);
 
       if (!res?.ok) {
-        setError(res?.error || "Пайдаланушы табылмады немесе қате орын алды");
+        setError(res?.error || (isRu ? "Пользователь не найден или произошла ошибка" : "Пайдаланушы табылмады немесе қате орын алды"));
         return;
       }
 
       setUserId(res.userId);
       if (res.devCode) setDevCode(res.devCode);
-      setMessage("Растау коды сәтті жіберілді!");
+      setMessage(isRu ? "Код подтверждения успешно отправлен!" : "Растау коды сәтті жіберілді!");
       setStep(2);
     } catch (err) {
       setLoading(false);
-      setError("Серверлік қате орын алды. Қайталап көріңіз.");
+      setError(isRu ? "Произошла серверная ошибка. Попробуйте еще раз." : "Серверлік қате орын алды. Қайталап көріңіз.");
     }
   }
 
@@ -78,11 +82,11 @@ export default function ForgotPasswordPage() {
   async function handleResetPassword(e) {
     e.preventDefault();
     if (code.length < 6) {
-      setError("Растау коды 6 цифрдан тұруы керек");
+      setError(isRu ? "Код подтверждения должен состоять из 6 цифр" : "Растау коды 6 цифрдан тұруы керек");
       return;
     }
     if (newPassword.length < 6) {
-      setError("Жаңа құпия сөз кемінде 6 символдан тұруы керек");
+      setError(isRu ? "Новый пароль должен содержать минимум 6 символов" : "Жаңа құпия сөз кемінде 6 символдан тұруы керек");
       return;
     }
 
@@ -90,19 +94,19 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await resetPasswordWithOtpAction(userId, code, newPassword);
+      const res = await resetPasswordWithOtp(userId, code, newPassword);
       setLoading(false);
 
       if (!res?.ok) {
-        setError(res?.error || "Растау коды қате немесе мерзімі өтіп кеткен");
+        setError(res?.error || (isRu ? "Неверный код или истек срок действия" : "Растау коды қате немесе мерзімі өтіп кеткен"));
         return;
       }
 
-      alert("Құпия сөз сәтті өзгертілді! Жаңа парольмен жүйеге кіріңіз.");
-      router.push("/login");
+      alert(isRu ? "Пароль успешно изменён! Войдите с новым паролем." : "Құпия сөз сәтті өзгертілді! Жаңа парольмен жүйеге кіріңіз.");
+      router.push(`/${lang}/login`);
     } catch (err) {
       setLoading(false);
-      setError("Серверлік қате орын алды");
+      setError(isRu ? "Произошла серверная ошибка" : "Серверлік қате орын алды");
     }
   }
 
@@ -113,14 +117,14 @@ export default function ForgotPasswordPage() {
         {/* Басқару шапкасы */}
         <div className="flex items-center justify-between">
           <Link
-            href="/login"
+            href={`/${lang}/login`}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-purple-600 transition"
           >
             <ArrowLeft size={16} />
-            <span>Кіруге қайту</span>
+            <span>{isRu ? "Назад ко входу" : "Кіруге қайту"}</span>
           </Link>
           <span className="px-2.5 py-1 bg-purple-50 text-purple-700 text-[10px] font-black rounded-full uppercase tracking-wider">
-            {step === 1 ? "1 / 2 қадам" : "2 / 2 қадам"}
+            {step === 1 ? (isRu ? "1 / 2 шаг" : "1 / 2 қадам") : (isRu ? "2 / 2 шаг" : "2 / 2 қадам")}
           </span>
         </div>
 
@@ -130,12 +134,14 @@ export default function ForgotPasswordPage() {
             <KeyRound size={24} />
           </div>
           <h1 className="text-xl font-black tracking-tight text-slate-900">
-            {step === 1 ? "Құпия сөзді қалпына келтіру" : "Жаңа құпия сөз қою"}
+            {step === 1 
+              ? (isRu ? "Восстановление пароля" : "Құпия сөзді қалпына келтіру") 
+              : (isRu ? "Новый пароль" : "Жаңа құпия сөз қою")}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             {step === 1
-              ? "Тіркелген Email мекенжайыңызды немесе телефон нөміріңізді жазыңыз."
-              : "Жіберілген растау кодын және жаңа құпия сөзді енгізіңіз."}
+              ? (isRu ? "Введите ваш Email или номер телефона." : "Тіркелген Email мекенжайыңызды немесе телефон нөміріңізді жазыңыз.")
+              : (isRu ? "Введите код подтверждения и новый пароль." : "Жіберілген растау кодын және жаңа құпия сөзді енгізіңіз.")}
           </p>
         </div>
 
@@ -144,7 +150,7 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                Email немесе Телефон
+                {isRu ? "Email или Телефон" : "Email немесе Телефон"}
               </label>
               <div className="relative">
                 <input
@@ -177,10 +183,10 @@ export default function ForgotPasswordPage() {
               {loading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  <span>Код жіберілуде...</span>
+                  <span>{isRu ? "Отправка кода..." : "Код жіберілуде..."}</span>
                 </>
               ) : (
-                <span>Растау кодын алу</span>
+                <span>{isRu ? "Получить код" : "Растау кодын алу"}</span>
               )}
             </button>
           </form>
@@ -197,7 +203,7 @@ export default function ForgotPasswordPage() {
             {/* Тесттік режимге арналған код подсказкасы */}
             {devCode && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 font-bold flex items-center justify-between">
-                <span>Тесттік код:</span>
+                <span>{isRu ? "Тестовый код:" : "Тесттік код:"}</span>
                 <span className="font-mono text-sm tracking-widest bg-amber-100 px-2 py-0.5 rounded-lg">
                   {devCode}
                 </span>
@@ -206,7 +212,7 @@ export default function ForgotPasswordPage() {
 
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                Растау коды (СМС / Email)
+                {isRu ? "Код подтверждения (СМС / Email)" : "Растау коды (СМС / Email)"}
               </label>
               <div className="relative">
                 <input
@@ -224,7 +230,7 @@ export default function ForgotPasswordPage() {
 
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                Жаңа құпия сөз
+                {isRu ? "Новый пароль" : "Жаңа құпия сөз"}
               </label>
               <div className="relative">
                 <input
@@ -256,10 +262,10 @@ export default function ForgotPasswordPage() {
                 {loading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>Сақталуда...</span>
+                    <span>{isRu ? "Сохранение..." : "Сақталуда..."}</span>
                   </>
                 ) : (
-                  <span>Құпия сөзді өзгерту</span>
+                  <span>{isRu ? "Изменить пароль" : "Құпия сөзді өзгерту"}</span>
                 )}
               </button>
 
@@ -271,7 +277,7 @@ export default function ForgotPasswordPage() {
                 }}
                 className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition"
               >
-                Деректі қайта енгізу
+                {isRu ? "Ввести данные заново" : "Деректі қайта енгізу"}
               </button>
             </div>
           </form>

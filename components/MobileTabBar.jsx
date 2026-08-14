@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import {
   Home,
   Calendar,
@@ -21,14 +21,19 @@ import {
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
 
-export default function MobileTabBar({ orgId, children }) {
+export default function MobileTabBar({ orgId: propOrgId, children }) {
   const pathname = usePathname();
+  const params = useParams();
   const { lang } = useLanguage();
   const isRu = lang === "ru";
 
   const [open, setOpen] = useState(false);
 
-  const base = `/org/student`;
+  // ⚡ orgId-ді props немесе URL-ден автоматты түрде аламыз
+  const currentOrgId = propOrgId || params?.orgId || "";
+
+  // ⚡ Барлық сілтемелер жаңа /[lang]/org/[orgId]/student құрылымында
+  const base = `/${lang}/org/${currentOrgId}/student`;
 
   const navItems = [
     { href: base, label: isRu ? "Главная" : "Басты бет", icon: Home },

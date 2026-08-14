@@ -13,6 +13,41 @@ function maskPhone(phone) {
   return phone.replace(/(\+7 \(\d)\d\d(\) \d{3}-\d{2}-)(\d{2})/, "$1••$2$3");
 }
 
+const getRedirectPathByRole = (user, lang = "ru") => {
+  const normalizedRole = String(user?.role || "").toUpperCase().trim();
+  const orgId = user?.organizerId || user?.orgId || "";
+
+  switch (normalizedRole) {
+    case "OWNER":
+    case "SUPER_ADMIN":
+      return `/${lang}/org/${orgId || "main"}/owner`;
+
+    case "ORGANIZER":
+    case "ADMIN":
+      return orgId ? `/${lang}/org/${orgId}/admin` : `/${lang}/login`;
+
+    case "MANAGER":
+    case "SALES_MANAGER":
+      return orgId ? `/${lang}/org/${orgId}/manager` : `/${lang}/login`;
+
+    case "TEACHER":
+    case "INSTRUCTOR":
+      return orgId ? `/${lang}/org/${orgId}/admin/tasks` : `/${lang}/login`;
+
+    case "BASCURATOR":
+    case "INSPECTOR":
+      return orgId ? `/${lang}/org/${orgId}/admin/curators` : `/${lang}/login`;
+
+    case "CURATOR":
+      return orgId ? `/${lang}/org/${orgId}/curator` : `/${lang}/login`;
+
+    case "STUDENT":
+    case "PARTICIPANT":
+    default:
+      return orgId ? `/${lang}/org/${orgId}/student` : `/${lang}/login`;
+  }
+};
+
 function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,8 +69,7 @@ function VerifyOtpForm() {
     async function loadPendingOtp() {
       if (!uid) return;
       try {
-        const getPendingFn =
-          actions.getPendingOtpAction || actions.getPendingOtp;
+        const getPendingFn = actions.getPendingOtp || actions.getPendingOtp;
         let pending = null;
 
         if (typeof getPendingFn === "function") {
@@ -81,7 +115,7 @@ function VerifyOtpForm() {
   // ✅ СЕРВЕРГЕ ЖІБЕРУ ЖӘНЕ ҚАУІПСІЗ БАҒЫТТАУ ЛОГИКАСЫ
   async function submit(code) {
     try {
-      const verifyFn = actions.verifyOtpAction || actions.verifyOtp;
+      const verifyFn = actions.verifyOtp || actions.verifyOtp;
       let result = null;
 
       if (typeof verifyFn === "function") {
@@ -105,6 +139,7 @@ function VerifyOtpForm() {
         localStorage.removeItem("currentUser");
         localStorage.removeItem("current_user_id");
         localStorage.removeItem("user_role");
+        localStorage.removeItem("current_org_id");
 
         if (result.user) {
           localStorage.setItem("currentUser", JSON.stringify(result.user));
@@ -112,48 +147,16 @@ function VerifyOtpForm() {
           if (result.user.role) {
             localStorage.setItem("user_role", result.user.role);
           }
+          if (result.user.organizerId || result.user.orgId) {
+            localStorage.setItem("current_org_id", result.user.organizerId || result.user.orgId);
+          }
         }
       }
 
-      // ⚡ 2. Рөлге байланысты ТУРА кабинетке бағыттау
-      const userRole = String(result.user?.role || "").toUpperCase().trim();
+      // ⚡ 2. Рөлге және orgId-ге байланысты ТУРА кабинетке бағыттау
+      const targetPath = getRedirectPathByRole(result.user, lang);
+      router.push(targetPath);
 
-      switch (userRole) {
-        case "OWNER":
-        case "SUPER_ADMIN":
-          router.push(`/${lang}/owner`);
-          break;
-
-        case "ORGANIZER":
-        case "ADMIN":
-          router.push(`/${lang}/org/admin`);
-          break;
-
-        case "MANAGER":
-        case "SALES_MANAGER":
-          router.push(`/${lang}/org/admin/managers`);
-          break;
-
-        case "TEACHER":
-        case "INSTRUCTOR":
-          router.push(`/${lang}/org/admin/tasks`);
-          break;
-
-        case "BASCURATOR":
-        case "INSPECTOR":
-          router.push(`/${lang}/org/admin/curators`);
-          break;
-
-        case "CURATOR":
-          router.push(`/${lang}/org/curator`);
-          break;
-
-        case "STUDENT":
-        case "PARTICIPANT":
-        default:
-          router.push(`/${lang}/org/student`);
-          break;
-      }
     } catch (err) {
       console.error("OTP verification error:", err);
       setError(
@@ -170,7 +173,7 @@ function VerifyOtpForm() {
   async function handleResend() {
     if (cooldown > 0) return;
     try {
-      const resendFn = actions.resendOtpAction || actions.resendOtp;
+      const resendFn = actions.resendOtp || actions.resendOtp;
       let result = null;
 
       if (typeof resendFn === "function") {
@@ -202,7 +205,7 @@ function VerifyOtpForm() {
     <div className="min-h-screen bg-paper px-6 py-6 font-sans text-slate-900">
       <div className="flex items-center justify-between mb-10">
         <Link
-          href="/register"
+          href={`/${lang}/register`}
           className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-horizon-dark transition-colors"
         >
           <ArrowLeft size={14} /> {isRu ? "Назад" : "Артқа"}

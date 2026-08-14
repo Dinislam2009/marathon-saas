@@ -3,42 +3,40 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import { LayoutDashboard, Building2, Zap, Megaphone, ArrowLeft, UserCheck } from "lucide-react";
-import { User } from "lucide-react";
+import { LayoutDashboard, Building2, Zap, Megaphone, ArrowLeft, UserCheck, User } from "lucide-react";
 
 export default function OwnerSidebar() {
   const pathname = usePathname();
-  const { lang } = useParams();
+  const params = useParams();
+  
+  const lang = params?.lang || "ru";
+  const orgId = params?.orgId || "";
 
+  // ⚡ Барлық сілтемелер жаңа /[lang]/org/[orgId]/owner құрылымына сай
   const navItems = [
     {
       label: "Метрикалар",
-      href: `/${lang}/admin`,
+      href: `/${lang}/org/${orgId}/owner`,
       icon: LayoutDashboard,
     },
     {
       label: "Ұйымдар (B2B)",
-      href: `/${lang}/admin/organizations`,
+      href: `/${lang}/org/${orgId}/owner/organizations`,
       icon: Building2,
     },
     {
-      label: "Менеджерлер",
-      href: `/${lang}/admin/managers`,
-      icon: UserCheck,
-    },
-    {
       label: "Тарифтер & Лимиттер",
-      href: `/${lang}/admin/subscriptions`,
+      href: `/${lang}/org/${orgId}/owner/subscriptions`,
       icon: Zap,
     },
     {
       label: "Хабарландырулар",
-      href: `/${lang}/admin/broadcast`,
+      href: `/${lang}/org/${orgId}/owner/broadcast`,
       icon: Megaphone,
     },
     {
       label: "Профиль",
-      href: `/${lang}/admin/profile`,
+      href: `/${lang}/org/${orgId}/owner/profile`,
       icon: User,
     }  
   ];
@@ -84,7 +82,7 @@ export default function OwnerSidebar() {
       {/* FOOTER ACTION */}
       <div className="pt-6 border-t border-slate-100">
         <Link
-          href={`/${lang}/org/admin`}
+          href={orgId ? `/${lang}/org/${orgId}/admin` : `/${lang}/login`}
           className="flex items-center gap-2 text-xs font-extrabold text-slate-500 hover:text-slate-900 transition"
         >
           <ArrowLeft size={16} />

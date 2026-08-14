@@ -21,7 +21,128 @@ import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
 import * as actions from "@/app/actions";
 
-// ---- 📄 LEGAL TEXT CONSTANTS ----
+// ---- Scroll-triggered visibility hook (IntersectionObserver) ----
+function useInView(threshold = 0.3) {
+  const ref = useRef(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.unobserve(el);
+        }
+      },
+      { threshold }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [threshold]);
+  return [ref, inView];
+}
+
+// ---- Animated count-up ----
+function useCountUp(target, inView, duration = 1200) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    let raf;
+    let start = null;
+    function step(ts) {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      setValue(Math.round(progress * target));
+      if (progress < 1) raf = requestAnimationFrame(step);
+    }
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, target, duration]);
+  return value;
+}
+
+function FloatingWidget({ icon: Icon, label, tone, side, delay }) {
+  return (
+    <div
+      className={`hidden md:flex absolute ${side} items-center gap-2 px-4 py-2.5 rounded-2xl bg-white shadow-lg border border-mist-light animate-float`}
+      style={{ animationDelay: delay }}
+    >
+      <span className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${tone}`}>
+        <Icon size={16} />
+      </span>
+      <span className="text-xs font-semibold text-ink whitespace-nowrap">{label}</span>
+    </div>
+  );
+}
+
+function MetricCounter({ target, suffix, label, note }) {
+  const [ref, inView] = useInView(0.4);
+  const value = useCountUp(target, inView);
+  return (
+    <div ref={ref} className="text-center">
+      <p className="font-display text-4xl sm:text-5xl font-extrabold text-white mb-2">
+        {value}
+        {suffix}
+      </p>
+      <p className="text-sm font-semibold text-white/90">{label}</p>
+      {note && <p className="text-xs text-white/50 mt-1">{note}</p>}
+    </div>
+  );
+}
+
+function DashboardPreview({ isRu }) {
+  const [ref, inView] = useInView(0.35);
+  return (
+    <div ref={ref} className="bg-dusk rounded-3xl p-5 sm:p-8 shadow-2xl">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-ember/70" />
+          <span className="h-3 w-3 rounded-full bg-horizon/70" />
+          <span className="h-3 w-3 rounded-full bg-steppe/70" />
+        </div>
+        <span className="text-xs text-white/40 font-medium">
+          {isRu ? "Панель организатора · Loopit" : "Ұйымдастырушы панелі · Loopit"}
+        </span>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-4">
+        {[
+          { label: isRu ? "Участников" : "Қатысушылар", value: 128, color: "bg-horizon" },
+          { label: isRu ? "Отчётов сегодня" : "Бүгінгі есептер", value: 94, color: "bg-steppe" },
+          { label: isRu ? "Доводимость курса" : "Курсты аяқтау", value: 78, color: "bg-ember" },
+        ].map((stat, i) => (
+          <div key={stat.label} className="bg-white/5 rounded-2xl p-4">
+            <p className="text-xs text-white/50 mb-3">{stat.label}</p>
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full ${stat.color} transition-all duration-500 ease-out`}
+                style={{
+                  width: inView ? `${Math.min(stat.value, 100)}%` : "0%",
+                  transitionDelay: `${i * 150}ms`,
+                }}
+              />
+            </div>
+            <p className="text-lg font-bold text-white">
+              {stat.value}{stat.label.includes(isRu ? "Доводимость" : "аяқтау") ? "%" : ""}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InstagramIcon({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 const PRIVACY_TEXT_RU = `ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ И ОБРАБОТКИ ПЕРСОНАЛЬНЫХ ДАННЫХ
 
 1. ОБЩИЕ ПОЛОЖЕНИЯ
@@ -78,193 +199,70 @@ const TERMS_TEXT_KZ = `ПАЙДАЛАНУШЫ КЕЛІСІМІ (ОФЕРТА)
 4. Байланыс
 hello@loopit.kz, тел: +7 (707) 900-35-65.`;
 
-// ---- ⚡ Scroll Reveal Wrapper Component ----
-function FadeInSection({ children, className = "", delay = 0 }) {
-  const [ref, inView] = useInView(0.15);
-  return (
-    <div
-      ref={ref}
-      style={{ transitionDelay: `${delay}ms` }}
-      className={`transition-all duration-700 ease-out ${
-        inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
-      } ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ---- Intersect Observer Hook ----
-function useInView(threshold = 0.2) {
-  const ref = useRef(null);
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.unobserve(el);
-        }
-      },
-      { threshold }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [threshold]);
-  return [ref, inView];
-}
-
-// ---- Animated Count Up Hook ----
-function useCountUp(target, inView, duration = 1400) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (!inView) return;
-    let raf;
-    let start = null;
-    function step(ts) {
-      if (start === null) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      setValue(Math.round(progress * target));
-      if (progress < 1) raf = requestAnimationFrame(step);
-    }
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [inView, target, duration]);
-  return value;
-}
-
-// ---- Floating Glass Badge Component ----
-function FloatingWidget({ icon: Icon, label, value, tone, side, delay }) {
-  return (
-    <div
-      className={`hidden lg:flex absolute ${side} items-center gap-3 px-4 py-3 rounded-2xl bg-white shadow-xl border border-mist-light animate-float z-20 hover:scale-105 transition-transform duration-300`}
-      style={{ animationDelay: delay }}
-    >
-      <span className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${tone}`}>
-        <Icon size={20} />
-      </span>
-      <div>
-        <p className="text-[11px] font-semibold text-mist uppercase tracking-wider">{label}</p>
-        <p className="text-sm font-bold text-ink">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-// ---- Metric Counter Card ----
-function MetricCounter({ target, suffix, label, note }) {
-  const [ref, inView] = useInView(0.4);
-  const value = useCountUp(target, inView);
-  return (
-    <div ref={ref} className="text-center p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md">
-      <p className="font-display text-4xl sm:text-5xl font-extrabold text-white mb-2">
-        {value}{suffix}
-      </p>
-      <p className="text-sm font-semibold text-white/90 mb-1">{label}</p>
-      {note && <p className="text-xs text-white/50">{note}</p>}
-    </div>
-  );
-}
-
-// ---- Dashboard Mockup ----
-function DashboardPreview({ isRu }) {
-  const [ref, inView] = useInView(0.35);
-  return (
-    <div ref={ref} className="bg-dusk rounded-3xl p-6 sm:p-10 shadow-2xl border border-white/10">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-2">
-          <span className="h-3.5 w-3.5 rounded-full bg-ember/80" />
-          <span className="h-3.5 w-3.5 rounded-full bg-horizon/80" />
-          <span className="h-3.5 w-3.5 rounded-full bg-steppe/80" />
-        </div>
-        <span className="text-xs text-white/50 font-mono">
-          {isRu ? "Панель организатора · Loopit" : "Ұйымдастырушы панелі · Loopit"}
-        </span>
-      </div>
-
-      <div className="grid sm:grid-cols-3 gap-5">
-        {[
-          { label: isRu ? "Активные участники" : "Белсенді қатысушылар", value: 1420, progress: 88, color: "bg-horizon" },
-          { label: isRu ? "Сданные отчёты" : "Тапсырылған есептер", value: 984, progress: 94, color: "bg-steppe" },
-          { label: isRu ? "Дошедшие до финала" : "Финалға жеткендер", value: 89, progress: 89, color: "bg-ember" },
-        ].map((stat, i) => (
-          <div key={stat.label} className="bg-white/5 rounded-2xl p-5 border border-white/5">
-            <p className="text-xs text-white/60 mb-3 font-medium">{stat.label}</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-4">{stat.value}{stat.label.includes("финала") || stat.label.includes("жеткендер") ? "%" : ""}</p>
-            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${stat.color} transition-all duration-1000 ease-out`}
-                style={{
-                  width: inView ? `${stat.progress}%` : "0%",
-                  transitionDelay: `${i * 200}ms`,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ---- SVG Instagram Icon ----
-function InstagramIcon({ size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="2" y="2" width="20" height="20" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-// ---- Legal Modal Component ----
 function LegalModal({ open, onClose, title, children }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white w-full sm:max-w-xl rounded-3xl max-h-[85vh] overflow-y-auto shadow-2xl z-10 text-slate-900">
+      <div className="relative bg-white w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl max-h-[85vh] overflow-y-auto shadow-2xl">
         <div className="sticky top-0 bg-white flex items-center justify-between px-6 py-4 border-b border-mist-light">
-          <h3 className="font-display font-bold text-lg text-ink">{title}</h3>
-          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center text-mist hover:bg-paper-dim transition-colors cursor-pointer">
-            <X size={18} />
+          <h3 className="font-display font-semibold text-ink">{title}</h3>
+          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center text-mist hover:bg-paper-dim cursor-pointer">
+            <X size={16} />
           </button>
         </div>
-        <div className="px-6 py-6 text-sm text-mist whitespace-pre-line leading-relaxed">{children}</div>
+        <div className="px-6 py-5 text-sm text-mist whitespace-pre-line leading-relaxed">{children}</div>
       </div>
     </div>
   );
 }
 
 export default function LandingPage() {
-  const { lang, changeLanguage } = useLanguage();
+  const { lang, setLang, changeLanguage } = useLanguage();
   const isRu = lang === "ru";
 
   const [loggedIn, setLoggedIn] = useState(false);
+  const [orgId, setOrgId] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
-useEffect(() => {
-  if (typeof window === "undefined") return;
+  useEffect(() => {
+    async function checkAuth() {
+      const savedUserId = localStorage.getItem("current_user_id"); 
+      const savedOrgId = localStorage.getItem("current_org_id") || "";
+      const savedRole = localStorage.getItem("user_role") || "";
+      
+      setOrgId(savedOrgId);
+      setUserRole(savedRole);
 
-  const savedUserId = localStorage.getItem("current_user_id");
-  if (savedUserId && typeof actions.getCurrentUser === "function") {
-    actions.getCurrentUser(savedUserId)
-      .then((user) => setLoggedIn(Boolean(user)))
-      .catch(() => setLoggedIn(false));
-  }
-}, []);
-  const handleToggleLanguage = () => {
+      if (!savedUserId) {
+        setLoggedIn(false);
+        return;
+      }
+
+      setLoggedIn(true);
+    }
+
+    checkAuth();
+  }, []);
+
+  const handleLanguageToggle = () => {
     const nextLang = isRu ? "kk" : "ru";
-    if (changeLanguage) {
+    if (typeof setLang === "function") {
+      setLang(nextLang);
+    } else if (typeof changeLanguage === "function") {
       changeLanguage(nextLang);
     }
-    if (typeof window !== "undefined") {
-      window.location.href = `/${nextLang}`;
-    }
+  };
+
+  // ⚡ Пайдаланушының рөліне сай сілтеме анықтау
+  const getCabinetUrl = () => {
+    const role = String(userRole).toUpperCase();
+    if (role === "CURATOR") return orgId ? `/${lang}/org/${orgId}/curator` : `/${lang}/login`;
+    if (role === "MANAGER") return orgId ? `/${lang}/org/${orgId}/manager` : `/${lang}/login`;
+    if (role === "STUDENT") return orgId ? `/${lang}/org/${orgId}/student` : `/${lang}/login`;
+    return orgId ? `/${lang}/org/${orgId}/admin` : `/${lang}/login`;
   };
 
   const navLinks = [
@@ -274,9 +272,9 @@ useEffect(() => {
   ];
 
   const floatingWidgets = [
-    { icon: CheckCircle2, label: isRu ? "Выполнение ДЗ" : "Үй тапсырмасы", value: "98.4% орындалу", tone: "text-steppe bg-steppe-light", side: "left-6 top-24", delay: "0s" },
-    { icon: BarChart3, label: isRu ? "Аналитика метрик" : "Метрика аналитикасы", value: "Real-time sync", tone: "text-horizon-dark bg-horizon/10", side: "right-6 top-36", delay: "1.2s" },
-    { icon: Flame, label: isRu ? "Серия: 21 день" : "Серия: 21 күн", value: "🔥 Top Streak", tone: "text-ember bg-ember-light", side: "left-12 bottom-12", delay: "2.4s" },
+    { icon: CheckCircle2, label: isRu ? "Выполнение ДЗ" : "Үй тапсырмасы", tone: "text-steppe bg-steppe-light", side: "left-0 sm:left-4 top-16", delay: "0s" },
+    { icon: BarChart3, label: isRu ? "Аналитика метрик" : "Метрика аналитикасы", tone: "text-horizon-dark bg-horizon/10", side: "right-0 sm:right-4 top-40", delay: "1.2s" },
+    { icon: Flame, label: isRu ? "Серия: 21 день" : "Серия: 21 күн", tone: "text-ember bg-ember-light", side: "left-2 sm:left-10 bottom-10", delay: "2.4s" },
   ];
 
   const steps = [
@@ -316,7 +314,7 @@ useEffect(() => {
   ];
 
   return (
-    <div className="min-h-screen bg-paper text-slate-900 font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-paper overflow-x-hidden font-sans text-slate-900">
       {/* Header */}
       <header className="sticky top-0 z-30 h-16 flex items-center bg-white/80 backdrop-blur-md border-b border-mist-light">
         <div className="max-w-6xl mx-auto px-6 w-full flex items-center justify-between">
@@ -336,23 +334,26 @@ useEffect(() => {
           </nav>
 
           <div className="flex items-center gap-3">
+            {/* 🌐 Language Switcher */}
             <button
-              onClick={handleToggleLanguage}
+              onClick={handleLanguageToggle}
               className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700 transition-colors cursor-pointer border border-gray-200"
             >
               {isRu ? "KZ" : "RU"}
             </button>
 
             {loggedIn ? (
-              <Link href="/start">
-                <Button size="sm" className="cursor-pointer">{isRu ? "В кабинет" : "Кабинетке"}</Button>
+              <Link href={getCabinetUrl()}>
+                <Button size="sm" className="cursor-pointer">
+                  {isRu ? "В кабинет" : "Кабинетке"}
+                </Button>
               </Link>
             ) : (
               <>
-                <Link href="/login">
+                <Link href={`/${lang}/login`}>
                   <Button variant="secondary" size="sm" className="cursor-pointer">{isRu ? "Вход" : "Кіру"}</Button>
                 </Link>
-                <Link href="/register">
+                <Link href={`/${lang}/register`}>
                   <button className="h-9 px-4 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-horizon to-horizon-deep shadow-lg shadow-horizon/30 hover:from-horizon-dark hover:to-[#4C1D95] transition-all cursor-pointer">
                     {isRu ? "Регистрация" : "Тіркелу"}
                   </button>
@@ -363,13 +364,13 @@ useEffect(() => {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="relative overflow-hidden pt-16 pb-24">
         <FloatingWidget {...floatingWidgets[0]} />
         <FloatingWidget {...floatingWidgets[1]} />
         <FloatingWidget {...floatingWidgets[2]} />
 
-        <FadeInSection className="relative max-w-3xl mx-auto px-6 text-center">
+        <div className="relative max-w-3xl mx-auto px-6 text-center">
           <span className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold text-horizon tracking-wide bg-horizon/[0.08] border border-horizon/15">
             {isRu ? "🔥 Предложение ограничено: запустите первый челлендж бесплатно" : "🔥 Шектеулі ұсыныс: алғашқы челленджді тегін іске қосыңыз"}
           </span>
@@ -384,7 +385,7 @@ useEffect(() => {
               : "Loopit интерактивті кеңістігін жалға алыңыз. Өз бағдарламаларыңызды жасап, аудиторияны баурап алыңыз және қатысушыларды нәтижеге жеткізіңіз."}
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
-            <Link href="/register">
+            <Link href={`/${lang}/register`}>
               <button className="h-12 px-6 rounded-xl text-base font-medium text-white bg-gradient-to-r from-horizon to-horizon-deep shadow-lg shadow-horizon/30 hover:from-horizon-dark hover:to-[#4C1D95] hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 cursor-pointer">
                 {isRu ? "Создать пространство" : "Кеңістік құру"} <ArrowRight size={16} />
               </button>
@@ -395,102 +396,89 @@ useEffect(() => {
               </Button>
             </a>
           </div>
-        </FadeInSection>
+        </div>
       </section>
 
       {/* How it works */}
       <section id="how-it-works" className="max-w-5xl mx-auto px-6 py-20">
-        <FadeInSection>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-14">
-            {isRu ? "Как это работает" : "Бұл қалай жұмыс істейді"}
-          </h2>
-        </FadeInSection>
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-14">
+          {isRu ? "Как это работает" : "Бұл қалай жұмыс істейді"}
+        </h2>
         <div className="grid sm:grid-cols-3 gap-8">
           {steps.map(({ icon: Icon, title, desc }, i) => (
-            <FadeInSection key={title} delay={i * 150}>
-              <div className="text-center">
-                <div className="relative inline-flex mb-4">
-                  <div className="h-14 w-14 rounded-2xl bg-horizon/10 flex items-center justify-center text-horizon-dark">
-                    <Icon size={24} />
-                  </div>
-                  <span className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-horizon text-white text-xs font-bold flex items-center justify-center">
-                    {i + 1}
-                  </span>
+            <div key={title} className="text-center">
+              <div className="relative inline-flex mb-4">
+                <div className="h-14 w-14 rounded-2xl bg-horizon/10 flex items-center justify-center text-horizon-dark">
+                  <Icon size={24} />
                 </div>
-                <h3 className="font-display font-semibold text-ink mb-2">{title}</h3>
-                <p className="text-sm text-mist leading-relaxed max-w-xs mx-auto">{desc}</p>
+                <span className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-horizon text-white text-xs font-bold flex items-center justify-center">
+                  {i + 1}
+                </span>
               </div>
-            </FadeInSection>
+              <h3 className="font-display font-semibold text-ink mb-2">{title}</h3>
+              <p className="text-sm text-mist leading-relaxed max-w-xs mx-auto">{desc}</p>
+            </div>
           ))}
         </div>
       </section>
 
-      {/* Dashboard Preview */}
+      {/* Live dashboard mockup */}
       <section className="max-w-4xl mx-auto px-6 py-10">
-        <FadeInSection>
-          <DashboardPreview isRu={isRu} />
-        </FadeInSection>
+        <DashboardPreview isRu={isRu} />
       </section>
 
       {/* Comparison */}
       <section className="max-w-5xl mx-auto px-6 py-20">
-        <FadeInSection>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-12">
-            {isRu ? "Loopit vs хаос в мессенджерах" : "Loopit vs мессенджердегі хаос"}
-          </h2>
-        </FadeInSection>
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-12">
+          {isRu ? "Loopit vs хаос в мессенджерах" : "Loopit vs мессенджердегі хаос"}
+        </h2>
         <div className="grid sm:grid-cols-2 gap-5">
-          <FadeInSection delay={100}>
-            <div className="bg-paper-dim border border-mist-light rounded-3xl p-7 h-full">
-              <p className="text-xs font-bold uppercase tracking-wider text-mist mb-3">
-                {isRu ? "Рутина в Telegram и WhatsApp" : "Telegram және WhatsApp рутинасы"}
-              </p>
-              <h3 className="font-display text-xl font-bold text-ink mb-4">
-                {isRu ? "Хаос" : "Хаос"}
-              </h3>
-              <ul className="space-y-3 text-sm text-mist">
-                <li>{isRu ? "Потерянные отчёты в бесконечных чатах" : "Шексіз чаттарда жоғалған есептер"}</li>
-                <li>{isRu ? "Ручная проверка каждого сообщения" : "Әр хабарламаны қолмен тексеру"}</li>
-                <li>{isRu ? "Путаница в Excel-таблицах" : "Excel кестелеріндегі шатасулар"}</li>
-                <li>{isRu ? "Постепенное падение вовлечённости участников" : "Қатысушылар белсенділігінің төмендеуі"}</li>
-              </ul>
-            </div>
-          </FadeInSection>
-
-          <FadeInSection delay={250}>
-            <div className="bg-gradient-to-br from-horizon to-horizon-dark rounded-3xl p-7 text-white h-full">
-              <p className="text-xs font-bold uppercase tracking-wider text-white/70 mb-3">
-                {isRu ? "Система в Loopit" : "Loopit жүйесі"}
-              </p>
-              <h3 className="font-display text-xl font-bold mb-4">
-                {isRu ? "Решение" : "Шешім"}
-              </h3>
-              <ul className="space-y-3 text-sm text-white/90">
-                <li className="flex gap-2">
-                  <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
-                  {isRu ? "Автоматизированный сбор отчётов" : "Есептерді автоматты түрде жинау"}
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
-                  {isRu ? "Наглядные графики прогресса каждого участника" : "Әрбір қатысушының анық прогресс графигі"}
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
-                  {isRu ? "Автоматические напоминания о дедлайнах" : "Дедлайндар туралы автоматты ескертулер"}
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
-                  {isRu ? "Единая методология удержания (Retention)" : "Бірыңғай ұстап тұру методологиясы (Retention)"}
-                </li>
-              </ul>
-            </div>
-          </FadeInSection>
+          <div className="bg-paper-dim border border-mist-light rounded-3xl p-7">
+            <p className="text-xs font-bold uppercase tracking-wider text-mist mb-3">
+              {isRu ? "Рутина в Telegram и WhatsApp" : "Telegram және WhatsApp рутинасы"}
+            </p>
+            <h3 className="font-display text-xl font-bold text-ink mb-4">
+              {isRu ? "Хаос" : "Хаос"}
+            </h3>
+            <ul className="space-y-3 text-sm text-mist">
+              <li>{isRu ? "Потерянные отчёты в бесконечных чатах" : "Шексіз чаттарда жоғалған есептер"}</li>
+              <li>{isRu ? "Ручная проверка каждого сообщения" : "Әр хабарламаны қолмен тексеру"}</li>
+              <li>{isRu ? "Путаница в Excel-таблицах" : "Excel кестелеріндегі шатасулар"}</li>
+              <li>{isRu ? "Постепенное падение вовлечённости участников" : "Қатысушылар белсенділігінің төмендеуі"}</li>
+            </ul>
+          </div>
+          <div className="bg-gradient-to-br from-horizon to-horizon-dark rounded-3xl p-7 text-white">
+            <p className="text-xs font-bold uppercase tracking-wider text-white/70 mb-3">
+              {isRu ? "Система в Loopit" : "Loopit жүйесі"}
+            </p>
+            <h3 className="font-display text-xl font-bold mb-4">
+              {isRu ? "Решение" : "Шешім"}
+            </h3>
+            <ul className="space-y-3 text-sm text-white/90">
+              <li className="flex gap-2">
+                <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
+                {isRu ? "Автоматизированный сбор отчётов" : "Есептерді автоматты түрде жинау"}
+              </li>
+              <li className="flex gap-2">
+                <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
+                {isRu ? "Наглядные графики прогресса каждого участника" : "Әрбір қатысушының анық прогресс графигі"}
+              </li>
+              <li className="flex gap-2">
+                <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
+                {isRu ? "Автоматические напоминания о дедлайнах" : "Дедлайндар туралы автоматты ескертулер"}
+              </li>
+              <li className="flex gap-2">
+                <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> 
+                {isRu ? "Единая методология удержания (Retention)" : "Бірыңғай ұстап тұру методологиясы (Retention)"}
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
 
-      {/* Metrics Section */}
+      {/* Metrics */}
       <section className="relative overflow-hidden bg-dusk py-20">
-        <FadeInSection className="max-w-4xl mx-auto px-6 text-center">
+        <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
             {isRu ? "На что нацелена методология вовлечения" : "Қызығушылықты арттыру методологиясының мақсаты"}
           </h2>
@@ -504,45 +492,42 @@ useEffect(() => {
             <MetricCounter target={85} suffix="%" label={isRu ? "Целевая доводимость до финала" : "Финалға дейін аяқтау көрсеткіші"} note={isRu ? "целевой ориентир" : "мақсатты бағдар"} />
             <MetricCounter target={3} suffix="×" label={isRu ? "Ожидаемый рост повторных продаж (LTV)" : "Қайта сатулардың өсуі (LTV)"} note={isRu ? "целевой ориентир" : "мақсатты бағдар"} />
           </div>
-        </FadeInSection>
+        </div>
       </section>
 
       {/* Advantages */}
       <section id="advantages" className="max-w-5xl mx-auto px-6 py-20">
-        <FadeInSection>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-12">
-            {isRu ? "Преимущества" : "Артықшылықтары"}
-          </h2>
-        </FadeInSection>
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink text-center mb-12">
+          {isRu ? "Преимущества" : "Артықшылықтары"}
+        </h2>
         <div className="grid sm:grid-cols-3 gap-5">
-          {advantages.map(({ icon: Icon, title, desc }, i) => (
-            <FadeInSection key={title} delay={i * 150}>
-              <div className="bg-white border border-mist-light rounded-2xl p-6 hover:-translate-y-1.5 hover:shadow-xl hover:border-horizon/30 transition-all duration-300 h-full">
-                <div className="h-11 w-11 rounded-xl bg-horizon/10 flex items-center justify-center text-horizon-dark mb-4">
-                  <Icon size={20} />
-                </div>
-                <h3 className="font-display font-semibold text-ink mb-2">{title}</h3>
-                <p className="text-sm text-mist leading-relaxed">{desc}</p>
+          {advantages.map(({ icon: Icon, title, desc }) => (
+            <div
+              key={title}
+              className="bg-white border border-mist-light rounded-2xl p-6 hover:-translate-y-1.5 hover:shadow-xl hover:border-horizon/30 transition-all duration-300"
+            >
+              <div className="h-11 w-11 rounded-xl bg-horizon/10 flex items-center justify-center text-horizon-dark mb-4">
+                <Icon size={20} />
               </div>
-            </FadeInSection>
+              <h3 className="font-display font-semibold text-ink mb-2">{title}</h3>
+              <p className="text-sm text-mist leading-relaxed">{desc}</p>
+            </div>
           ))}
         </div>
       </section>
 
       {/* CTA */}
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-        <FadeInSection>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink mb-7">
-            {isRu 
-              ? "Готовы перевести вовлечённость вашего комьюнити на новый уровень?" 
-              : "Комьюнити белсенділігін жаңа деңгейге көтеруге дайынсыз ба?"}
-          </h2>
-          <Link href="/register">
-            <button className="h-12 px-7 rounded-xl text-base font-medium text-white bg-gradient-to-r from-horizon to-horizon-deep shadow-lg shadow-horizon/30 hover:from-horizon-dark hover:to-[#4C1D95] hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 cursor-pointer">
-              {isRu ? "Запустить платформу" : "Платформаны іске қосу"} <ArrowRight size={16} />
-            </button>
-          </Link>
-        </FadeInSection>
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink mb-7">
+          {isRu 
+            ? "Готовы перевести вовлечённость вашего комьюнити на новый уровень?" 
+            : "Комьюнити белсенділігін жаңа деңгейге көтеруге дайынсыз ба?"}
+        </h2>
+        <Link href={`/${lang}/register`}>
+          <button className="h-12 px-7 rounded-xl text-base font-medium text-white bg-gradient-to-r from-horizon to-horizon-deep shadow-lg shadow-horizon/30 hover:from-horizon-dark hover:to-[#4C1D95] hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 cursor-pointer">
+            {isRu ? "Запустить платформу" : "Платформаны іске қосу"} <ArrowRight size={16} />
+          </button>
+        </Link>
       </section>
 
       {/* Footer */}

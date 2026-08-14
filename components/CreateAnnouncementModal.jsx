@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Megaphone, Send, Loader2, X, CheckCircle2 } from "lucide-react";
-import { createAnnouncementAction } from "@/app/actions";
+import { createAnnouncement } from "@/app/actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function CreateAnnouncementModal({
@@ -30,7 +30,7 @@ export default function CreateAnnouncementModal({
     setLoading(true);
 
     try {
-      const res = await createAnnouncementAction({
+      const res = await createAnnouncement({
         title,
         content,
         authorRole,
