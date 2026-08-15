@@ -16,8 +16,8 @@ describe("OrganizationService", () => {
     expect(created.name).toBe("Qadam Education");
     expect(created.slug).toBe("qadam-education");
 
-    const found = await service.getOrganization("user-1", created.id);
-    expect(found.id).toBe(created.id);
+    const found = await service.getOrganization(created.id, "user-1");
+    expect(found?.id).toBe(created.id);
   });
 
   it("rejects cross-organization access", async () => {
@@ -36,7 +36,7 @@ describe("OrganizationService", () => {
     });
 
     await expect(
-      service.getOrganization("owner-a", second.id),
+      service.getOrganization(second.id, "owner-a"),
     ).rejects.toThrow("Organization access denied");
 
     expect(first.id).not.toBe(second.id);
@@ -53,11 +53,11 @@ describe("OrganizationService", () => {
 
     await expect(
       service.changeMemberRole(
-        "owner-1",
         organization.id,
+        "owner-1",
         "owner-1",
         "ADMIN",
       ),
-    ).rejects.toThrow("Owner role cannot be changed");
+    ).rejects.toThrow("OWNER role transfer requires a dedicated ownership flow.");
   });
 });
