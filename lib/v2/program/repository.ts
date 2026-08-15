@@ -37,4 +37,8 @@ export class InMemoryProgramRepository implements ProgramRepository {
     this.programs.set(programId, updated);
     return updated;
   }
+
+  async count(organizationId: string): Promise<number> {
+    return (await this.list(organizationId)).length;
+  }
 }
