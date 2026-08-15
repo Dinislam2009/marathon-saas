@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseCreateOrganizationRequest } from "../../../../lib/v2/organization/api.ts";
-import { OrganizationAccessError, OrganizationService } from "../../../../lib/v2/organization/service.ts";
+import { OrganizationService } from "../../../../lib/v2/organization/service.ts";
+import { OrganizationAccessError } from "../../../../lib/v2/organization/types.ts";
 import { PrismaOrganizationRepository } from "../../../../lib/v2/organization/repository-prisma.ts";
 import { prismaV2 } from "../../../../lib/v2/prisma.ts";
 
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     const organization = await service.createOrganization(input);
 
     return NextResponse.json({ organization }, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof OrganizationAccessError) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
