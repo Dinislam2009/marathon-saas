@@ -1,5 +1,5 @@
-import { InMemoryProgramRepository } from "../lib/v2/program/repository";
-import { ProgramService } from "../lib/v2/program/service";
+import { InMemoryProgramRepository } from "../lib/v2/program/repository.ts";
+import { ProgramService } from "../lib/v2/program/service.ts";
 
 const service = new ProgramService(new InMemoryProgramRepository());
 const program = await service.createProgram({
