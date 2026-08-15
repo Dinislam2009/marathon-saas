@@ -13,7 +13,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - name: Validate Loopit 2.0 schema
         run: npx prisma validate --schema=prisma/schema-v2.prisma
