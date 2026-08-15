@@ -1,4 +1,4 @@
-import { PROGRAM_STATUSES, PROGRAM_TYPES, type CreateProgramInput, type ProgramRepository, type ProgramStatus, type ProgramType, type UpdateProgramInput } from "./types";
+import { PROGRAM_STATUSES, PROGRAM_TYPES, type CreateProgramInput, type ProgramRepository, type ProgramStatus, type ProgramType, type UpdateProgramInput } from "./types.ts";
 
 function normalizeText(value: string, field: string) {
   const normalized = value.trim();
