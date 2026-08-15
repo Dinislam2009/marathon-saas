@@ -10,22 +10,125 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserStatus { ACTIVE INVITED SUSPENDED ARCHIVED }
-enum MembershipRole { OWNER ADMIN MANAGER TEACHER CURATOR ACCOUNTANT }
-enum OrganizationStatus { ACTIVE SUSPENDED ARCHIVED }
-enum InvitationStatus { PENDING ACCEPTED REVOKED EXPIRED }
-enum ProgramType { COURSE EXAM_PREP MARATHON INTENSIVE CLUB OTHER }
-enum ProgramStatus { DRAFT ACTIVE PAUSED COMPLETED ARCHIVED }
-enum GroupStatus { ACTIVE PAUSED COMPLETED ARCHIVED }
-enum EnrollmentStatus { ACTIVE PAUSED COMPLETED CANCELLED }
-enum AttendanceStatus { PRESENT ABSENT LATE EXCUSED }
-enum HomeworkStatus { DRAFT PUBLISHED CLOSED }
-enum SubmissionStatus { PENDING SUBMITTED REVIEWED RETURNED LATE }
-enum LeadStatus { NEW CONTACTED QUALIFIED TRIAL NEGOTIATION WON LOST }
-enum DealStatus { OPEN WON LOST CANCELLED }
-enum InvoiceStatus { DRAFT ISSUED PARTIALLY_PAID PAID OVERDUE CANCELLED }
-enum PaymentStatus { PENDING SUCCEEDED FAILED REFUNDED }
-enum NotificationStatus { UNREAD READ ARCHIVED }
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MANAGER
+  TEACHER
+  CURATOR
+  ACCOUNTANT
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum ProgramType {
+  COURSE
+  EXAM_PREP
+  MARATHON
+  INTENSIVE
+  CLUB
+  OTHER
+}
+
+enum ProgramStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum GroupStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum HomeworkStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  REVIEWED
+  RETURNED
+  LATE
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  TRIAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
 
 model Organization {
   id String @id @default(cuid())
