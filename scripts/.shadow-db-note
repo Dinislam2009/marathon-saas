@@ -1,0 +1,1 @@
+CI uses a separate DIRECT_URL database name for Prisma shadow operations.
