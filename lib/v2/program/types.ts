@@ -42,3 +42,5 @@ export interface ProgramRepository {
   list(organizationId: string): Promise<ProgramRecord[]>;
   update(organizationId: string, programId: string, input: UpdateProgramInput): Promise<ProgramRecord>;
 }
+
+export const PROGRAM_CORE_VERSION = "v2";
