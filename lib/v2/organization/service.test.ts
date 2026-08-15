@@ -1,4 +1,5 @@
-import { describe, expect, it } from "node:test";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { InMemoryOrganizationRepository } from "./repository-in-memory";
 import { OrganizationService } from "./service";
 
@@ -13,11 +14,11 @@ describe("OrganizationService", () => {
       ownerUserId: "user-1",
     });
 
-    expect(created.name).toBe("Qadam Education");
-    expect(created.slug).toBe("qadam-education");
+    assert.equal(created.name, "Qadam Education");
+    assert.equal(created.slug, "qadam-education");
 
     const found = await service.getOrganization(created.id, "user-1");
-    expect(found?.id).toBe(created.id);
+    assert.equal(found?.id, created.id);
   });
 
   it("rejects cross-organization access", async () => {
@@ -35,11 +36,12 @@ describe("OrganizationService", () => {
       ownerUserId: "owner-b",
     });
 
-    await expect(
-      service.getOrganization(second.id, "owner-a"),
-    ).rejects.toThrow("Organization access denied");
+    await assert.rejects(
+      () => service.getOrganization(second.id, "owner-a"),
+      /Organization access denied/,
+    );
 
-    expect(first.id).not.toBe(second.id);
+    assert.notEqual(first.id, second.id);
   });
 
   it("prevents changing the owner's role", async () => {
@@ -51,13 +53,15 @@ describe("OrganizationService", () => {
       ownerUserId: "owner-1",
     });
 
-    await expect(
-      service.changeMemberRole(
-        organization.id,
-        "owner-1",
-        "owner-1",
-        "ADMIN",
-      ),
-    ).rejects.toThrow("OWNER role transfer requires a dedicated ownership flow.");
+    await assert.rejects(
+      () =>
+        service.changeMemberRole(
+          organization.id,
+          "owner-1",
+          "owner-1",
+          "ADMIN",
+        ),
+      /OWNER role transfer requires a dedicated ownership flow\./,
+    );
   });
 });
