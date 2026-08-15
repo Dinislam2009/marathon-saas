@@ -12,6 +12,7 @@ on:
       - "scripts/test-v2-organization.mts"
       - "scripts/test-v2-organization-service.mts"
       - "scripts/test-v2-organization-api.mts"
+      - "scripts/test-v2-organization-api-read-update.mts"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -26,6 +27,7 @@ on:
       - "scripts/test-v2-organization.mts"
       - "scripts/test-v2-organization-service.mts"
       - "scripts/test-v2-organization-api.mts"
+      - "scripts/test-v2-organization-api-read-update.mts"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -92,6 +94,9 @@ jobs:
 
       - name: Test Organization API request validation
         run: node --experimental-strip-types --test scripts/test-v2-organization-api.mts
+
+      - name: Test Organization API read/update route
+        run: node --experimental-strip-types --test scripts/test-v2-organization-api-read-update.mts
 
       - name: TypeScript validation
         run: npm run typecheck
