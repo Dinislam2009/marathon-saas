@@ -1,0 +1,36 @@
+name: Loopit 2.0 Enrollment Core
+
+on:
+  push:
+    branches:
+      - loopit-2.0/enrollment-core
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "lib/v2/enrollment/**"
+      - "scripts/test-v2-enrollment.mts"
+      - "prisma/schema-v2.prisma"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/loopit-v2-enrollment-core.yml"
+  workflow_dispatch:
+
+jobs:
+  enrollment-core:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci_shadow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:v2:validate
+      - run: npm run prisma:v2:generate
+      - run: npm run typecheck
+      - run: node --experimental-strip-types --test lib/v2/enrollment/service.test.ts
+      - run: node --experimental-strip-types scripts/test-v2-enrollment.mts
