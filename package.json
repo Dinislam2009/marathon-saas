@@ -5,7 +5,7 @@
   "description": "Marafon/intensivter uyymdastyruğa arnalğan köpqoldanuşyly (multi-tenant) SaaS platforması",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run prisma:v2:generate && next build",
     "start": "next start",
     "lint": "next lint",
     "prisma:v2:validate": "prisma validate --schema=prisma/schema-v2.prisma",
@@ -30,7 +30,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
     "prisma": "7.8.0",
-    "tailwindcss": "^4.1.0"
+    "tailwindcss": "4.1.0"
   },
   "engines": {
     "node": ">=20.9.0"
