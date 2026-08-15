@@ -1,5 +1,5 @@
 import type { PrismaClient } from "../../../generated/prisma-v2";
-import type { CreateProgramInput, ProgramRecord, ProgramRepository, UpdateProgramInput } from "./types";
+import type { CreateProgramInput, ProgramRecord, ProgramRepository, UpdateProgramInput } from "./types.ts";
 
 type PrismaV2Client = PrismaClient;
 
