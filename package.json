@@ -2,7 +2,7 @@
   "name": "marathon-saas",
   "version": "0.1.0",
   "private": true,
-  "description": "Marafon/intensivter uyымdastyruğa arnalğan köpqoldanuşyly (multi-tenant) SaaS platforması",
+  "description": "Marafon/intensivter uyymdastyruğa arnalğan köpqoldanuşyly (multi-tenant) SaaS platforması",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,7 +10,8 @@
     "lint": "next lint",
     "prisma:v2:validate": "prisma validate --schema=prisma/schema-v2.prisma",
     "prisma:v2:generate": "prisma generate --schema=prisma/schema-v2.prisma",
-    "test:v2:core-schema": "node scripts/validate-loopit-v2-schema.mjs"
+    "test:v2:core-schema": "node scripts/validate-loopit-v2-schema.mjs",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -22,7 +23,8 @@
     "pg": "^8.22.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-icons": "^5.7.0"
+    "react-icons": "^5.7.0",
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",

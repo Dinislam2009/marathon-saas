@@ -1,0 +1,54 @@
+name: Loopit 2.0 Organization Core
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "lib/v2/organization/**"
+      - "prisma/schema-v2.prisma"
+      - "scripts/validate-loopit-v2-schema.mjs"
+      - "tsconfig.json"
+      - ".github/workflows/organization-core.yml"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    paths:
+      - "lib/v2/organization/**"
+      - "prisma/schema-v2.prisma"
+      - "scripts/validate-loopit-v2-schema.mjs"
+      - "tsconfig.json"
+      - ".github/workflows/organization-core.yml"
+      - "package.json"
+      - "package-lock.json"
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+
+jobs:
+  organization-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Loopit 2.0 schema
+        run: npm run prisma:v2:validate
+
+      - name: Generate Loopit 2.0 Prisma Client
+        run: npm run prisma:v2:generate
+
+      - name: Validate Loopit 2.0 core schema
+        run: npm run test:v2:core-schema
+
+      - name: TypeScript validation
+        run: npm run typecheck
