@@ -1,1 +1,0 @@
-CI only: Prisma shadow database must differ from DATABASE_URL.
