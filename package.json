@@ -11,6 +11,7 @@
     "prisma:v2:validate": "prisma validate --schema=prisma/schema-v2.prisma",
     "prisma:v2:generate": "prisma generate --schema=prisma/schema-v2.prisma",
     "test:v2:core-schema": "node scripts/validate-loopit-v2-schema.mjs",
+    "test:v2:postgres": "node scripts/test-v2-postgres.mjs",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {

@@ -7,6 +7,7 @@ on:
       - "lib/v2/organization/**"
       - "prisma/schema-v2.prisma"
       - "scripts/validate-loopit-v2-schema.mjs"
+      - "scripts/test-v2-postgres.mjs"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -16,6 +17,7 @@ on:
       - "lib/v2/organization/**"
       - "prisma/schema-v2.prisma"
       - "scripts/validate-loopit-v2-schema.mjs"
+      - "scripts/test-v2-postgres.mjs"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -28,6 +30,21 @@ env:
 jobs:
   organization-core:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: loopit_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d loopit_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,6 +58,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create Prisma shadow database
+        run: PGPASSWORD=postgres createdb -h localhost -U postgres loopit_ci_shadow
+
       - name: Validate Loopit 2.0 schema
         run: npm run prisma:v2:validate
 
@@ -49,6 +69,12 @@ jobs:
 
       - name: Validate Loopit 2.0 core schema
         run: npm run test:v2:core-schema
+
+      - name: Prepare PostgreSQL schema
+        run: npx prisma db push --schema=prisma/schema-v2.prisma
+
+      - name: Test PostgreSQL connectivity
+        run: npm run test:v2:postgres
 
       - name: TypeScript validation
         run: npm run typecheck
