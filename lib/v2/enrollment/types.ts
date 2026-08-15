@@ -2,31 +2,12 @@ export const ENROLLMENT_STATUSES = ["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"
 export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
 
 export type EnrollmentRecord = {
-  id: string;
-  studentId: string;
-  programId: string;
-  courseId: string | null;
-  groupId: string | null;
-  status: EnrollmentStatus;
-  enrolledAt: Date;
-  completedAt: Date | null;
+  id: string; studentId: string; programId: string; courseId: string | null; groupId: string | null;
+  status: EnrollmentStatus; enrolledAt: Date; completedAt: Date | null;
 };
 
-export type CreateEnrollmentInput = {
-  studentId: string;
-  programId: string;
-  courseId?: string | null;
-  groupId?: string | null;
-  status?: EnrollmentStatus;
-  enrolledAt?: Date;
-};
-
-export type UpdateEnrollmentInput = {
-  courseId?: string | null;
-  groupId?: string | null;
-  status?: EnrollmentStatus;
-  completedAt?: Date | null;
-};
+export type CreateEnrollmentInput = { studentId: string; programId: string; courseId?: string | null; groupId?: string | null; status?: EnrollmentStatus; enrolledAt?: Date };
+export type UpdateEnrollmentInput = { courseId?: string | null; groupId?: string | null; status?: EnrollmentStatus; completedAt?: Date | null };
 
 export interface EnrollmentRepository {
   create(input: CreateEnrollmentInput): Promise<EnrollmentRecord>;
