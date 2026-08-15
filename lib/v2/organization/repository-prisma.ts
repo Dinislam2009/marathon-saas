@@ -11,7 +11,11 @@ type PrismaV2Client = PrismaClient;
 
 /** Production repository backed by the isolated Loopit 2.0 Prisma client. */
 export class PrismaOrganizationRepository implements OrganizationRepository {
-  constructor(private readonly prisma: PrismaV2Client) {}
+  private readonly prisma: PrismaV2Client;
+
+  constructor(prisma: PrismaV2Client) {
+    this.prisma = prisma;
+  }
 
   async createOrganization(
     input: Omit<CreateOrganizationInput, "ownerUserId">,
