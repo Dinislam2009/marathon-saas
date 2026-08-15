@@ -9,6 +9,7 @@ on:
       - "scripts/validate-loopit-v2-schema.mjs"
       - "scripts/test-v2-postgres.mjs"
       - "scripts/test-v2-organization.mts"
+      - "scripts/test-v2-organization-service.mts"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -20,6 +21,7 @@ on:
       - "scripts/validate-loopit-v2-schema.mjs"
       - "scripts/test-v2-postgres.mjs"
       - "scripts/test-v2-organization.mts"
+      - "scripts/test-v2-organization-service.mts"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -80,6 +82,9 @@ jobs:
 
       - name: Test OrganizationRepository CRUD
         run: node --experimental-strip-types --test scripts/test-v2-organization.mts
+
+      - name: Test OrganizationService business rules
+        run: node --experimental-strip-types --test scripts/test-v2-organization-service.mts
 
       - name: TypeScript validation
         run: npm run typecheck
