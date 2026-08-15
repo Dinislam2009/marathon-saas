@@ -10,452 +10,285 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserStatus { ACTIVE INVITED SUSPENDED ARCHIVED }
-enum MembershipRole { OWNER ADMIN MANAGER TEACHER CURATOR ACCOUNTANT }
-enum OrganizationStatus { ACTIVE SUSPENDED ARCHIVED }
-enum InvitationStatus { PENDING ACCEPTED REVOKED EXPIRED }
-enum ProgramType { COURSE EXAM_PREP MARATHON INTENSIVE CLUB OTHER }
-enum ProgramStatus { DRAFT ACTIVE PAUSED COMPLETED ARCHIVED }
-enum GroupStatus { ACTIVE PAUSED COMPLETED ARCHIVED }
-enum EnrollmentStatus { ACTIVE PAUSED COMPLETED CANCELLED }
-enum AttendanceStatus { PRESENT ABSENT LATE EXCUSED }
-enum HomeworkStatus { DRAFT PUBLISHED CLOSED }
-enum SubmissionStatus { PENDING SUBMITTED REVIEWED RETURNED LATE }
-enum LeadStatus { NEW CONTACTED QUALIFIED TRIAL NEGOTIATION WON LOST }
-enum DealStatus { OPEN WON LOST CANCELLED }
-enum InvoiceStatus { DRAFT ISSUED PARTIALLY_PAID PAID OVERDUE CANCELLED }
-enum PaymentStatus { PENDING SUCCEEDED FAILED REFUNDED }
-enum NotificationStatus { UNREAD READ ARCHIVED }
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MANAGER
+  TEACHER
+  CURATOR
+  ACCOUNTANT
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum ProgramType {
+  COURSE
+  EXAM_PREP
+  MARATHON
+  INTENSIVE
+  CLUB
+  OTHER
+}
+
+enum ProgramStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum GroupStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum HomeworkStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  REVIEWED
+  RETURNED
+  LATE
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  TRIAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
 
 model Organization {
-  id String @id @default(cuid())
-  name String
-  slug String @unique
-  logoUrl String?
-  phone String?
-  email String?
-  address String?
-  timezone String @default("Asia/Almaty")
-  currency String @default("KZT")
-  status OrganizationStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  memberships OrganizationMembership[]
-  invitations OrganizationInvitation[]
-  students Student[]
-  programs Program[]
-  courses Course[]
-  groups Group[]
-  leads Lead[]
-  deals Deal[]
-  invoices Invoice[]
-  payments Payment[]
+  id          String             @id @default(cuid())
+  name        String
+  slug        String             @unique
+  logoUrl     String?
+  phone       String?
+  email       String?
+  address     String?
+  timezone    String             @default("Asia/Almaty")
+  currency    String             @default("KZT")
+  status      OrganizationStatus @default(ACTIVE)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  memberships   OrganizationMembership[]
+  invitations   OrganizationInvitation[]
+  students      Student[]
+  programs      Program[]
+  courses       Course[]
+  groups        Group[]
+  leads         Lead[]
+  deals         Deal[]
+  invoices      Invoice[]
+  payments      Payment[]
   notifications Notification[]
-  messages Message[]
-  activities Activity[]
-  auditLogs AuditLog[]
+  messages      Message[]
+  activities    Activity[]
+  auditLogs     AuditLog[]
   announcements Announcement[]
 }
 
 model User {
-  id String @id @default(cuid())
-  email String @unique
-  phone String? @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
+  phone        String?      @unique
   passwordHash String
-  firstName String
-  lastName String
-  avatarUrl String?
-  status UserStatus @default(ACTIVE)
-  lastLoginAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  memberships OrganizationMembership[]
-  sentInvitations OrganizationInvitation[] @relation("InvitationSender")
+  firstName    String
+  lastName     String
+  avatarUrl    String?
+  status       UserStatus   @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  memberships        OrganizationMembership[]
+  sentInvitations    OrganizationInvitation[] @relation("InvitationSender")
   acceptedInvitations OrganizationInvitation[] @relation("InvitationAcceptor")
-  taughtGroups Group[] @relation("GroupTeacher")
-  createdLeads Lead[] @relation("LeadOwner")
-  createdDeals Deal[] @relation("DealOwner")
-  sentNotifications Notification[] @relation("NotificationRecipient")
-  activities Activity[]
-  auditLogs AuditLog[]
-  announcements Announcement[] @relation("AnnouncementAuthor")
-  messagesSent Message[] @relation("MessageSender")
+  taughtGroups       Group[]                  @relation("GroupTeacher")
+  createdLeads       Lead[]                   @relation("LeadOwner")
+  createdDeals       Deal[]                   @relation("DealOwner")
+  sentNotifications  Notification[]           @relation("NotificationRecipient")
+  activities         Activity[]
+  auditLogs          AuditLog[]
+  announcements      Announcement[]            @relation("AnnouncementAuthor")
+  messagesSent       Message[]                 @relation("MessageSender")
 }
 
 model OrganizationMembership {
-  id String @id @default(cuid())
+  id             String         @id @default(cuid())
   organizationId String
-  userId String
-  role MembershipRole
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId         String
+  role           MembershipRole
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([organizationId, userId])
   @@index([organizationId, role])
 }
 
 model OrganizationInvitation {
-  id String @id @default(cuid())
-  organizationId String
+  id              String           @id @default(cuid())
+  organizationId  String
   invitedByUserId String
   acceptedByUserId String?
-  email String
-  role MembershipRole
-  token String @unique
-  status InvitationStatus @default(PENDING)
-  expiresAt DateTime
-  acceptedAt DateTime?
-  revokedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invitedByUser User @relation("InvitationSender", fields: [invitedByUserId], references: [id], onDelete: Cascade)
-  acceptedByUser User? @relation("InvitationAcceptor", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  email           String
+  role            MembershipRole
+  token           String           @unique
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedByUser  User         @relation("InvitationSender", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedByUser User?        @relation("InvitationAcceptor", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
   @@index([organizationId, status])
   @@index([organizationId, email])
   @@index([expiresAt])
 }
 
 model Student {
-  id String @id @default(cuid())
+  id             String     @id @default(cuid())
   organizationId String
-  firstName String
-  lastName String
-  phone String?
-  email String?
-  dateOfBirth DateTime?
-  status UserStatus @default(ACTIVE)
-  source String?
-  notes String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  enrollments Enrollment[]
-  attendances Attendance[]
-  submissions HomeworkSubmission[]
-  leads Lead[]
-  invoices Invoice[]
-  payments Payment[]
-  messages Message[]
-  parentLinks ParentStudent[]
+  firstName      String
+  lastName       String
+  phone          String?
+  email          String?
+  dateOfBirth    DateTime?
+  status         UserStatus @default(ACTIVE)
+  source         String?
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enrollments  Enrollment[]
+  attendances  Attendance[]
+  submissions  HomeworkSubmission[]
+  leads        Lead[]
+  invoices     Invoice[]
+  payments     Payment[]
+  messages     Message[]
+  parentLinks  ParentStudent[]
+
   @@index([organizationId])
   @@index([organizationId, status])
 }
 
 model Parent {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
   firstName String
-  lastName String
-  phone String?
-  email String?
+  lastName  String
+  phone     String?
+  email     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   studentLinks ParentStudent[]
 }
 
 model ParentStudent {
-  parentId String
+  parentId  String
   studentId String
-  relation String?
-  parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  relation  String?
+
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   @@id([parentId, studentId])
 }
 
 model Program {
-  id String @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
-  name String
-  description String?
-  type ProgramType @default(COURSE)
-  status ProgramStatus @default(DRAFT)
-  startDate DateTime?
-  endDate DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  courses Course[]
-  enrollments Enrollment[]
-  announcements Announcement[]
-  @@index([organizationId, status])
-}
+  name           String
+  description    String?
+  type           ProgramType   @default(COURSE)
+  status         ProgramStatus @default(DRAFT)
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-model Course {
-  id String @id @default(cuid())
-  organizationId String
-  programId String
-  name String
-  description String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
-  groups Group[]
-  lessons Lesson[]
-  enrollments Enrollment[]
-  @@index([organizationId])
-  @@index([programId])
-}
-
-model Group {
-  id String @id @default(cuid())
-  organizationId String
-  courseId String
-  teacherId String?
-  name String
-  capacity Int?
-  status GroupStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  teacher User? @relation("GroupTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
-  enrollments Enrollment[]
-  lessons Lesson[]
-  announcements Announcement[]
-  @@index([organizationId, status])
-  @@index([courseId])
-}
-
-model Enrollment {
-  id String @id @default(cuid())
-  studentId String
-  programId String
-  courseId String?
-  groupId String?
-  status EnrollmentStatus @default(ACTIVE)
-  enrolledAt DateTime @default(now())
-  completedAt DateTime?
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
-  course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  @@index([studentId, status])
-  @@index([programId])
-  @@index([groupId])
-}
-
-model Lesson {
-  id String @id @default(cuid())
-  courseId String
-  groupId String
-  title String
-  description String?
-  startsAt DateTime
-  endsAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  attendances Attendance[]
-  homeworks Homework[]
-  @@index([groupId, startsAt])
-  @@index([courseId])
-}
-
-model Attendance {
-  id String @id @default(cuid())
-  lessonId String
-  studentId String
-  status AttendanceStatus
-  note String?
-  createdAt DateTime @default(now())
-  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  @@unique([lessonId, studentId])
-  @@index([studentId, status])
-}
-
-model Homework {
-  id String @id @default(cuid())
-  lessonId String
-  title String
-  description String?
-  deadline DateTime?
-  status HomeworkStatus @default(DRAFT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  submissions HomeworkSubmission[]
-  @@index([lessonId, status])
-}
-
-model HomeworkSubmission {
-  id String @id @default(cuid())
-  homeworkId String
-  studentId String
-  content String?
-  fileUrl String?
-  status SubmissionStatus @default(PENDING)
-  grade Float?
-  feedback String?
-  submittedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  @@unique([homeworkId, studentId])
-  @@index([studentId, status])
-}
-
-model Lead {
-  id String @id @default(cuid())
-  organizationId String
-  studentId String?
-  ownerId String?
-  name String
-  phone String?
-  email String?
-  source String?
-  status LeadStatus @default(NEW)
-  notes String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  owner User? @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  deals Deal[]
-  followUps FollowUp[]
-  @@index([organizationId, status])
-  @@index([ownerId])
-}
-
-model Deal {
-  id String @id @default(cuid())
-  organizationId String
-  leadId String
-  ownerId String?
-  title String
-  amount Decimal? @db.Decimal(12, 2)
-  status DealStatus @default(OPEN)
-  closedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  owner User? @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  @@index([organizationId, status])
-}
-
-model FollowUp {
-  id String @id @default(cuid())
-  leadId String
-  title String
-  note String?
-  dueAt DateTime
-  completedAt DateTime?
-  createdAt DateTime @default(now())
-  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  @@index([leadId, dueAt])
-}
-
-model Invoice {
-  id String @id @default(cuid())
-  organizationId String
-  studentId String
-  number String
-  amount Decimal @db.Decimal(12, 2)
-  dueAt DateTime?
-  status InvoiceStatus @default(ISSUED)
-  description String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  payments Payment[]
-  @@unique([organizationId, number])
-  @@index([studentId, status])
-}
-
-model Payment {
-  id String @id @default(cuid())
-  organizationId String
-  studentId String
-  invoiceId String?
-  amount Decimal @db.Decimal(12, 2)
-  status PaymentStatus @default(PENDING)
-  provider String?
-  providerRef String?
-  paidAt DateTime?
-  createdAt DateTime @default(now())
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  @@index([studentId, status])
-  @@index([invoiceId])
-}
-
-model Notification {
-  id String @id @default(cuid())
-  organizationId String
-  recipientId String
-  title String
-  content String
-  status NotificationStatus @default(UNREAD)
-  createdAt DateTime @default(now())
-  readAt DateTime?
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  recipient User @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
-  @@index([recipientId, status])
-}
-
-model Message {
-  id String @id @default(cuid())
-  organizationId String
-  senderId String?
-  studentId String?
-  conversationId String
-  content String
-  createdAt DateTime @default(now())
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  sender User? @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
-  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  @@index([conversationId, createdAt])
-}
-
-model Announcement {
-  id String @id @default(cuid())
-  organizationId String
-  programId String?
-  groupId String?
-  authorId String
-  title String
-  content String
-  createdAt DateTime @default(now())
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  program Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
-  group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  author User @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  @@index([organizationId, createdAt])
-}
-
-model Activity {
-  id String @id @default(cuid())
-  organizationId String
-  userId String?
-  action String
-  entityType String
-  entityId String?
-  metadata Json?
-  createdAt DateTime @default(now())
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  @@index([organizationId, createdAt])
-  @@index([entityType, entityId])
-}
-
-model AuditLog {
-  id String @id @default(cuid())
-  organizationId String
-  userId String?
-  action String
-  entityType String
-  entityId String?
-  before Json?
-  after Json?
-  createdAt DateTime @default(now())
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  @@index([organizationId, createdAt])
-}
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  courses       Course[]
+  enrollments   Enrollment[]
