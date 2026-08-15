@@ -150,6 +150,7 @@ model Organization {
   activities    Activity[]
   auditLogs     AuditLog[]
   announcements Announcement[]
+  messages     Message[]
 }
 
 model User {
