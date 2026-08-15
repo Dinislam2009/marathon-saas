@@ -5,12 +5,16 @@ on:
   push:
     paths:
       - "lib/v2/organization/**"
+      - "prisma/schema-v2.prisma"
+      - "scripts/validate-loopit-v2-schema.mjs"
       - ".github/workflows/organization-core.yml"
       - "package.json"
       - "package-lock.json"
   pull_request:
     paths:
       - "lib/v2/organization/**"
+      - "prisma/schema-v2.prisma"
+      - "scripts/validate-loopit-v2-schema.mjs"
       - ".github/workflows/organization-core.yml"
       - "package.json"
       - "package-lock.json"
@@ -30,6 +34,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate Loopit 2.0 schema
+        run: npm run prisma:v2:validate
+
+      - name: Generate Loopit 2.0 Prisma Client
+        run: npm run prisma:v2:generate
+
+      - name: Validate Loopit 2.0 core schema
+        run: npm run test:v2:core-schema
 
       - name: TypeScript validation
         run: npx tsc --noEmit
