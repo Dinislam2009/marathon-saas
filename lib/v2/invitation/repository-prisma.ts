@@ -5,7 +5,15 @@ import type { CreateInvitationInput, InvitationRecord, InvitationRepository, Inv
 type PrismaV2Client = PrismaClient;
 
 export class PrismaInvitationRepository implements InvitationRepository {
-  constructor(private readonly prisma: PrismaV2Client) {}
+  private readonly prisma: PrismaV2Client;
+
+  constructor(prisma: PrismaV2Client) {
+    this.prisma = prisma;
+  }
+
+  async findById(invitationId: string): Promise<InvitationRecord | null> {
+    return this.prisma.organizationInvitation.findUnique({ where: { id: invitationId } });
+  }
 
   async findByToken(token: string): Promise<InvitationRecord | null> {
     return this.prisma.organizationInvitation.findUnique({ where: { token } });
