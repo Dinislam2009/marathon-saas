@@ -7,6 +7,7 @@ on:
       - "lib/v2/organization/**"
       - "prisma/schema-v2.prisma"
       - "scripts/validate-loopit-v2-schema.mjs"
+      - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
       - "package-lock.json"
@@ -15,16 +16,18 @@ on:
       - "lib/v2/organization/**"
       - "prisma/schema-v2.prisma"
       - "scripts/validate-loopit-v2-schema.mjs"
+      - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
       - "package-lock.json"
 
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+
 jobs:
   organization-core:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,7 +35,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
