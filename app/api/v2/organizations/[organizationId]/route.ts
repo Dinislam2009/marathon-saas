@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 import { OrganizationAccessError, type OrganizationRepository } from "../../../../../lib/v2/organization/types.ts";
 import { OrganizationService } from "../../../../../lib/v2/organization/service.ts";
 import { PrismaOrganizationRepository } from "../../../../../lib/v2/organization/repository-prisma.ts";
@@ -15,30 +15,17 @@ function getUserId(request: Request) {
 }
 
 function parseUpdate(body: unknown): Parameters<OrganizationRepository["updateOrganization"]>[1] {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new Error("Request body must be an object.");
-  }
-
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Request body must be an object.");
   const source = body as Record<string, unknown>;
   const allowed = ["name", "slug", "logoUrl", "phone", "email", "address", "timezone", "currency"] as const;
   const input: Record<string, unknown> = {};
-
-  for (const key of allowed) {
-    if (key in source) input[key] = source[key];
-  }
-
+  for (const key of allowed) if (key in source) input[key] = source[key];
   if (Object.keys(input).length === 0) throw new Error("At least one organization field is required.");
-  for (const [key, value] of Object.entries(input)) {
-    if (value !== null && typeof value !== "string") throw new Error(`${key} must be a string or null.`);
-  }
-
+  for (const [key, value] of Object.entries(input)) if (value !== null && typeof value !== "string") throw new Error(`${key} must be a string or null.`);
   return input as Parameters<OrganizationRepository["updateOrganization"]>[1];
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ organizationId: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ organizationId: string }> }) {
   try {
     const userId = getUserId(request);
     const { organizationId } = await params;
@@ -52,10 +39,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ organizationId: string }> },
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ organizationId: string }> }) {
   try {
     const userId = getUserId(request);
     const { organizationId } = await params;
