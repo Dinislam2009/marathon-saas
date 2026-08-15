@@ -4,7 +4,7 @@ import {
   type CreateOrganizationInput,
   type MembershipRole,
   type OrganizationRepository,
-} from "./types";
+} from "./types.ts";
 
 function normalizeName(value: string) {
   const name = value.trim();
@@ -34,7 +34,6 @@ export class OrganizationService {
   async createOrganization(input: CreateOrganizationInput) {
     const name = normalizeName(input.name);
     const slug = normalizeSlug(input.slug);
-
     const existing = await this.repository.findBySlug(slug);
     if (existing) throw new Error("Organization slug is already in use.");
 
@@ -69,9 +68,10 @@ export class OrganizationService {
     input: Parameters<OrganizationRepository["updateOrganization"]>[1],
   ) {
     await this.requireRole(organizationId, userId, ["OWNER", "ADMIN"]);
-    if (input.slug !== undefined) input.slug = normalizeSlug(input.slug);
-    if (input.name !== undefined) input.name = normalizeName(input.name);
-    return this.repository.updateOrganization(organizationId, input);
+    const updateInput = { ...input };
+    if (updateInput.slug !== undefined) updateInput.slug = normalizeSlug(updateInput.slug);
+    if (updateInput.name !== undefined) updateInput.name = normalizeName(updateInput.name);
+    return this.repository.updateOrganization(organizationId, updateInput);
   }
 
   async listMembers(organizationId: string, userId: string) {
@@ -79,32 +79,23 @@ export class OrganizationService {
     return this.repository.listMemberships(organizationId);
   }
 
-  async changeMemberRole(
-    organizationId: string,
-    actorUserId: string,
-    targetUserId: string,
-    role: MembershipRole,
-  ) {
+  async changeMemberRole(organizationId: string, actorUserId: string, targetUserId: string, role: MembershipRole) {
     assertRole(role);
     const actor = await this.requireMembership(organizationId, actorUserId);
     if (actor.role !== "OWNER" && actor.role !== "ADMIN") {
       throw new OrganizationAccessError("Only OWNER or ADMIN can change member roles.");
     }
-
     const target = await this.requireMembership(organizationId, targetUserId);
     if (target.role === "OWNER" || role === "OWNER") {
       throw new OrganizationAccessError("OWNER role transfer requires a dedicated ownership flow.");
     }
-
     return this.repository.updateMembershipRole(organizationId, targetUserId, role);
   }
 
   async removeMember(organizationId: string, actorUserId: string, targetUserId: string) {
     await this.requireRole(organizationId, actorUserId, ["OWNER", "ADMIN"]);
     const target = await this.requireMembership(organizationId, targetUserId);
-    if (target.role === "OWNER") {
-      throw new OrganizationAccessError("The organization owner cannot be removed.");
-    }
+    if (target.role === "OWNER") throw new OrganizationAccessError("The organization owner cannot be removed.");
     await this.repository.deleteMembership(organizationId, targetUserId);
   }
 
@@ -114,15 +105,9 @@ export class OrganizationService {
     return membership;
   }
 
-  private async requireRole(
-    organizationId: string,
-    userId: string,
-    allowedRoles: MembershipRole[],
-  ) {
+  private async requireRole(organizationId: string, userId: string, allowedRoles: MembershipRole[]) {
     const membership = await this.requireMembership(organizationId, userId);
-    if (!allowedRoles.includes(membership.role)) {
-      throw new OrganizationAccessError("Insufficient organization permissions.");
-    }
+    if (!allowedRoles.includes(membership.role)) throw new OrganizationAccessError("Insufficient organization permissions.");
     return membership;
   }
 }
