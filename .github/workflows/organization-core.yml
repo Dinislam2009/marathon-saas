@@ -68,7 +68,7 @@ jobs:
         run: npm run test:v2:core-schema
 
       - name: Prepare PostgreSQL schema
-        run: npx prisma db push --schema=prisma/schema-v2.prisma --skip-generate
+        run: npx prisma db push --schema=prisma/schema-v2.prisma
 
       - name: Test PostgreSQL connectivity
         run: npm run test:v2:postgres
