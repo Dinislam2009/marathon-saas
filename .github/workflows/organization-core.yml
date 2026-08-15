@@ -23,7 +23,7 @@ on:
 
 env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
-  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci_shadow
 
 jobs:
   organization-core:
