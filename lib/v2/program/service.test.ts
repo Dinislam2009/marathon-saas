@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryProgramRepository } from "./repository";
-import { ProgramService } from "./service";
+import { InMemoryProgramRepository } from "./repository.ts";
+import { ProgramService } from "./service.ts";
 
 describe("ProgramService", () => {
   it("creates and lists programs inside one organization", async () => {
