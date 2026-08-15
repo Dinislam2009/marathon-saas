@@ -25,28 +25,18 @@ export class InvitationService {
     return this.repository.createInvitation({
       ...input,
       email,
-      expiresAt: input.expiresAt,
       token: randomBytes(32).toString("hex"),
     });
   }
 
-  async createInvitationWithDefaultExpiry(
-    input: Omit<CreateInvitationInput, "expiresAt">,
-    actorRole: MembershipRole,
-  ): Promise<InvitationRecord> {
-    return this.createInvitation(
-      { ...input, expiresAt: new Date(Date.now() + DEFAULT_INVITATION_TTL_MS) },
-      actorRole,
-    );
+  async createInvitationWithDefaultExpiry(input: Omit<CreateInvitationInput, "expiresAt">, actorRole: MembershipRole): Promise<InvitationRecord> {
+    return this.createInvitation({ ...input, expiresAt: new Date(Date.now() + DEFAULT_INVITATION_TTL_MS) }, actorRole);
   }
 
   async acceptInvitation(token: string, user: { id: string; email: string }): Promise<InvitationRecord> {
     const invitation = await this.repository.findByToken(token);
     if (!invitation) throw new InvitationStateError("Invitation not found.");
-
-    if (invitation.status !== "PENDING") {
-      throw new InvitationStateError(`Invitation is already ${invitation.status.toLowerCase()}.`);
-    }
+    if (invitation.status !== "PENDING") throw new InvitationStateError(`Invitation is already ${invitation.status.toLowerCase()}.`);
 
     if (invitation.expiresAt <= new Date()) {
       await this.repository.updateStatus(invitation.id, "EXPIRED");
@@ -70,11 +60,9 @@ export class InvitationService {
       throw new InvitationAccessError("Only organization owners and admins can revoke invitations.");
     }
 
-    const invitation = await this.repository.findByToken(invitationId);
+    const invitation = await this.repository.findById(invitationId);
     if (!invitation) throw new InvitationStateError("Invitation not found.");
-    if (invitation.status !== "PENDING") {
-      throw new InvitationStateError("Only pending invitations can be revoked.");
-    }
+    if (invitation.status !== "PENDING") throw new InvitationStateError("Only pending invitations can be revoked.");
 
     return this.repository.updateStatus(invitation.id, "REVOKED", { revokedAt: new Date() });
   }
