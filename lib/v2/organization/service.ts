@@ -25,7 +25,11 @@ function assertRole(role: MembershipRole) {
 }
 
 export class OrganizationService {
-  constructor(private readonly repository: OrganizationRepository) {}
+  private readonly repository: OrganizationRepository;
+
+  constructor(repository: OrganizationRepository) {
+    this.repository = repository;
+  }
 
   async createOrganization(input: CreateOrganizationInput) {
     const name = normalizeName(input.name);
