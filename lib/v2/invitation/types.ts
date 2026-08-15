@@ -28,20 +28,12 @@ export interface CreateInvitationInput {
 }
 
 export interface InvitationRepository {
+  findById(invitationId: string): Promise<InvitationRecord | null>;
   findByToken(token: string): Promise<InvitationRecord | null>;
   findPendingByEmail(organizationId: string, email: string): Promise<InvitationRecord | null>;
   createInvitation(input: CreateInvitationInput & { token: string }): Promise<InvitationRecord>;
-  updateStatus(
-    invitationId: string,
-    status: InvitationStatus,
-    data?: { acceptedByUserId?: string; acceptedAt?: Date; revokedAt?: Date },
-  ): Promise<InvitationRecord>;
-  acceptInvitation(input: {
-    invitationId: string;
-    userId: string;
-    organizationId: string;
-    role: MembershipRole;
-  }): Promise<InvitationRecord>;
+  updateStatus(invitationId: string, status: InvitationStatus, data?: { acceptedByUserId?: string; acceptedAt?: Date; revokedAt?: Date }): Promise<InvitationRecord>;
+  acceptInvitation(input: { invitationId: string; userId: string; organizationId: string; role: MembershipRole }): Promise<InvitationRecord>;
 }
 
 export class InvitationAccessError extends Error {
