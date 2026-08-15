@@ -26,7 +26,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run prisma:v2:validate
+      - name: Validate Prisma V2 schema
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci_shadow
+        run: npm run prisma:v2:validate
       - run: npm run prisma:v2:generate
       - run: npm run typecheck
       - run: node --experimental-strip-types --test lib/v2/program/service.test.ts
