@@ -8,6 +8,7 @@ on:
       - "prisma.config.ts"
       - "package.json"
       - "package-lock.json"
+      - "scripts/validate-loopit-v2-schema.mjs"
   pull_request:
     paths:
       - "prisma/schema-v2.prisma"
@@ -15,6 +16,7 @@ on:
       - "prisma.config.ts"
       - "package.json"
       - "package-lock.json"
+      - "scripts/validate-loopit-v2-schema.mjs"
 
 jobs:
   validate-loopit-v2-schema:
@@ -36,4 +38,10 @@ jobs:
         run: npm ci
 
       - name: Validate Loopit 2.0 schema
-        run: npx prisma validate --schema=prisma/schema-v2.prisma
+        run: npm run prisma:v2:validate
+
+      - name: Generate Loopit 2.0 Prisma Client
+        run: npm run prisma:v2:generate
+
+      - name: Check Loopit 2.0 core models
+        run: npm run test:v2:core-schema
