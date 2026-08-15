@@ -5,11 +5,13 @@ on:
   push:
     paths:
       - "lib/v2/organization/**"
+      - "app/api/v2/organizations/**"
       - "prisma/schema-v2.prisma"
       - "scripts/validate-loopit-v2-schema.mjs"
       - "scripts/test-v2-postgres.mjs"
       - "scripts/test-v2-organization.mts"
       - "scripts/test-v2-organization-service.mts"
+      - "scripts/test-v2-organization-api.mts"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -17,11 +19,13 @@ on:
   pull_request:
     paths:
       - "lib/v2/organization/**"
+      - "app/api/v2/organizations/**"
       - "prisma/schema-v2.prisma"
       - "scripts/validate-loopit-v2-schema.mjs"
       - "scripts/test-v2-postgres.mjs"
       - "scripts/test-v2-organization.mts"
       - "scripts/test-v2-organization-service.mts"
+      - "scripts/test-v2-organization-api.mts"
       - "tsconfig.json"
       - ".github/workflows/organization-core.yml"
       - "package.json"
@@ -85,6 +89,9 @@ jobs:
 
       - name: Test OrganizationService business rules
         run: node --experimental-strip-types --test scripts/test-v2-organization-service.mts
+
+      - name: Test Organization API request validation
+        run: node --experimental-strip-types --test scripts/test-v2-organization-api.mts
 
       - name: TypeScript validation
         run: npm run typecheck
