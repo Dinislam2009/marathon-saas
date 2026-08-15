@@ -16,6 +16,10 @@ on:
       - ".github/workflows/loopit-v2-program-core.yml"
   workflow_dispatch:
 
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci_shadow
+
 jobs:
   program-core:
     runs-on: ubuntu-latest
@@ -26,11 +30,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Validate Prisma V2 schema
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci_shadow
-        run: npm run prisma:v2:validate
+      - run: npm run prisma:v2:validate
       - run: npm run prisma:v2:generate
       - run: npm run typecheck
       - run: node --experimental-strip-types --test lib/v2/program/service.test.ts
