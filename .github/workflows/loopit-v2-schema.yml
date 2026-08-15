@@ -1,0 +1,39 @@
+name: Loopit 2.0 Schema Validation
+
+on:
+  push:
+    paths:
+      - "prisma/schema-v2.prisma"
+      - "prisma/schema.prisma"
+      - "prisma.config.ts"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    paths:
+      - "prisma/schema-v2.prisma"
+      - "prisma/schema.prisma"
+      - "prisma.config.ts"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  validate-loopit-v2-schema:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Loopit 2.0 schema
+        run: npx prisma validate --schema=prisma/schema-v2.prisma

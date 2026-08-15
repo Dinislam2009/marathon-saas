@@ -123,56 +123,57 @@ enum NotificationStatus {
 }
 
 model Organization {
-  id          String       @id @default(cuid())
+  id          String             @id @default(cuid())
   name        String
-  slug        String       @unique
+  slug        String             @unique
   logoUrl     String?
   phone       String?
   email       String?
   address     String?
-  timezone    String       @default("Asia/Almaty")
-  currency    String       @default("KZT")
+  timezone    String             @default("Asia/Almaty")
+  currency    String             @default("KZT")
   status      OrganizationStatus @default(ACTIVE)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
-  memberships OrganizationMembership[]
-  students     Student[]
-  programs     Program[]
-  courses      Course[]
-  groups       Group[]
-  leads        Lead[]
-  deals        Deal[]
-  invoices     Invoice[]
-  payments     Payment[]
+  memberships   OrganizationMembership[]
+  students      Student[]
+  programs      Program[]
+  courses       Course[]
+  groups        Group[]
+  leads         Lead[]
+  deals         Deal[]
+  invoices      Invoice[]
+  payments      Payment[]
   notifications Notification[]
-  activities   Activity[]
-  auditLogs    AuditLog[]
+  messages      Message[]
+  activities    Activity[]
+  auditLogs     AuditLog[]
   announcements Announcement[]
 }
 
 model User {
-  id          String       @id @default(cuid())
-  email       String       @unique
-  phone       String?      @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
+  phone        String?      @unique
   passwordHash String
-  firstName   String
-  lastName    String
-  avatarUrl   String?
-  status      UserStatus   @default(ACTIVE)
-  lastLoginAt DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  firstName    String
+  lastName     String
+  avatarUrl    String?
+  status       UserStatus   @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  memberships OrganizationMembership[]
-  taughtGroups Group[]     @relation("GroupTeacher")
-  createdLeads Lead[]      @relation("LeadOwner")
-  createdDeals Deal[]      @relation("DealOwner")
-  sentNotifications Notification[] @relation("NotificationRecipient")
-  activities  Activity[]
-  auditLogs   AuditLog[]
-  announcements Announcement[] @relation("AnnouncementAuthor")
-  messagesSent Message[] @relation("MessageSender")
+  memberships       OrganizationMembership[]
+  taughtGroups      Group[]                  @relation("GroupTeacher")
+  createdLeads      Lead[]                   @relation("LeadOwner")
+  createdDeals      Deal[]                   @relation("DealOwner")
+  sentNotifications Notification[]           @relation("NotificationRecipient")
+  activities        Activity[]
+  auditLogs         AuditLog[]
+  announcements     Announcement[]           @relation("AnnouncementAuthor")
+  messagesSent      Message[]                @relation("MessageSender")
 }
 
 model OrganizationMembership {
@@ -190,20 +191,20 @@ model OrganizationMembership {
 }
 
 model Student {
-  id             String      @id @default(cuid())
+  id             String     @id @default(cuid())
   organizationId String
   firstName      String
   lastName       String
   phone          String?
   email          String?
   dateOfBirth    DateTime?
-  status         UserStatus  @default(ACTIVE)
+  status         UserStatus @default(ACTIVE)
   source         String?
   notes          String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   enrollments  Enrollment[]
   attendances  Attendance[]
   submissions  HomeworkSubmission[]
@@ -218,13 +219,13 @@ model Student {
 }
 
 model Parent {
-  id          String   @id @default(cuid())
-  firstName   String
-  lastName    String
-  phone       String?
-  email       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   studentLinks ParentStudent[]
 }
@@ -252,9 +253,9 @@ model Program {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  courses      Course[]
-  enrollments  Enrollment[]
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  courses       Course[]
+  enrollments   Enrollment[]
   announcements Announcement[]
 
   @@index([organizationId, status])
@@ -290,11 +291,11 @@ model Group {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  teacher      User?        @relation("GroupTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
-  enrollments  Enrollment[]
-  lessons      Lesson[]
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacher       User?          @relation("GroupTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
+  enrollments   Enrollment[]
+  lessons       Lesson[]
   announcements Announcement[]
 
   @@index([organizationId, status])
@@ -302,13 +303,13 @@ model Group {
 }
 
 model Enrollment {
-  id        String           @id @default(cuid())
-  studentId String
-  programId String
-  courseId  String?
-  groupId   String?
-  status    EnrollmentStatus @default(ACTIVE)
-  enrolledAt DateTime        @default(now())
+  id          String           @id @default(cuid())
+  studentId   String
+  programId   String
+  courseId    String?
+  groupId     String?
+  status      EnrollmentStatus @default(ACTIVE)
+  enrolledAt  DateTime         @default(now())
   completedAt DateTime?
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -332,8 +333,8 @@ model Lesson {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  course      Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  group       Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  group       Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   attendances Attendance[]
   homeworks   Homework[]
 
@@ -362,28 +363,28 @@ model Homework {
   title       String
   description String?
   deadline    DateTime?
-  status      HomeworkStatus  @default(DRAFT)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  status      HomeworkStatus @default(DRAFT)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  lesson      Lesson                @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson      Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   submissions HomeworkSubmission[]
 
   @@index([lessonId, status])
 }
 
 model HomeworkSubmission {
-  id         String           @id @default(cuid())
-  homeworkId String
-  studentId  String
-  content    String?
-  fileUrl    String?
-  status     SubmissionStatus @default(PENDING)
-  grade      Float?
-  feedback   String?
+  id          String           @id @default(cuid())
+  homeworkId  String
+  studentId   String
+  content     String?
+  fileUrl     String?
+  status      SubmissionStatus @default(PENDING)
+  grade       Float?
+  feedback    String?
   submittedAt DateTime?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
   student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -436,13 +437,13 @@ model Deal {
 }
 
 model FollowUp {
-  id        String   @id @default(cuid())
-  leadId    String
-  title     String
-  note      String?
-  dueAt     DateTime
+  id          String    @id @default(cuid())
+  leadId      String
+  title       String
+  note        String?
+  dueAt       DateTime
   completedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
