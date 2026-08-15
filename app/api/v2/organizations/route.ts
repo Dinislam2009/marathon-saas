@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { parseCreateOrganizationRequest } from "../../../../../lib/v2/organization/api.ts";
-import { OrganizationAccessError, OrganizationService } from "../../../../../lib/v2/organization/service.ts";
-import { PrismaOrganizationRepository } from "../../../../../lib/v2/organization/repository-prisma.ts";
-import { prismaV2 } from "../../../../../lib/v2/prisma.ts";
+import { parseCreateOrganizationRequest } from "../../../../lib/v2/organization/api.ts";
+import { OrganizationAccessError, OrganizationService } from "../../../../lib/v2/organization/service.ts";
+import { PrismaOrganizationRepository } from "../../../../lib/v2/organization/repository-prisma.ts";
+import { prismaV2 } from "../../../../lib/v2/prisma.ts";
 
 export async function POST(request: Request) {
   try {
