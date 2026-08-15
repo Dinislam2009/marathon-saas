@@ -25,7 +25,7 @@ on:
 
 env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
-  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci_shadow
 
 jobs:
   organization-core:
@@ -57,6 +57,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Create Prisma shadow database
+        run: PGPASSWORD=postgres createdb -h localhost -U postgres loopit_ci_shadow
 
       - name: Validate Loopit 2.0 schema
         run: npm run prisma:v2:validate
