@@ -1,0 +1,19 @@
+name: Loopit 2.0 Schema Smoke
+
+on:
+  push:
+    branches:
+      - 'loopit-2.0/schema-validation'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Validate Loopit 2.0 schema
+        run: npx prisma validate --schema=prisma/schema-v2.prisma
