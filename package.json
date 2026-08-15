@@ -7,7 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prisma:v2:validate": "prisma validate --schema=prisma/schema-v2.prisma",
+    "prisma:v2:generate": "prisma generate --schema=prisma/schema-v2.prisma",
+    "test:v2:core-schema": "node scripts/validate-loopit-v2-schema.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
