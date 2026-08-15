@@ -1,6 +1,7 @@
 name: Loopit 2.0 Schema Validation
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "prisma/schema-v2.prisma"
