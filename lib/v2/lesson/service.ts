@@ -6,7 +6,11 @@ import type {
 } from "./types.ts";
 
 export class LessonService {
-  constructor(private readonly repository: LessonRepository) {}
+  private readonly repository: LessonRepository;
+
+  constructor(repository: LessonRepository) {
+    this.repository = repository;
+  }
 
   create(input: CreateLessonInput): Promise<LessonRecord> {
     if (!input.courseId || !input.groupId) throw new Error("Course and group are required.");
