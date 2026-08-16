@@ -3,24 +3,9 @@ import { PrismaStudentRepository } from "../../../../../../lib/v2/student/reposi
 import { StudentService } from "../../../../../../lib/v2/student/service.ts";
 import { STUDENT_STATUSES, type CreateStudentInput } from "../../../../../../lib/v2/student/types.ts";
 import { prismaV2 } from "../../../../../../lib/v2/prisma.ts";
+import { getActorId, organizationErrorResponse, requireOrganizationAccess } from "../../../../../../lib/v2/organization/access.ts";
 
-const WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "CURATOR"] as const;
-
-function getActorId(request: Request) {
-  const userId = request.headers.get("x-loopit-user-id");
-  if (!userId) throw new Error("Authentication required.");
-  return userId;
-}
-
-async function requireOrganizationAccess(organizationId: string, userId: string, write = false) {
-  const membership = await prismaV2.organizationMembership.findUnique({
-    where: { organizationId_userId: { organizationId, userId } },
-  });
-  if (!membership) throw new Error("Organization access denied.");
-  if (write && !WRITE_ROLES.includes(membership.role as (typeof WRITE_ROLES)[number])) {
-    throw new Error("Insufficient organization permissions.");
-  }
-}
+const STUDENT_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "CURATOR"] as const;
 
 function parseCreate(body: unknown, organizationId: string): CreateStudentInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -53,16 +38,19 @@ function service() {
   return new StudentService(new PrismaStudentRepository(prismaV2));
 }
 
+function errorResponse(error: unknown) {
+  const { message, status } = organizationErrorResponse(error);
+  return NextResponse.json({ error: message }, { status });
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ organizationId: string }> }) {
   try {
     const actorId = getActorId(request);
     const { organizationId } = await params;
-    await requireOrganizationAccess(organizationId, actorId);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId);
     return NextResponse.json({ students: await service().listStudents(organizationId) });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error.";
-    const status = message === "Authentication required." ? 401 : message.includes("access") ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return errorResponse(error);
   }
 }
 
@@ -70,12 +58,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
   try {
     const actorId = getActorId(request);
     const { organizationId } = await params;
-    await requireOrganizationAccess(organizationId, actorId, true);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId, { write: true, writeRoles: STUDENT_WRITE_ROLES });
     const student = await service().createStudent(parseCreate(await request.json(), organizationId));
     return NextResponse.json({ student }, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error.";
-    const status = message === "Authentication required." ? 401 : /access|permissions/.test(message) ? 403 : /required|Invalid|contain/.test(message) ? 400 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return errorResponse(error);
   }
 }
