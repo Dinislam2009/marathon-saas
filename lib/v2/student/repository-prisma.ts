@@ -1,5 +1,5 @@
-import type { PrismaClient } from "../../../generated/prisma-v2";
-import type { CreateStudentInput, StudentRecord, StudentRepository, UpdateStudentInput } from "./types";
+import type { PrismaClient } from "../../../generated/prisma-v2/index.js";
+import type { CreateStudentInput, StudentRecord, StudentRepository, UpdateStudentInput } from "./types.ts";
 
 type PrismaV2Client = PrismaClient;
 

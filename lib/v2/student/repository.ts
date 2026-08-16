@@ -1,4 +1,4 @@
-import type { CreateStudentInput, StudentRecord, StudentRepository, UpdateStudentInput } from "./types";
+import type { CreateStudentInput, StudentRecord, StudentRepository, UpdateStudentInput } from "./types.ts";
 
 export class InMemoryStudentRepository implements StudentRepository {
   private readonly students = new Map<string, StudentRecord>();
