@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server.js";
-import { OrganizationAccessError, type OrganizationRepository } from "../../../../../lib/v2/organization/types.ts";
+import { OrganizationAccessError } from "../../../../../lib/v2/organization/types.ts";
 import { OrganizationService } from "../../../../../lib/v2/organization/service.ts";
 import { PrismaOrganizationRepository } from "../../../../../lib/v2/organization/repository-prisma.ts";
 import { prismaV2 } from "../../../../../lib/v2/prisma.ts";
@@ -19,7 +19,7 @@ function getUserId(request: Request) {
   return userId;
 }
 
-function parseCreate(body: unknown, organizationId: string): Omit<CreateCourseInput, "organizationId"> {
+function parseCreate(body: unknown): Omit<CreateCourseInput, "organizationId"> {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Request body must be an object.");
   const source = body as Record<string, unknown>;
   if (typeof source.programId !== "string" || !source.programId.trim()) throw new Error("programId is required.");
@@ -59,7 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
     const { organization, course } = getServices();
     const access = await organization.getOrganization(organizationId, userId);
     if (!access) return NextResponse.json({ error: "Organization not found." }, { status: 404 });
-    const input = parseCreate(body, organizationId);
+    const input = parseCreate(body);
     const program = await prismaV2.program.findFirst({ where: { id: input.programId, organizationId } });
     if (!program) return NextResponse.json({ error: "Program not found." }, { status: 404 });
     const created = await course.createCourse({ ...input, organizationId });
