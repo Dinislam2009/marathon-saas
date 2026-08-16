@@ -3,24 +3,7 @@ import { PrismaProgramRepository } from "../../../../../../../lib/v2/program/rep
 import { ProgramService } from "../../../../../../../lib/v2/program/service.ts";
 import { PROGRAM_STATUSES, PROGRAM_TYPES, type UpdateProgramInput } from "../../../../../../../lib/v2/program/types.ts";
 import { prismaV2 } from "../../../../../../../lib/v2/prisma.ts";
-
-const WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
-
-function getActorId(request: Request) {
-  const userId = request.headers.get("x-loopit-user-id");
-  if (!userId) throw new Error("Authentication required.");
-  return userId;
-}
-
-async function requireOrganizationAccess(organizationId: string, userId: string, write = false) {
-  const membership = await prismaV2.organizationMembership.findUnique({
-    where: { organizationId_userId: { organizationId, userId } },
-  });
-  if (!membership) throw new Error("Organization access denied.");
-  if (write && !WRITE_ROLES.includes(membership.role as (typeof WRITE_ROLES)[number])) {
-    throw new Error("Insufficient organization permissions.");
-  }
-}
+import { getActorId, organizationErrorResponse, requireOrganizationAccess } from "../../../../../../../lib/v2/organization/access.ts";
 
 function parseDate(value: unknown, field: string) {
   if (value === undefined || value === null) return value === null ? null : undefined;
@@ -52,8 +35,7 @@ function service() {
 }
 
 function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : "Internal server error.";
-  const status = message === "Authentication required." ? 401 : /access|permissions/.test(message) ? 403 : /required|Invalid|must |Unsupported|cannot be/.test(message) ? 400 : message === "Program not found." ? 404 : 500;
+  const { message, status } = organizationErrorResponse(error);
   return NextResponse.json({ error: message }, { status });
 }
 
@@ -61,7 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ orga
   try {
     const actorId = getActorId(request);
     const { organizationId, programId } = await params;
-    await requireOrganizationAccess(organizationId, actorId);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId);
     return NextResponse.json({ program: await service().getProgram(organizationId, programId) });
   } catch (error: unknown) {
     return errorResponse(error);
@@ -72,7 +54,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ or
   try {
     const actorId = getActorId(request);
     const { organizationId, programId } = await params;
-    await requireOrganizationAccess(organizationId, actorId, true);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId, { write: true });
     const program = await service().updateProgram(organizationId, programId, parseUpdate(await request.json()));
     return NextResponse.json({ program });
   } catch (error: unknown) {
