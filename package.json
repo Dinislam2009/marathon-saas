@@ -12,6 +12,7 @@
     "prisma:v2:generate": "prisma generate --schema=prisma/schema-v2.prisma",
     "test:v2:core-schema": "node scripts/validate-loopit-v2-schema.mjs",
     "test:v2:postgres": "node scripts/test-v2-postgres.mjs",
+    "test:v2:course-api": "node --experimental-strip-types --test scripts/test-v2-course-api-contracts.mts",
     "typecheck": "npm run prisma:v2:generate && next typegen && tsc --noEmit"
   },
   "dependencies": {
