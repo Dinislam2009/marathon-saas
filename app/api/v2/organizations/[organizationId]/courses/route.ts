@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server.js";
-import { OrganizationAccessError } from "../../../../../lib/v2/organization/types.ts";
-import { OrganizationService } from "../../../../../lib/v2/organization/service.ts";
-import { PrismaOrganizationRepository } from "../../../../../lib/v2/organization/repository-prisma.ts";
-import { prismaV2 } from "../../../../../lib/v2/prisma.ts";
-import { CourseService } from "../../../../../lib/v2/course/service.ts";
-import { PrismaCourseRepository } from "../../../../../lib/v2/course/repository-prisma.ts";
-import type { CreateCourseInput } from "../../../../../lib/v2/course/types.ts";
+import { OrganizationAccessError } from "../../../../../../lib/v2/organization/types.ts";
+import { OrganizationService } from "../../../../../../lib/v2/organization/service.ts";
+import { PrismaOrganizationRepository } from "../../../../../../lib/v2/organization/repository-prisma.ts";
+import { prismaV2 } from "../../../../../../lib/v2/prisma.ts";
+import { CourseService } from "../../../../../../lib/v2/course/service.ts";
+import { PrismaCourseRepository } from "../../../../../../lib/v2/course/repository-prisma.ts";
+import type { CreateCourseInput } from "../../../../../../lib/v2/course/types.ts";
 
 function getServices() {
   const organization = new OrganizationService(new PrismaOrganizationRepository(prismaV2));
