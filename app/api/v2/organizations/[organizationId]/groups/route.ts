@@ -3,24 +3,7 @@ import { PrismaGroupRepository } from "../../../../../../lib/v2/group/repository
 import { GroupService } from "../../../../../../lib/v2/group/service.ts";
 import { GROUP_STATUSES, type CreateGroupInput } from "../../../../../../lib/v2/group/types.ts";
 import { prismaV2 } from "../../../../../../lib/v2/prisma.ts";
-
-const WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
-
-function getActorId(request: Request) {
-  const userId = request.headers.get("x-loopit-user-id");
-  if (!userId) throw new Error("Authentication required.");
-  return userId;
-}
-
-async function requireOrganizationAccess(organizationId: string, userId: string, write = false) {
-  const membership = await prismaV2.organizationMembership.findUnique({
-    where: { organizationId_userId: { organizationId, userId } },
-  });
-  if (!membership) throw new Error("Organization access denied.");
-  if (write && !WRITE_ROLES.includes(membership.role as (typeof WRITE_ROLES)[number])) {
-    throw new Error("Insufficient organization permissions.");
-  }
-}
+import { getActorId, organizationErrorResponse, requireOrganizationAccess } from "../../../../../../lib/v2/organization/access.ts";
 
 function parseCapacity(value: unknown) {
   if (value === undefined || value === null) return value === null ? null : undefined;
@@ -58,8 +41,7 @@ function service() {
 }
 
 function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : "Internal server error.";
-  const status = message === "Authentication required." ? 401 : /access|permissions/.test(message) ? 403 : /not found/i.test(message) ? 404 : /required|Invalid|must |Unsupported|positive/.test(message) ? 400 : 500;
+  const { message, status } = organizationErrorResponse(error);
   return NextResponse.json({ error: message }, { status });
 }
 
@@ -67,7 +49,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ orga
   try {
     const actorId = getActorId(request);
     const { organizationId } = await params;
-    await requireOrganizationAccess(organizationId, actorId);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId);
     const courseId = new URL(request.url).searchParams.get("courseId") ?? undefined;
     return NextResponse.json({ groups: await service().listGroups(organizationId, courseId) });
   } catch (error: unknown) {
@@ -79,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
   try {
     const actorId = getActorId(request);
     const { organizationId } = await params;
-    await requireOrganizationAccess(organizationId, actorId, true);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId, { write: true });
     const input = parseCreate(await request.json(), organizationId);
     const course = await prismaV2.course.findFirst({ where: { id: input.courseId, organizationId } });
     if (!course) return NextResponse.json({ error: "Course not found." }, { status: 404 });
