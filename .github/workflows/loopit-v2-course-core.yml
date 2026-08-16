@@ -1,4 +1,4 @@
-name: Loopit 2.0 Course Core
+name: Loopit 2.0 Course API
 
 on:
   push:
@@ -8,8 +8,9 @@ on:
     branches:
       - master
     paths:
+      - "app/api/v2/organizations/**/courses/**"
       - "lib/v2/course/**"
-      - "scripts/test-v2-course.mts"
+      - "scripts/test-v2-course*.mts"
       - "prisma/schema-v2.prisma"
       - "package.json"
       - "package-lock.json"
@@ -17,7 +18,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  course-core:
+  course-api:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
@@ -34,3 +35,4 @@ jobs:
       - run: npm run typecheck
       - run: node --experimental-strip-types --test lib/v2/course/service.test.ts
       - run: node --experimental-strip-types scripts/test-v2-course.mts
+      - run: npm run test:v2:course-api
