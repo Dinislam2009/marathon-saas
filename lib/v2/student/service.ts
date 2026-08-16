@@ -4,7 +4,7 @@ import {
   type StudentRepository,
   type StudentStatus,
   type UpdateStudentInput,
-} from "./types";
+} from "./types.ts";
 
 function normalizeName(value: string, field: string) {
   const name = value.trim();
