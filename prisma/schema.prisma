@@ -3,9 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 model User {
@@ -13,25 +11,19 @@ model User {
   email           String      @unique
   phone           String      @unique
   passwordHash    String
-  firstName       String      
-  lastName        String      
+  firstName       String
+  lastName        String
   verified        Boolean     @default(false)
   role            Role        @default(PARTICIPANT)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-
-  // 1. Ұйымға мүшелік (Команда мүшесі)
   organizerId     String?
   organizer       Organizer?  @relation("OrganizationUsers", fields: [organizerId], references: [id])
-
-  // 2. Өзі ашқан ұйым (Иесі)
   ownedOrganizer  Organizer?  @relation("OrganizerOwner")
-
   pendingOtp      PendingOtp?
   student         Student?
   curator         Curator?
   managedStudents Student[]   @relation("ManagerToStudent")
-
   @@index([role])
 }
 
@@ -43,22 +35,16 @@ model Organizer {
   email              String
   subscriptionStatus SubscriptionStatus @default(TRIAL)
   subscriptionPlan   String             @default("Сынақ мерзімі")
-  maxMarathons       Int                @default(2)   // 👈 ҚОСУ КЕРЕК
-  maxStudents        Int                @default(50)  // 👈 ҚОСУ КЕРЕК
+  maxMarathons       Int                @default(2)
+  maxStudents        Int                @default(50)
   monthlyFee         Int                @default(0)
   nextPaymentDate    DateTime?
   createdAt          DateTime           @default(now())
-
   chatMessages       ChatMessage[]
   invitations        Invitation[]
   marathons          Marathon[]
-
-  // 1. Ұйым иесі (Owner)
   user               User?              @relation("OrganizerOwner", fields: [userId], references: [id])
-
-  // 2. Ұйымға тіркелген барлық пайдаланушылар
   users              User[]             @relation("OrganizationUsers")
-
   curators           Curator[]
 }
 
@@ -71,7 +57,6 @@ model Marathon {
   status        MarathonStatus @default(ACTIVE)
   createdAt     DateTime       @default(now())
   organizerId   String
-
   announcements Announcement[]
   groups        Group[]
   invitations   Invitation[]
@@ -79,7 +64,6 @@ model Marathon {
   students      Student[]
   tasks         Task[]
   curators      Curator[]      @relation("MarathonToCurator")
-
   @@index([organizerId])
 }
 
@@ -90,12 +74,10 @@ model Group {
   createdAt     DateTime       @default(now())
   marathonId    String
   curatorId     String?
-
   announcements Announcement[]
   curator       Curator?       @relation(fields: [curatorId], references: [id])
   marathon      Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
   students      Student[]
-
   @@index([marathonId])
   @@index([curatorId])
 }
@@ -108,13 +90,11 @@ model Curator {
   phone       String
   createdAt   DateTime   @default(now())
   organizerId String
-
   groups      Group[]
   students    Student[]
   organizer   Organizer  @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   user        User?      @relation(fields: [userId], references: [id])
   marathons   Marathon[] @relation("MarathonToCurator")
-
   @@index([organizerId])
   @@map("curator")
 }
@@ -136,7 +116,6 @@ model Student {
   curatorId        String?
   managerId        String?
   paymentStatus    String?       @default("PAID")
-
   manager          User?         @relation("ManagerToStudent", fields: [managerId], references: [id])
   chatMessages     ChatMessage[]
   habits           Habit[]
@@ -146,7 +125,6 @@ model Student {
   marathon         Marathon      @relation(fields: [marathonId], references: [id], onDelete: Cascade)
   user             User?         @relation(fields: [userId], references: [id])
   submissions      Submission[]
-
   @@index([marathonId])
   @@index([curatorId])
   @@index([groupId])
@@ -168,10 +146,8 @@ model Task {
   status           TaskStatus       @default(DRAFT)
   createdAt        DateTime         @default(now())
   marathonId       String
-
   submissions      Submission[]
   marathon         Marathon         @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-
   @@index([marathonId])
   @@index([marathonId, dayNumber])
 }
@@ -185,10 +161,8 @@ model Submission {
   submittedAt DateTime?
   studentId   String
   taskId      String?
-
   student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
   task        Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
   @@unique([studentId, taskId])
   @@index([studentId])
   @@index([taskId])
@@ -206,10 +180,8 @@ model Invitation {
   createdAt       DateTime       @default(now())
   marathonId      String
   organizerId     String
-
   marathon        Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
   organizer       Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-
   @@index([marathonId])
   @@index([organizerId])
 }
@@ -220,9 +192,7 @@ model Habit {
   doneDates Json     @default("[]")
   createdAt DateTime @default(now())
   studentId String
-
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
   @@index([studentId])
 }
 
@@ -234,9 +204,7 @@ model MatrixTask {
   done      Boolean  @default(false)
   createdAt DateTime @default(now())
   studentId String
-
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
   @@index([studentId])
 }
 
@@ -247,10 +215,8 @@ model ChatMessage {
   createdAt   DateTime  @default(now())
   organizerId String
   studentId   String?
-
   organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   student     Student?  @relation(fields: [studentId], references: [id])
-
   @@index([organizerId])
   @@index([studentId])
 }
@@ -262,9 +228,7 @@ model PendingOtp {
   expiresAt DateTime
   createdAt DateTime @default(now())
   userId    String   @unique
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@index([phone])
 }
 
@@ -277,10 +241,8 @@ model Announcement {
   marathonId String
   groupId    String?
   createdAt  DateTime @default(now())
-
   group      Group?   @relation(fields: [groupId], references: [id])
   marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-
   @@index([marathonId])
   @@index([groupId])
 }
