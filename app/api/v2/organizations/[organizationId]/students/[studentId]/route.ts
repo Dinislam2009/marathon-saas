@@ -3,24 +3,9 @@ import { PrismaStudentRepository } from "../../../../../../../lib/v2/student/rep
 import { StudentService } from "../../../../../../../lib/v2/student/service.ts";
 import { STUDENT_STATUSES, type UpdateStudentInput } from "../../../../../../../lib/v2/student/types.ts";
 import { prismaV2 } from "../../../../../../../lib/v2/prisma.ts";
+import { getActorId, organizationErrorResponse, requireOrganizationAccess } from "../../../../../../../lib/v2/organization/access.ts";
 
-const WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "CURATOR"] as const;
-
-function getActorId(request: Request) {
-  const userId = request.headers.get("x-loopit-user-id");
-  if (!userId) throw new Error("Authentication required.");
-  return userId;
-}
-
-async function requireOrganizationAccess(organizationId: string, userId: string, write = false) {
-  const membership = await prismaV2.organizationMembership.findUnique({
-    where: { organizationId_userId: { organizationId, userId } },
-  });
-  if (!membership) throw new Error("Organization access denied.");
-  if (write && !WRITE_ROLES.includes(membership.role as (typeof WRITE_ROLES)[number])) {
-    throw new Error("Insufficient organization permissions.");
-  }
-}
+const STUDENT_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "CURATOR"] as const;
 
 function parseUpdate(body: unknown): UpdateStudentInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -39,7 +24,9 @@ function parseUpdate(body: unknown): UpdateStudentInput {
 
   if (value.dateOfBirth !== undefined) {
     if (value.dateOfBirth !== null && typeof value.dateOfBirth !== "string") throw new Error("dateOfBirth must be an ISO date string or null.");
-    input.dateOfBirth = value.dateOfBirth === null ? null : new Date(value.dateOfBirth as string);
+    const date = value.dateOfBirth === null ? null : new Date(value.dateOfBirth as string);
+    if (date instanceof Date && Number.isNaN(date.getTime())) throw new Error("dateOfBirth must be a valid ISO date.");
+    input.dateOfBirth = date;
   }
 
   if (value.status !== undefined) {
@@ -57,17 +44,20 @@ function service() {
   return new StudentService(new PrismaStudentRepository(prismaV2));
 }
 
+function errorResponse(error: unknown) {
+  const { message, status } = organizationErrorResponse(error);
+  return NextResponse.json({ error: message }, { status });
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ organizationId: string; studentId: string }> }) {
   try {
     const actorId = getActorId(request);
     const { organizationId, studentId } = await params;
-    await requireOrganizationAccess(organizationId, actorId);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId);
     const student = await service().getStudent(organizationId, studentId);
     return NextResponse.json({ student });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error.";
-    const status = message === "Authentication required." ? 401 : /access|not found/.test(message) ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return errorResponse(error);
   }
 }
 
@@ -75,12 +65,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ or
   try {
     const actorId = getActorId(request);
     const { organizationId, studentId } = await params;
-    await requireOrganizationAccess(organizationId, actorId, true);
+    await requireOrganizationAccess(prismaV2, organizationId, actorId, { write: true, writeRoles: STUDENT_WRITE_ROLES });
     const student = await service().updateStudent(organizationId, studentId, parseUpdate(await request.json()));
     return NextResponse.json({ student });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error.";
-    const status = message === "Authentication required." ? 401 : /access|permissions/.test(message) ? 403 : /required|Invalid|contain|must be/.test(message) ? 400 : /not found/i.test(message) ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return errorResponse(error);
   }
 }
