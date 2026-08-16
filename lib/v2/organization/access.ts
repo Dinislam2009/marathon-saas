@@ -23,7 +23,7 @@ export async function requireOrganizationAccess(
   prisma: PrismaClient,
   organizationId: string,
   userId: string,
-  options?: { write?: boolean },
+  options?: { write?: boolean; writeRoles?: readonly string[] },
 ) {
   const membership = await prisma.organizationMembership.findUnique({
     where: { organizationId_userId: { organizationId, userId } },
@@ -31,11 +31,11 @@ export async function requireOrganizationAccess(
 
   if (!membership) throw new OrganizationAccessError();
 
-  if (
-    options?.write &&
-    !ORGANIZATION_WRITE_ROLES.includes(membership.role as OrganizationWriteRole)
-  ) {
-    throw new OrganizationAccessError("Insufficient organization permissions.", 403);
+  if (options?.write) {
+    const allowedRoles = options.writeRoles ?? ORGANIZATION_WRITE_ROLES;
+    if (!allowedRoles.includes(membership.role)) {
+      throw new OrganizationAccessError("Insufficient organization permissions.", 403);
+    }
   }
 
   return membership;
