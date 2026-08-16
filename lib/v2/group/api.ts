@@ -1,7 +1,11 @@
 import type { CreateGroupInput, GroupRepository, UpdateGroupInput } from "./types.ts";
 
 export class GroupApiService {
-  constructor(private readonly repository: GroupRepository) {}
+  private readonly repository: GroupRepository;
+
+  constructor(repository: GroupRepository) {
+    this.repository = repository;
+  }
 
   async createGroup(input: CreateGroupInput) {
     return this.repository.create(input);

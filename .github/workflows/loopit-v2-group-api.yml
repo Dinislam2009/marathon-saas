@@ -1,0 +1,36 @@
+name: Loopit 2.0 Group API
+
+on:
+  push:
+    branches:
+      - loopit-2.0/group-api
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "lib/v2/group/**"
+      - "lib/v2/prisma.ts"
+      - "prisma/schema-v2.prisma"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/loopit-v2-group-api.yml"
+  workflow_dispatch:
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/loopit_ci_shadow
+
+jobs:
+  group-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:v2:validate
+      - run: npm run prisma:v2:generate
+      - run: npm run typecheck
+      - run: node --experimental-strip-types --test lib/v2/group/api.test.ts
