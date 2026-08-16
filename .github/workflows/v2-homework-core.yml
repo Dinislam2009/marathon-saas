@@ -1,0 +1,29 @@
+name: Loopit 2.0 Homework Core
+
+on:
+  push:
+    branches:
+      - loopit-2.0/homework-core
+  pull_request:
+    paths:
+      - "lib/v2/homework/**"
+      - "prisma/schema-v2.prisma"
+      - "prisma.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/v2-homework-core.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:v2:generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: node --experimental-strip-types --test lib/v2/homework/service.test.ts
