@@ -11,6 +11,7 @@ on:
       - "app/api/v2/**"
       - "lib/v2/**"
       - "scripts/test-v2-api-contracts.mts"
+      - "scripts/test-v2-rbac.mts"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/loopit-v2-api-contracts.yml"
@@ -33,4 +34,5 @@ jobs:
       - run: npm run prisma:v2:validate
       - run: npm run prisma:v2:generate
       - run: npm run test:v2:api-contracts
+      - run: npm run test:v2:rbac
       - run: npm run typecheck
