@@ -1,0 +1,50 @@
+name: Loopit production compatibility fix
+
+on:
+  push:
+    branches:
+      - loopit-2.0/production-fix
+
+permissions:
+  contents: write
+
+jobs:
+  patch-legacy-action-references:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch stale action references
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          matrix = Path('app/[lang]/org/[orgId]/student/matrix/MatrixClient.jsx')
+          text = matrix.read_text()
+          old = 'const toggleFn = actions.toggleMatrixTaskDone || actions.toggleMatrixTask;'
+          new = 'const toggleFn = actions.toggleMatrixTaskDone;'
+          if old in text:
+              matrix.write_text(text.replace(old, new, 1))
+
+          profile = Path('app/[lang]/org/[orgId]/student/profile/ProfileClient.jsx')
+          text = profile.read_text()
+          old = 'const updateFn = actions.updateStudentProfile || actions.updateStudentProfile;'
+          new = 'const updateFn = actions.updateStudent;'
+          if old in text:
+              profile.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'app/[lang]/org/[orgId]/student/matrix/MatrixClient.jsx' 'app/[lang]/org/[orgId]/student/profile/ProfileClient.jsx'
+          if git diff --cached --quiet; then
+            echo 'No changes needed.'
+            exit 0
+          fi
+          git commit -m 'fix: align legacy student actions with exported server actions'
+          git push
