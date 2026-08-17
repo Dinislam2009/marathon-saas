@@ -48,7 +48,7 @@ export default function ProfileClient({ initialStudent }) {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      const updateFn = actions.updateStudentProfile || actions.updateStudentProfile;
+      const updateFn = actions.updateStudent;
       if (typeof updateFn === "function") {
         const res = await updateFn({
           id: student.id,

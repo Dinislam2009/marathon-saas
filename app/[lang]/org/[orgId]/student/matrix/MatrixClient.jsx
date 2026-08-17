@@ -29,7 +29,7 @@ export default function MatrixClient({ studentId, initialTasks = [] }) {
     );
 
     try {
-      const toggleFn = actions.toggleMatrixTaskDone || actions.toggleMatrixTask;
+      const toggleFn = actions.toggleMatrixTaskDone;
       if (typeof toggleFn === "function") {
         await toggleFn(id);
       }
