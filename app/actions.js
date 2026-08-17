@@ -2935,3 +2935,114 @@ export async function getGroupsByOrgId(orgId) {
     };
   }
 }
+
+export async function toggleHabit(habitId) {
+  return await toggleHabitToday(habitId);
+}
+export async function reviewSubmission({
+  submissionId,
+  status,
+  studentId,
+  points = 0,
+}) {
+  try {
+    if (!submissionId) {
+      return {
+        ok: false,
+        error: "Submission ID қажет.",
+      };
+    }
+
+    if (!["APPROVED", "REJECTED"].includes(status)) {
+      return {
+        ok: false,
+        error: "Қате статус.",
+      };
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: {
+        id: String(submissionId),
+      },
+      include: {
+        student: true,
+        task: true,
+      },
+    });
+
+    if (!submission) {
+      return {
+        ok: false,
+        error: "Тапсырма жіберілімі табылмады.",
+      };
+    }
+
+    const targetStudentId = studentId || submission.studentId;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedSubmission = await tx.submission.update({
+        where: {
+          id: String(submissionId),
+        },
+        data: {
+          status,
+        },
+        include: {
+          student: true,
+          task: true,
+        },
+      });
+
+      let updatedStudent = submission.student;
+
+      // XP тек APPROVED болған кезде қосылады.
+      // Бұрын APPROVED болған submission қайта өңделсе,
+      // ұпайды екінші рет қоспаймыз.
+      if (
+        status === "APPROVED" &&
+        submission.status !== "APPROVED"
+      ) {
+        const earnedPoints =
+          Number(points) > 0
+            ? Number(points)
+            : Number(submission.task?.points || 0);
+
+        if (earnedPoints > 0) {
+          updatedStudent = await tx.student.update({
+            where: {
+              id: String(targetStudentId),
+            },
+            data: {
+              points: {
+                increment: earnedPoints,
+              },
+            },
+          });
+        }
+      }
+
+      return {
+        submission: updatedSubmission,
+        student: updatedStudent,
+      };
+    });
+
+    revalidatePath("/");
+
+    return safeJson({
+      ok: true,
+      data: result,
+      submission: result.submission,
+      student: result.student,
+    });
+  } catch (error) {
+    console.error("reviewSubmission error:", error);
+
+    return {
+      ok: false,
+      error:
+        error?.message ||
+        "Тапсырманы тексеру кезінде серверлік қате шықты.",
+    };
+  }
+}
