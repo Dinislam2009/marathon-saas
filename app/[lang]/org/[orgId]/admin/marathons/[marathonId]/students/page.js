@@ -35,21 +35,21 @@ export default function MarathonPeoplePage({ params }) {
         setLoading(true);
 
         // 1. Марафон ақпаратын жүктеу
-        const getMarathonFn = actions.getMarathonById || actions.getmarathonById;
+        const getMarathonFn = actions.getMarathonById || actions.getMarathonById;
         if (typeof getMarathonFn === "function") {
           const m = await getMarathonFn(marathonId);
           setMarathon(m);
         }
 
         // 2. Оқушыларды жүктеу
-        const getStudentsFn = actions.getStudentsByMarathonId || actions.getstudentsByMarathonId;
+        const getStudentsFn = actions.getStudentsByMarathonId || actions.getStudentsByMarathonId;
         if (typeof getStudentsFn === "function") {
           const st = await getStudentsFn(marathonId);
           setStudents(st || []);
         }
 
         // 3. Кураторларды жүктеу (Бас/Кіші әріптерге қауіпсіз тексеру)
-        const getCuratorsFn = actions.getCuratorsByMarathonId || actions.getcuratorsByMarathonId;
+        const getCuratorsFn = actions.getCuratorsByMarathonId || actions.getCuratorsByMarathonId;
         if (typeof getCuratorsFn === "function") {
           const mt = await getCuratorsFn(marathonId);
           setCurators(mt || []);
