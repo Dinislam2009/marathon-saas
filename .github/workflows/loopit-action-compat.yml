@@ -1,0 +1,93 @@
+name: Loopit action compatibility
+
+on:
+  push:
+    branches:
+      - loopit-2.0/production-fix
+
+permissions:
+  contents: write
+
+jobs:
+  ensure-action-exports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure legacy action exports
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='app/actions.js'
+
+          if ! grep -q '^export async function sendResetOtp' "$file"; then
+            cat >> "$file" <<'EOF'
+
+export async function sendResetOtp(identifier) {
+  return auth.sendResetOtp(identifier);
+}
+EOF
+          fi
+
+          if ! grep -q '^export async function resetPasswordWithOtp' "$file"; then
+            cat >> "$file" <<'EOF'
+
+export async function resetPasswordWithOtp(userId, code, newPassword) {
+  return auth.resetPasswordWithOtp({ userId, code, newPassword });
+}
+EOF
+          fi
+
+          if ! grep -q '^export async function reviewSubmission' "$file"; then
+            cat >> "$file" <<'EOF'
+
+export async function reviewSubmission({ submissionId, status, studentId, points }) {
+  if (!submissionId) return { ok: false, error: 'Submission ID is required.' };
+
+  const normalizedStatus = String(status || '').toUpperCase();
+  if (!['PENDING', 'SUBMITTED', 'APPROVED', 'REJECTED', 'MISSED'].includes(normalizedStatus)) {
+    return { ok: false, error: 'Invalid submission status.' };
+  }
+
+  const submission = await prisma.submission.findUnique({
+    where: { id: String(submissionId) },
+    select: { id: true, studentId: true },
+  });
+
+  if (!submission) return { ok: false, error: 'Submission not found.' };
+  if (studentId && String(studentId) !== String(submission.studentId)) {
+    return { ok: false, error: 'Student does not match submission.' };
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.submission.update({
+      where: { id: String(submissionId) },
+      data: { status: normalizedStatus },
+    });
+
+    if (normalizedStatus === 'APPROVED' && Number(points) > 0) {
+      await tx.student.update({
+        where: { id: submission.studentId },
+        data: { points: { increment: Number(points) } },
+      });
+    }
+
+    return result;
+  });
+
+  return { ok: true, submission: safeJson(updated) };
+}
+EOF
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$file"
+          if git diff --cached --quiet; then
+            echo 'All required action exports already exist.'
+            exit 0
+          fi
+          git commit -m 'fix: restore missing legacy server action exports'
+          git push

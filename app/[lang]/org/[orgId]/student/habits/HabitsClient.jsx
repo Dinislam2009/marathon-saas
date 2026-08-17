@@ -31,7 +31,7 @@ export default function HabitsClient({ studentId, initialHabits = [] }) {
     );
 
     try {
-      const toggleFn = actions.toggleHabitToday || actions.toggleHabit;
+      const toggleFn = actions.toggleHabitToday;
       if (typeof toggleFn === "function") {
         await toggleFn(id);
       }
@@ -47,7 +47,7 @@ export default function HabitsClient({ studentId, initialHabits = [] }) {
 
     setLoading(true);
     try {
-      const addFn = actions.addHabit || actions.addHabit;
+      const addFn = actions.addHabit;
       let res = null;
       if (typeof addFn === "function") {
         res = await addFn(studentId, newTitle.trim());
@@ -78,7 +78,7 @@ export default function HabitsClient({ studentId, initialHabits = [] }) {
   const handleDelete = async (id) => {
     setHabits((prev) => prev.filter((h) => h.id !== id));
     try {
-      const deleteFn = actions.deleteHabit || actions.deleteHabit;
+      const deleteFn = actions.deleteHabit;
       if (typeof deleteFn === "function") {
         await deleteFn(id);
       }

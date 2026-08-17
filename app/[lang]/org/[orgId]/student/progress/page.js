@@ -7,7 +7,7 @@ import { getTodayDayNumber } from "@/lib/utils";
 import Card from "@/components/Card";
 import ProgressGrid from "@/components/ProgressGrid";
 import LoadingState from "@/components/LoadingState";
-import * as actions from "@/app/actions";
+import { getStudentProgress } from "@/app/legacy-student-actions";
 
 export default function StudentProgressPage() {
   const { ready, tick, currentStudentId } = useData();
@@ -31,14 +31,9 @@ export default function StudentProgressPage() {
       try {
         if (isMounted) setLoading(true);
 
-        const getProgressFn =
-          actions.getStudentProgress || actions.getStudentProgress;
-
-        if (typeof getProgressFn === "function") {
-          const res = await getProgressFn(currentStudentId);
-          if (isMounted && res && res.ok) {
-            setData(res.data);
-          }
+        const res = await getStudentProgress(currentStudentId);
+        if (isMounted && res && res.ok) {
+          setData(res.data);
         }
       } catch (err) {
         console.error("Прогресті жүктеу қатесі:", err);
@@ -83,7 +78,6 @@ export default function StudentProgressPage() {
 
   return (
     <div key={tick} className="flex flex-col gap-6 w-full font-sans text-slate-900">
-      {/* Шапка */}
       <div>
         <h1 className="font-display text-2xl font-semibold text-ink">
           {isRu ? "Прогресс" : "Прогресс"}
@@ -95,9 +89,7 @@ export default function StudentProgressPage() {
         </p>
       </div>
 
-      {/* Компьютерге арналған Grid орналасуы */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Сол жақ: Календарь / Прогресс торы (2 Баған) */}
         <div className="md:col-span-2">
           <Card>
             <ProgressGrid
@@ -122,7 +114,6 @@ export default function StudentProgressPage() {
           </Card>
         </div>
 
-        {/* Оң жақ: Жалпы статистика карточкасы (1 Баған) */}
         <div className="flex flex-col gap-4">
           <Card>
             <h3 className="text-xs font-extrabold text-mist uppercase tracking-wider mb-3">
