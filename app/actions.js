@@ -3046,3 +3046,5 @@ export async function reviewSubmission({
     };
   }
 }
+
+export const gettasksByMarathon = getTasksByMarathon;
