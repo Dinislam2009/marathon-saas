@@ -5,7 +5,7 @@
   "description": "Marafon/intensivter uyymdastyruğa arnalğan köpqoldanuşyly (multi-tenant) SaaS platforması",
   "scripts": {
     "dev": "next dev",
-    "build": "npm run prisma:v2:generate && next build",
+    "build": "prisma generate && prisma generate --schema=prisma/schema-v2.prisma && next build",
     "start": "next start",
     "lint": "next lint",
     "prisma:v2:validate": "prisma validate --schema=prisma/schema-v2.prisma",
