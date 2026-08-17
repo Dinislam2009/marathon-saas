@@ -22,29 +22,52 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          matrix = Path('app/[lang]/org/[orgId]/student/matrix/MatrixClient.jsx')
-          text = matrix.read_text()
-          old = 'const toggleFn = actions.toggleMatrixTaskDone || actions.toggleMatrixTask;'
-          new = 'const toggleFn = actions.toggleMatrixTaskDone;'
-          if old in text:
-              matrix.write_text(text.replace(old, new, 1))
+          replacements = {
+              'app/[lang]/org/[orgId]/student/matrix/MatrixClient.jsx': [
+                  ('const toggleFn = actions.toggleMatrixTaskDone || actions.toggleMatrixTask;',
+                   'const toggleFn = actions.toggleMatrixTaskDone;'),
+              ],
+              'app/[lang]/org/[orgId]/student/profile/ProfileClient.jsx': [
+                  ('const updateFn = actions.updateStudentProfile || actions.updateStudentProfile;',
+                   'const updateFn = actions.updateStudent;'),
+              ],
+              'app/[lang]/org/[orgId]/student/habits/HabitsClient.jsx': [
+                  ('const toggleFn = actions.toggleHabitToday || actions.toggleHabit;',
+                   'const toggleFn = actions.toggleHabitToday;'),
+                  ('const addFn = actions.addHabit || actions.addHabit;',
+                   'const addFn = actions.addHabit;'),
+                  ('const deleteFn = actions.deleteHabit || actions.deleteHabit;',
+                   'const deleteFn = actions.deleteHabit;'),
+              ],
+              'app/[lang]/org/[orgId]/curator/submissions/curatorSubmissionsClient.jsx': [
+                  ('const reviewFn = actions.reviewSubmission || actions.reviewSubmission;',
+                   'const reviewFn = actions.reviewSubmission;'),
+              ],
+          }
 
-          profile = Path('app/[lang]/org/[orgId]/student/profile/ProfileClient.jsx')
-          text = profile.read_text()
-          old = 'const updateFn = actions.updateStudentProfile || actions.updateStudentProfile;'
-          new = 'const updateFn = actions.updateStudent;'
-          if old in text:
-              profile.write_text(text.replace(old, new, 1))
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text()
+              for old, new in pairs:
+                  text = text.replace(old, new)
+              path.write_text(text)
+
+          actions = Path('app/actions.js')
+          text = actions.read_text()
+          marker = 'export async function reviewSubmission({ submissionId, status, studentId, points }) {'
+          if marker not in text:
+              text += '''\n\n// Compatibility action for the curator submissions UI.\nexport async function reviewSubmission({ submissionId, status, studentId, points }) {\n  try {\n    if (!submissionId || !status) {\n      return { ok: false, error: "Submission ID және статус қажет." };\n    }\n\n    const submission = await prisma.submission.update({\n      where: { id: String(submissionId) },\n      data: { status: String(status) },\n    });\n\n    if (String(status) === "APPROVED" && studentId && Number(points) > 0) {\n      await prisma.student.update({\n        where: { id: String(studentId) },\n        data: { points: { increment: Number(points) } },\n      });\n    }\n\n    revalidatePath("/");\n    return safeJson({ ok: true, submission });\n  } catch (error) {\n    console.error("reviewSubmission error:", error);\n    return { ok: false, error: error?.message || "Жұмысты тексеру кезінде қате орын алды." };\n  }\n}\n'''
+              actions.write_text(text)
           PY
 
       - name: Commit patch
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- 'app/[lang]/org/[orgId]/student/matrix/MatrixClient.jsx' 'app/[lang]/org/[orgId]/student/profile/ProfileClient.jsx'
+          git add -- 'app/[lang]/org/[orgId]/student/matrix/MatrixClient.jsx' 'app/[lang]/org/[orgId]/student/profile/ProfileClient.jsx' 'app/[lang]/org/[orgId]/student/habits/HabitsClient.jsx' 'app/[lang]/org/[orgId]/curator/submissions/curatorSubmissionsClient.jsx' 'app/actions.js' '.github/workflows/loopit-production-fix.yml'
           if git diff --cached --quiet; then
             echo 'No changes needed.'
             exit 0
           fi
-          git commit -m 'fix: align legacy student actions with exported server actions'
+          git commit -m 'fix: patch remaining stale server action references'
           git push
