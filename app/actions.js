@@ -2635,3 +2635,30 @@ export async function updateOrganizerProfile(orgId, data) {
     return { ok: false, error: error.message };
   }
 }
+
+// Compatibility action for the curator submissions UI.
+export async function reviewSubmission({ submissionId, status, studentId, points }) {
+  try {
+    if (!submissionId || !status) {
+      return { ok: false, error: "Submission ID және статус қажет." };
+    }
+
+    const submission = await prisma.submission.update({
+      where: { id: String(submissionId) },
+      data: { status: String(status) },
+    });
+
+    if (String(status) === "APPROVED" && studentId && Number(points) > 0) {
+      await prisma.student.update({
+        where: { id: String(studentId) },
+        data: { points: { increment: Number(points) } },
+      });
+    }
+
+    revalidatePath("/");
+    return safeJson({ ok: true, submission });
+  } catch (error) {
+    console.error("reviewSubmission error:", error);
+    return { ok: false, error: error?.message || "Жұмысты тексеру кезінде қате орын алды." };
+  }
+}

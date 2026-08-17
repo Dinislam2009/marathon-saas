@@ -34,7 +34,7 @@ export default function CuratorSubmissionsClient({ initialSubmissions = [] }) {
     setLoadingId(submissionId);
 
     try {
-      const reviewFn = actions.reviewSubmission || actions.reviewSubmission;
+      const reviewFn = actions.reviewSubmission;
       
       if (typeof reviewFn === "function") {
         const res = await reviewFn({
