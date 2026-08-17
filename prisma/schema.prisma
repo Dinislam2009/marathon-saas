@@ -17,19 +17,13 @@ model User {
   role            Role        @default(PARTICIPANT)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-
-  // 1. Ұйымға мүшелік (Команда мүшесі)
   organizerId     String?
   organizer       Organizer?  @relation("OrganizationUsers", fields: [organizerId], references: [id])
-
-  // 2. Өзі ашқан ұйым (Иесі)
   ownedOrganizer  Organizer?  @relation("OrganizerOwner")
-
   pendingOtp      PendingOtp?
   student         Student?
   curator         Curator?
   managedStudents Student[]   @relation("ManagerToStudent")
-
   @@index([role])
 }
 
@@ -41,22 +35,16 @@ model Organizer {
   email              String
   subscriptionStatus SubscriptionStatus @default(TRIAL)
   subscriptionPlan   String             @default("Сынақ мерзімі")
-  maxMarathons       Int                @default(2)   // 👈 ҚОСУ КЕРЕК
-  maxStudents        Int                @default(50)  // 👈 ҚОСУ КЕРЕК
+  maxMarathons       Int                @default(2)
+  maxStudents        Int                @default(50)
   monthlyFee         Int                @default(0)
   nextPaymentDate    DateTime?
   createdAt          DateTime           @default(now())
-
   chatMessages       ChatMessage[]
   invitations        Invitation[]
   marathons          Marathon[]
-
-  // 1. Ұйым иесі (Owner)
   user               User?              @relation("OrganizerOwner", fields: [userId], references: [id])
-
-  // 2. Ұйымға тіркелген барлық пайдаланушылар
   users              User[]             @relation("OrganizationUsers")
-
   curators           Curator[]
 }
 
@@ -69,7 +57,6 @@ model Marathon {
   status        MarathonStatus @default(ACTIVE)
   createdAt     DateTime       @default(now())
   organizerId   String
-
   announcements Announcement[]
   groups        Group[]
   invitations   Invitation[]
@@ -77,9 +64,249 @@ model Marathon {
   students      Student[]
   tasks         Task[]
   curators      Curator[]      @relation("MarathonToCurator")
-
   @@index([organizerId])
 }
 
-// The remainder of the legacy schema is intentionally preserved by the repository.
-// This change only removes Prisma 7-incompatible datasource URL fields.
+model Group {
+  id            String         @id @default(uuid())
+  name          String
+  maxSize       Int            @default(30)
+  createdAt     DateTime       @default(now())
+  marathonId    String
+  curatorId     String?
+  announcements Announcement[]
+  curator       Curator?       @relation(fields: [curatorId], references: [id])
+  marathon      Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  students      Student[]
+  @@index([marathonId])
+  @@index([curatorId])
+}
+
+model Curator {
+  id          String     @id @default(uuid())
+  userId      String?    @unique
+  name        String
+  email       String
+  phone       String
+  createdAt   DateTime   @default(now())
+  organizerId String
+  groups      Group[]
+  students    Student[]
+  organizer   Organizer  @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  user        User?      @relation(fields: [userId], references: [id])
+  marathons   Marathon[] @relation("MarathonToCurator")
+  @@index([organizerId])
+  @@map("curator")
+}
+
+model Student {
+  id               String        @id @default(uuid())
+  userId           String?       @unique
+  name             String
+  email            String
+  phone            String?
+  targetUniversity String?       @default("КБТУ")
+  targetMajor      String?       @default("ВТиПО")
+  targetScore      Int?          @default(135)
+  points           Int           @default(0)
+  status           StudentStatus @default(ACTIVE)
+  joinedAt         DateTime      @default(now())
+  marathonId       String
+  groupId          String?
+  curatorId        String?
+  managerId        String?
+  paymentStatus    String?       @default("PAID")
+  manager          User?         @relation("ManagerToStudent", fields: [managerId], references: [id])
+  chatMessages     ChatMessage[]
+  habits           Habit[]
+  matrixTasks      MatrixTask[]
+  curator          Curator?      @relation(fields: [curatorId], references: [id])
+  group            Group?         @relation(fields: [groupId], references: [id])
+  marathon         Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  user             User?          @relation(fields: [userId], references: [id])
+  submissions      Submission[]
+  @@index([marathonId])
+  @@index([curatorId])
+  @@index([groupId])
+  @@index([managerId])
+  @@index([userId])
+  @@index([phone])
+  @@index([email])
+}
+
+model Task {
+  id               String           @id @default(uuid())
+  dayNumber        Int
+  title            String
+  videoUrl         String?
+  content          String?
+  fileUrls         String[]
+  points           Int              @default(10)
+  verificationType VerificationType @default(TEST)
+  status           TaskStatus       @default(DRAFT)
+  createdAt        DateTime         @default(now())
+  marathonId       String
+  submissions      Submission[]
+  marathon         Marathon         @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  @@index([marathonId])
+  @@index([marathonId, dayNumber])
+}
+
+model Submission {
+  id          String           @id @default(uuid())
+  dayNumber   Int
+  status      SubmissionStatus @default(PENDING)
+  checklist   Json             @default("{\"video\": false, \"routine\": false, \"homework\": false}")
+  fileUrl     String?
+  submittedAt DateTime?
+  studentId   String
+  taskId      String?
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task        Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  @@unique([studentId, taskId])
+  @@index([studentId])
+  @@index([taskId])
+  @@index([studentId, dayNumber])
+}
+
+model Invitation {
+  id              String         @id @default(uuid())
+  role            InvitationRole
+  fullName        String
+  phone           String
+  email           String
+  status          InviteStatus   @default(PENDING)
+  claimedByUserId String?
+  createdAt       DateTime       @default(now())
+  marathonId      String
+  organizerId     String
+  marathon        Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  organizer       Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  @@index([marathonId])
+  @@index([organizerId])
+}
+
+model Habit {
+  id        String   @id @default(uuid())
+  title     String
+  doneDates Json     @default("[]")
+  createdAt DateTime @default(now())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@index([studentId])
+}
+
+model MatrixTask {
+  id        String   @id @default(uuid())
+  title     String
+  urgent    Boolean  @default(false)
+  important Boolean  @default(false)
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@index([studentId])
+}
+
+model ChatMessage {
+  id          String    @id @default(uuid())
+  studentName String
+  text        String
+  createdAt   DateTime  @default(now())
+  organizerId String
+  studentId   String?
+  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  student     Student?  @relation(fields: [studentId], references: [id])
+  @@index([organizerId])
+  @@index([studentId])
+}
+
+model PendingOtp {
+  id        String   @id @default(uuid())
+  code      String
+  phone     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([phone])
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  authorRole String
+  authorName String
+  marathonId String
+  groupId    String?
+  createdAt  DateTime @default(now())
+  group      Group?   @relation(fields: [groupId], references: [id])
+  marathon   Marathon @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  @@index([marathonId])
+  @@index([groupId])
+}
+
+model Broadcast {
+  id         String   @id @default(uuid())
+  title      String
+  message    String
+  targetRole String   @default("ALL")
+  createdAt  DateTime @default(now())
+}
+
+enum Role {
+  OWNER
+  ORGANIZER
+  MANAGER
+  TEACHER
+  BASCURATOR
+  CURATOR
+  PARTICIPANT
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  BLOCKED
+}
+
+enum MarathonStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+}
+
+enum StudentStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum VerificationType {
+  TEST
+  SCREENSHOT
+}
+
+enum TaskStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+  MISSED
+}
+
+enum InvitationRole {
+  STUDENT
+  CURATOR
+}
+
+enum InviteStatus {
+  PENDING
+  CLAIMED
+}
