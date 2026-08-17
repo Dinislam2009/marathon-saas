@@ -7,9 +7,9 @@ import { useLanguage } from "@/context/LanguageContext";
 export default function CuratorProfileClient({ initialData = {} }) {
   const { lang } = useLanguage();
   const isRu = lang === "ru";
-
   const curator = initialData?.curator || {};
   const metrics = initialData?.metrics || {};
+  const fullName = curator?.name || [curator?.user?.firstName, curator?.user?.lastName].filter(Boolean).join(" ");
 
   return (
     <div className="w-full space-y-6 pb-8">
@@ -20,7 +20,7 @@ export default function CuratorProfileClient({ initialData = {} }) {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900">
-              {curator?.name || (isRu ? "Профиль куратора" : "Куратор профилі")}
+              {fullName || (isRu ? "Профиль куратора" : "Куратор профилі")}
             </h1>
             <p className="text-sm text-gray-500">
               {isRu ? "Профиль и статистика" : "Профиль және статистика"}
@@ -35,9 +35,7 @@ export default function CuratorProfileClient({ initialData = {} }) {
             <Mail className="w-5 h-5 text-purple-600" />
             <div>
               <p className="text-xs text-gray-400">Email</p>
-              <p className="text-sm font-semibold text-gray-800 break-all">
-                {curator?.email || "—"}
-              </p>
+              <p className="text-sm font-semibold text-gray-800 break-all">{curator?.email || curator?.user?.email || "—"}</p>
             </div>
           </div>
         </div>
@@ -46,10 +44,8 @@ export default function CuratorProfileClient({ initialData = {} }) {
           <div className="flex items-center gap-3">
             <Phone className="w-5 h-5 text-purple-600" />
             <div>
-              <p className="text-xs text-gray-400">{isRu ? "Телефон" : "Телефон"}</p>
-              <p className="text-sm font-semibold text-gray-800">
-                {curator?.phone || "—"}
-              </p>
+              <p className="text-xs text-gray-400">Телефон</p>
+              <p className="text-sm font-semibold text-gray-800">{curator?.phone || curator?.user?.phone || "—"}</p>
             </div>
           </div>
         </div>
@@ -59,9 +55,7 @@ export default function CuratorProfileClient({ initialData = {} }) {
             <Users className="w-5 h-5 text-purple-600" />
             <div>
               <p className="text-xs text-gray-400">{isRu ? "Ученики" : "Оқушылар"}</p>
-              <p className="text-2xl font-extrabold text-gray-900">
-                {Number(metrics?.studentCount || 0)}
-              </p>
+              <p className="text-2xl font-extrabold text-gray-900">{Number(metrics?.studentCount || 0)}</p>
             </div>
           </div>
         </div>
@@ -71,9 +65,7 @@ export default function CuratorProfileClient({ initialData = {} }) {
             <CheckCircle2 className="w-5 h-5 text-purple-600" />
             <div>
               <p className="text-xs text-gray-400">{isRu ? "Проверено" : "Тексерілген"}</p>
-              <p className="text-2xl font-extrabold text-gray-900">
-                {Number(metrics?.checkedSubmissionsCount || 0)}
-              </p>
+              <p className="text-2xl font-extrabold text-gray-900">{Number(metrics?.checkedSubmissionsCount || 0)}</p>
             </div>
           </div>
         </div>

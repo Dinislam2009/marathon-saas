@@ -1840,35 +1840,8 @@ export async function getManagerDashboardData(managerId) {
       group: s.group ? { name: s.group.name } : null,
     }));
 
-    const unassignedStudents = await prisma.student.findMany({
-      where: {
-        managerId: null,
-        ...(managerId
-          ? {
-              marathon: {
-                organizerId: (
-                  await prisma.user.findUnique({
-                    where: { id: String(managerId) },
-                    select: { organizerId: true },
-                  })
-                )?.organizerId || "__none__",
-              },
-            }
-          : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-      },
-      orderBy: { joinedAt: "desc" },
-      take: 100,
-    });
-
     return {
       myStudents: formattedStudents,
-      unassignedStudents,
       stats: {
         totalAdded: formattedStudents.length,
         monthlyCount: formattedStudents.length,
@@ -2712,50 +2685,6 @@ export async function getStudentsByMarathonId(marathonId) {
   }
 }
 
-export async function getCuratorsByMarathonId(marathonId) {
-  try {
-    if (!marathonId || marathonId === "undefined" || marathonId === "null") {
-      return [];
-    }
-
-    const curators = await prisma.curator.findMany({
-      where: {
-        marathons: {
-          some: { id: String(marathonId) },
-        },
-      },
-      select: {
-        id: true,
-        userId: true,
-        name: true,
-        email: true,
-        phone: true,
-        organizerId: true,
-        _count: {
-          select: {
-            students: true,
-          },
-        },
-      },
-      orderBy: { name: "asc" },
-    });
-
-    return safeJson(
-      curators.map((curator) => ({
-        ...curator,
-        studentsCount: curator._count?.students || 0,
-      }))
-    );
-  } catch (error) {
-    console.error("getCuratorsByMarathonId error:", error);
-    return [];
-  }
-}
-
-export async function getGroupsByOrgId(orgId) {
-  return getGroups(orgId);
-}
-
 export async function getStudentProgress(studentId) {
   try {
     if (!studentId || studentId === "undefined" || studentId === "null") {
@@ -2817,6 +2746,138 @@ export async function getStudentProgress(studentId) {
   }
 }
 
+// Compatibility actions required by legacy organization/manager UI.
+export async function checkStudent(value, isEmail) {
+  const result = await checkStudentForMarathon(value, isEmail, null);
+  if (result?.status === "already_in_this_marathon") {
+    return { ...result, status: "already_in_marathon" };
+  }
+  return result;
+}
+
+export async function claimUnassignedStudent(studentId, groupId = null, managerId) {
+  try {
+    if (!studentId || !managerId) {
+      return { ok: false, error: "Оқушы және менеджер ID қажет." };
+    }
+
+    const student = await prisma.student.findUnique({
+      where: { id: String(studentId) },
+      select: { id: true, managerId: true },
+    });
+
+    if (!student) {
+      return { ok: false, error: "Оқушы табылмады." };
+    }
+
+    const updated = await prisma.student.update({
+      where: { id: String(studentId) },
+      data: {
+        managerId: String(managerId),
+        ...(groupId ? { groupId: String(groupId) } : {}),
+      },
+    });
+
+    revalidatePath("/");
+    return safeJson({ ok: true, student: updated });
+  } catch (error) {
+    console.error("claimUnassignedStudent error:", error);
+    return { ok: false, error: error?.message || "Оқушыны менеджерге бекіту кезінде қате шықты." };
+  }
+}
+
+export async function createAnnouncement({
+  title,
+  content,
+  authorRole = "ORGANIZER",
+  authorName = "Ұйымдастырушы",
+  marathonId,
+  groupId = null,
+}) {
+  try {
+    if (!title?.trim() || !content?.trim() || !marathonId) {
+      return { ok: false, error: "Тақырып, мәтін және марафон міндетті." };
+    }
+
+    const marathon = await prisma.marathon.findUnique({
+      where: { id: String(marathonId) },
+      select: { id: true },
+    });
+
+    if (!marathon) {
+      return { ok: false, error: "Марафон табылмады." };
+    }
+
+    if (groupId) {
+      const group = await prisma.group.findFirst({
+        where: { id: String(groupId), marathonId: String(marathonId) },
+        select: { id: true },
+      });
+      if (!group) {
+        return { ok: false, error: "Топ осы марафонға тиесілі емес." };
+      }
+    }
+
+    const announcement = await prisma.announcement.create({
+      data: {
+        title: title.trim(),
+        content: content.trim(),
+        authorRole: String(authorRole || "ORGANIZER"),
+        authorName: String(authorName || "Ұйымдастырушы"),
+        marathonId: String(marathonId),
+        groupId: groupId ? String(groupId) : null,
+      },
+    });
+
+    revalidatePath("/");
+    return safeJson({ ok: true, announcement });
+  } catch (error) {
+    console.error("createAnnouncement error:", error);
+    return { ok: false, error: error?.message || "Хабарландыру жасау кезінде қате шықты." };
+  }
+}
+
+export async function resendOtp(uid, phone) {
+  try {
+    if (!uid) {
+      return { ok: false, error: "Пайдаланушы ID қажет." };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: String(uid) },
+      select: { id: true, phone: true },
+    });
+
+    if (!user) {
+      return { ok: false, error: "Пайдаланушы табылмады." };
+    }
+
+    const generatedCode = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await prisma.pendingOtp.upsert({
+      where: { userId: user.id },
+      update: {
+        code: generatedCode,
+        phone: phone || user.phone || "",
+        expiresAt,
+        createdAt: new Date(),
+      },
+      create: {
+        userId: user.id,
+        code: generatedCode,
+        phone: phone || user.phone || "",
+        expiresAt,
+      },
+    });
+
+    return { ok: true, userId: user.id, devCode: generatedCode };
+  } catch (error) {
+    console.error("resendOtp error:", error);
+    return { ok: false, error: error?.message || "OTP қайта жіберу кезінде қате шықты." };
+  }
+}
+
 // Compatibility aliases for older components.
 export const getstudentsByMarathonId = getStudentsByMarathonId;
 export const getcuratorsByMarathonId = getCuratorsByMarathonId;
@@ -2825,6 +2886,106 @@ export const getstudentProgress = getStudentProgress;
 
 export const toggleMatrixTask = toggleMatrixTaskDone;
 export const updateStudentProfile = updateStudent;
+
+export async function getCuratorsByMarathonId(marathonId) {
+  try {
+    if (!marathonId) {
+      return {
+        ok: false,
+        error: "Marathon ID қажет.",
+        data: [],
+      };
+    }
+
+    const curators = await prisma.curator.findMany({
+      where: {
+        marathons: {
+          some: {
+            id: marathonId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        organizerId: true,
+        userId: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      ok: true,
+      data: curators,
+    };
+  } catch (error) {
+    console.error("getCuratorsByMarathonId error:", error);
+
+    return {
+      ok: false,
+      error: "Кураторларды жүктеу кезінде қате шықты.",
+      data: [],
+    };
+  }
+}
+
+export async function getGroupsByOrgId(orgId) {
+  try {
+    if (!orgId) {
+      return {
+        ok: false,
+        error: "Organization ID қажет.",
+        data: [],
+      };
+    }
+
+    const groups = await prisma.group.findMany({
+      where: {
+        marathon: {
+          organizerId: orgId,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        maxSize: true,
+        marathonId: true,
+        curatorId: true,
+        curator: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            students: true,
+          },
+        },
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      ok: true,
+      data: groups,
+    };
+  } catch (error) {
+    console.error("getGroupsByOrgId error:", error);
+
+    return {
+      ok: false,
+      error: "Топтарды жүктеу кезінде қате шықты.",
+      data: [],
+    };
+  }
+}
 
 export async function toggleHabit(habitId) {
   return await toggleHabitToday(habitId);
@@ -2938,132 +3099,4 @@ export async function reviewSubmission({
 }
 
 export const gettasksByMarathon = getTasksByMarathon;
-
-// ==========================================
-// --- COMPATIBILITY / LEGACY ACTIONS -------
-// ==========================================
-
-export async function checkStudent(value, isEmail, marathonId) {
-  return checkStudentForMarathon(value, isEmail, marathonId);
-}
-
-export async function claimUnassignedStudent(studentId, groupId = null, managerId = null) {
-  try {
-    if (!studentId) {
-      return { ok: false, error: "Student ID қажет." };
-    }
-
-    const targetManagerId = managerId || (await auth.getCurrentUser())?.id || null;
-    if (!targetManagerId) {
-      return { ok: false, error: "Manager ID анықталмады." };
-    }
-
-    const student = await prisma.student.findUnique({
-      where: { id: String(studentId) },
-      select: { id: true, managerId: true },
-    });
-
-    if (!student) {
-      return { ok: false, error: "Оқушы табылмады." };
-    }
-
-    const updated = await prisma.student.update({
-      where: { id: String(studentId) },
-      data: {
-        managerId: String(targetManagerId),
-        ...(groupId ? { groupId: String(groupId) } : {}),
-      },
-    });
-
-    revalidatePath("/");
-    return safeJson({ ok: true, student: updated });
-  } catch (error) {
-    console.error("claimUnassignedStudent error:", error);
-    return { ok: false, error: error?.message || "Оқушыны алу кезінде қате шықты." };
-  }
-}
-
-export async function createAnnouncement({
-  title,
-  content,
-  authorRole = "ORGANIZER",
-  authorName = "Ұйымдастырушы",
-  marathonId,
-  groupId = null,
-}) {
-  try {
-    if (!title?.trim() || !content?.trim() || !marathonId) {
-      return { ok: false, error: "Тақырып, мәтін және marathonId міндетті." };
-    }
-
-    const announcement = await prisma.announcement.create({
-      data: {
-        title: String(title).trim(),
-        content: String(content).trim(),
-        authorRole: String(authorRole || "ORGANIZER"),
-        authorName: String(authorName || "Ұйымдастырушы"),
-        marathonId: String(marathonId),
-        groupId: groupId ? String(groupId) : null,
-      },
-    });
-
-    revalidatePath("/");
-    return safeJson({ ok: true, announcement });
-  } catch (error) {
-    console.error("createAnnouncement error:", error);
-    return { ok: false, error: error?.message || "Хабарландыру жасау кезінде қате шықты." };
-  }
-}
-
-export async function resendOtp(uid, phone) {
-  try {
-    const userId = uid ? String(uid) : null;
-    const rawPhone = String(phone || "").trim();
-
-    const user = userId
-      ? await prisma.user.findUnique({ where: { id: userId } })
-      : rawPhone
-        ? await prisma.user.findFirst({
-            where: {
-              OR: [
-                { phone: rawPhone },
-                { phone: formatPhoneToDbStyle(rawPhone) },
-              ],
-            },
-          })
-        : null;
-
-    if (!user) {
-      return { ok: false, error: "Пайдаланушы табылмады." };
-    }
-
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    const pending = await prisma.pendingOtp.upsert({
-      where: { userId: user.id },
-      update: {
-        code,
-        phone: user.phone || rawPhone,
-        expiresAt,
-      },
-      create: {
-        userId: user.id,
-        code,
-        phone: user.phone || rawPhone,
-        expiresAt,
-      },
-    });
-
-    return safeJson({
-      ok: true,
-      phone: pending.phone,
-      expiresAt: pending.expiresAt,
-    });
-  } catch (error) {
-    console.error("resendOtp error:", error);
-    return { ok: false, error: error?.message || "OTP қайта жіберу кезінде қате шықты." };
-  }
-}
-
 export const getmarathonById = getMarathonById;
