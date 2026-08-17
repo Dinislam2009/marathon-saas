@@ -1,28 +1,18 @@
-export type CourseRecord = {
-  id: string;
-  organizationId: string;
-  programId: string;
-  name: string;
-  description: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
+import { Course as PrismaCourse } from "../../../generated/prisma-v2";
 
-export type CreateCourseInput = {
-  organizationId: string;
-  programId: string;
-  name: string;
-  description?: string | null;
-};
+export type CourseRecord = PrismaCourse;
 
-export type UpdateCourseInput = {
+export interface CreateCourseInput {
+  organizationId: string;
+  name: string;
+  programId?: string;
+  code?: string;
+  description?: string;
+}
+
+export interface UpdateCourseInput {
   name?: string;
-  description?: string | null;
-};
-
-export interface CourseRepository {
-  create(input: CreateCourseInput): Promise<CourseRecord>;
-  findById(organizationId: string, courseId: string): Promise<CourseRecord | null>;
-  list(organizationId: string, programId?: string): Promise<CourseRecord[]>;
-  update(organizationId: string, courseId: string, input: UpdateCourseInput): Promise<CourseRecord>;
+  programId?: string;
+  code?: string;
+  description?: string;
 }

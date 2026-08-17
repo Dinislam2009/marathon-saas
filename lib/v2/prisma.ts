@@ -1,3 +1,4 @@
+import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../generated/prisma-v2/index.js";
 
@@ -6,12 +7,16 @@ const globalForPrismaV2 = globalThis as typeof globalThis & {
 };
 
 function createPrismaV2Client() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.DATABASE_URL_V2 || process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error("DATABASE_URL is required to initialize the Loopit 2.0 Prisma client.");
+    throw new Error(
+      "DATABASE_URL or DATABASE_URL_V2 is required to initialize the Loopit 2.0 Prisma client."
+    );
   }
 
-  const adapter = new PrismaPg({ connectionString });
+  // @prisma/adapter-pg драйверіне pg.Pool данасын беру қажет
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 

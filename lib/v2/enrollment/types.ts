@@ -1,17 +1,15 @@
-export const ENROLLMENT_STATUSES = ["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"] as const;
-export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
+import { Enrollment as PrismaEnrollment, EnrollmentStatus } from "../../../generated/prisma-v2";
 
-export type EnrollmentRecord = {
-  id: string; studentId: string; programId: string; courseId: string | null; groupId: string | null;
-  status: EnrollmentStatus; enrolledAt: Date; completedAt: Date | null;
-};
+export type EnrollmentRecord = PrismaEnrollment;
 
-export type CreateEnrollmentInput = { studentId: string; programId: string; courseId?: string | null; groupId?: string | null; status?: EnrollmentStatus; enrolledAt?: Date };
-export type UpdateEnrollmentInput = { courseId?: string | null; groupId?: string | null; status?: EnrollmentStatus; completedAt?: Date | null };
+export interface CreateEnrollmentInput {
+  organizationId: string;
+  studentId: string;
+  programId: string;
+  groupId?: string;
+  status?: EnrollmentStatus;
+}
 
-export interface EnrollmentRepository {
-  create(input: CreateEnrollmentInput): Promise<EnrollmentRecord>;
-  findById(organizationId: string, enrollmentId: string): Promise<EnrollmentRecord | null>;
-  list(organizationId: string, studentId?: string, programId?: string): Promise<EnrollmentRecord[]>;
-  update(organizationId: string, enrollmentId: string, input: UpdateEnrollmentInput): Promise<EnrollmentRecord>;
+export interface UpdateEnrollmentInput {
+  status?: EnrollmentStatus;
 }

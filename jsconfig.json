@@ -4,6 +4,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["**/*.js", "**/*.jsx"],
+  "include": ["**/*.js", "**/*.jsx", "middleware.ts"],
   "exclude": ["node_modules", ".next"]
 }

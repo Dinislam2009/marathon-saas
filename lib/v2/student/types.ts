@@ -1,21 +1,7 @@
-export const STUDENT_STATUSES = ["ACTIVE", "INVITED", "SUSPENDED", "ARCHIVED"] as const;
+import { Student as PrismaStudent, UserStatus } from "../../../generated/prisma-v2";
 
-export type StudentStatus = (typeof STUDENT_STATUSES)[number];
-
-export interface StudentRecord {
-  id: string;
-  organizationId: string;
-  firstName: string;
-  lastName: string;
-  phone?: string | null;
-  email?: string | null;
-  dateOfBirth?: Date | null;
-  status: StudentStatus;
-  source?: string | null;
-  notes?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type StudentRecord = PrismaStudent;
+export type StudentStatus = UserStatus;
 
 export interface CreateStudentInput {
   organizationId: string;
@@ -27,6 +13,7 @@ export interface CreateStudentInput {
   status?: StudentStatus;
   source?: string | null;
   notes?: string | null;
+  groupId?: string;
 }
 
 export interface UpdateStudentInput {
@@ -38,11 +25,5 @@ export interface UpdateStudentInput {
   status?: StudentStatus;
   source?: string | null;
   notes?: string | null;
-}
-
-export interface StudentRepository {
-  create(input: CreateStudentInput): Promise<StudentRecord>;
-  findById(organizationId: string, studentId: string): Promise<StudentRecord | null>;
-  list(organizationId: string): Promise<StudentRecord[]>;
-  update(organizationId: string, studentId: string, input: UpdateStudentInput): Promise<StudentRecord>;
+  groupId?: string;
 }
