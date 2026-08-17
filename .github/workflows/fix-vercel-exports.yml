@@ -1,0 +1,53 @@
+name: Fix remaining Vercel export mismatches
+
+on:
+  push:
+    branches:
+      - loopit-2.0/production-fix
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: loopit-2.0/production-fix
+          fetch-depth: 0
+
+      - name: Patch stale action references
+        shell: python
+        run: |
+          from pathlib import Path
+
+          marathon = Path('app/[lang]/org/[orgId]/admin/marathons/[marathonId]/page.js')
+          text = marathon.read_text(encoding='utf-8')
+          text = text.replace(
+              'const getTasksFn = actions.getTasksByMarathon || actions.gettasksByMarathon;\n      if (typeof getTasksFn === "function") {\n        const tasksData = await getTasksFn(marathonId);',
+              'const getTasksFn = actions.getTasksByMarathon;\n      if (typeof getTasksFn === "function") {\n        const tasksData = await getTasksFn(marathonId);'
+          )
+          marathon.write_text(text, encoding='utf-8')
+
+          verify = Path('app/[lang]/verify-otp/page.js')
+          text = verify.read_text(encoding='utf-8')
+          if 'from "@/app/otp-actions"' not in text:
+              text = text.replace(
+                  'import * as actions from "@/app/actions";\n',
+                  'import * as actions from "@/app/actions";\nimport { resendOtp } from "@/app/otp-actions";\n'
+              )
+          text = text.replace(
+              'const resendFn = actions.resendOtp || actions.resendOtp;\n      let result = null;\n\n      if (typeof resendFn === "function") {\n        result = await resendFn(uid, phone);',
+              'const result = await resendOtp(uid, phone);'
+          )
+          verify.write_text(text, encoding='utf-8')
+
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 'app/[lang]/org/[orgId]/admin/marathons/[marathonId]/page.js' 'app/[lang]/verify-otp/page.js'
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: remove stale action exports"
+          git push origin HEAD:loopit-2.0/production-fix
