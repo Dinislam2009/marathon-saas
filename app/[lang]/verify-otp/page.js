@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import Button from "@/components/Button";
 import { useLanguage } from "@/context/LanguageContext";
 import * as actions from "@/app/actions";
+import { resendOtp } from "@/app/otp-actions";
 
 function maskPhone(phone) {
   if (!phone) return "";
@@ -173,11 +174,7 @@ function VerifyOtpForm() {
   async function handleResend() {
     if (cooldown > 0) return;
     try {
-      const resendFn = actions.resendOtp || actions.resendOtp;
-      let result = null;
-
-      if (typeof resendFn === "function") {
-        result = await resendFn(uid, phone);
+      const result = await resendOtp(uid, phone);
       }
 
       if (result && result.ok) {
