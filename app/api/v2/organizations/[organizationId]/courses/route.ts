@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server.js";
-import { PrismaCourseRepository } from "../../../../../../lib/v2/course/repository-prisma.ts";
-import { CourseService } from "../../../../../../lib/v2/course/service.ts";
-import { prismaV2 } from "../../../../../../lib/v2/prisma.ts";
-import { getActorId, organizationErrorResponse, requireOrganizationAccess } from "../../../../../../lib/v2/organization/access.ts";
+import { PrismaCourseRepository } from "../../../../../lib/v2/course/repository-prisma.ts";
+import { CourseService } from "../../../../../lib/v2/course/service.ts";
+import { prismaV2 } from "../../../../../lib/v2/prisma.ts";
+import { getActorId, organizationErrorResponse, requireOrganizationAccess } from "../../../../../lib/v2/organization/access.ts";
 
 function errorResponse(error: unknown) {
   const { message, status } = organizationErrorResponse(error);
