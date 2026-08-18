@@ -1,40 +1,84 @@
-import type { PrismaClient } from "../../../generated/prisma-v2/index.js";
-import type { CreateStudentInput, StudentRecord, StudentRepository, UpdateStudentInput } from "./types.ts";
-
-type PrismaV2Client = PrismaClient;
+import { PrismaClient } from "../../../generated/prisma-v2";
+import { StudentRepository } from "./repository";
+import { StudentRecord, CreateStudentInput, UpdateStudentInput } from "./types";
 
 export class PrismaStudentRepository implements StudentRepository {
-  private readonly prisma: PrismaV2Client;
-
-  constructor(prisma: PrismaV2Client) {
-    this.prisma = prisma;
-  }
+  constructor(private readonly prisma: PrismaClient) {}
 
   async create(input: CreateStudentInput): Promise<StudentRecord> {
     return this.prisma.student.create({
       data: {
-        organizationId: input.organizationId,
         firstName: input.firstName,
         lastName: input.lastName,
-        phone: input.phone ?? null,
-        email: input.email ?? null,
-        dateOfBirth: input.dateOfBirth ?? null,
-        status: input.status ?? "ACTIVE",
-        source: input.source ?? null,
-        notes: input.notes ?? null,
+        phone: input.phone,
+        email: input.email,
+        dateOfBirth: input.dateOfBirth,
+        status: input.status,
+        source: input.source,
+        notes: input.notes,
+        organization: {
+          connect: { id: input.organizationId },
+        },
+        ...(input.groupId
+          ? { group: { connect: { id: input.groupId } } }
+          : {}),
       },
     });
   }
 
-  async findById(organizationId: string, studentId: string): Promise<StudentRecord | null> {
-    return this.prisma.student.findFirst({ where: { id: studentId, organizationId } });
+  async findById(organizationId: string, id: string): Promise<StudentRecord | null> {
+    return this.prisma.student.findFirst({
+      where: {
+        id,
+        organizationId,
+      },
+    });
   }
 
-  async list(organizationId: string): Promise<StudentRecord[]> {
-    return this.prisma.student.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
+  async findMany(organizationId: string, groupId?: string): Promise<StudentRecord[]> {
+    return this.prisma.student.findMany({
+      where: {
+        organizationId,
+        ...(groupId ? { groupId } : {}),
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
   }
 
-  async update(organizationId: string, studentId: string, input: UpdateStudentInput): Promise<StudentRecord> {
-    return this.prisma.student.update({ where: { id: studentId, organizationId }, data: input });
+  async update(
+    organizationId: string,
+    id: string,
+    input: UpdateStudentInput
+  ): Promise<StudentRecord> {
+    return this.prisma.student.update({
+      where: {
+        id,
+        organizationId,
+      },
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        phone: input.phone,
+        email: input.email,
+        dateOfBirth: input.dateOfBirth,
+        status: input.status,
+        source: input.source,
+        notes: input.notes,
+        ...(input.groupId
+          ? { group: { connect: { id: input.groupId } } }
+          : {}),
+      },
+    });
+  }
+
+  async delete(organizationId: string, id: string): Promise<void> {
+    await this.prisma.student.delete({
+      where: {
+        id,
+        organizationId,
+      },
+    });
   }
 }

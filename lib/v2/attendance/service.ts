@@ -1,38 +1,30 @@
-import type {
-  AttendanceRecord,
-  AttendanceRepository,
-  CreateAttendanceInput,
-  UpdateAttendanceInput,
-} from "./types.ts";
+import { AttendanceRepository } from "./repository";
+import { AttendanceRecord, MarkAttendanceInput, UpdateAttendanceInput } from "./types";
 
 export class AttendanceService {
-  private readonly repository: AttendanceRepository;
+  constructor(private readonly repository: AttendanceRepository) {}
 
-  constructor(repository: AttendanceRepository) {
-    this.repository = repository;
+  async markAttendance(input: MarkAttendanceInput): Promise<AttendanceRecord> {
+    return this.repository.mark(input);
   }
 
-  create(input: CreateAttendanceInput): Promise<AttendanceRecord> {
-    if (!input.lessonId || !input.studentId) throw new Error("Lesson and student are required.");
-    return this.repository.create(input);
+  async getAttendance(organizationId: string, id: string): Promise<AttendanceRecord | null> {
+    return this.repository.findById(organizationId, id);
   }
 
-  get(lessonId: string, studentId: string): Promise<AttendanceRecord | null> {
-    return this.repository.findById(lessonId, studentId);
+  async listAttendance(
+    organizationId: string,
+    groupId?: string,
+    studentId?: string
+  ): Promise<AttendanceRecord[]> {
+    return this.repository.findMany(organizationId, groupId, studentId);
   }
 
-  listByLesson(lessonId: string): Promise<AttendanceRecord[]> {
-    return this.repository.listByLesson(lessonId);
-  }
-
-  update(
-    lessonId: string,
-    studentId: string,
-    input: UpdateAttendanceInput,
+  async updateAttendance(
+    organizationId: string,
+    id: string,
+    input: UpdateAttendanceInput
   ): Promise<AttendanceRecord> {
-    if (!input.status && input.note === undefined) {
-      throw new Error("Attendance update requires status or note.");
-    }
-    return this.repository.update(lessonId, studentId, input);
+    return this.repository.update(organizationId, id, input);
   }
 }

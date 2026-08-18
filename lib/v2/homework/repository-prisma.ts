@@ -1,45 +1,66 @@
-import type { PrismaClient } from "../../../generated/prisma-v2";
-import type { CreateHomeworkInput, HomeworkRecord, HomeworkRepository, UpdateHomeworkInput } from "./types.ts";
-
-type PrismaV2Client = PrismaClient;
+import { PrismaClient } from "../../../generated/prisma-v2";
+import { HomeworkRepository } from "./repository";
+import { HomeworkRecord, CreateHomeworkInput, UpdateHomeworkInput } from "./types";
 
 export class PrismaHomeworkRepository implements HomeworkRepository {
-  private readonly prisma: PrismaV2Client;
-
-  constructor(prisma: PrismaV2Client) {
-    this.prisma = prisma;
-  }
+  constructor(private readonly prisma: PrismaClient) {}
 
   async create(input: CreateHomeworkInput): Promise<HomeworkRecord> {
     return this.prisma.homework.create({
       data: {
-        lessonId: input.lessonId,
         title: input.title,
-        description: input.description ?? null,
-        deadline: input.deadline ?? null,
-        status: input.status ?? "DRAFT",
+        description: input.description,
+        lesson: { connect: { id: input.lessonId } },
       },
     });
   }
 
-  async findById(lessonId: string, homeworkId: string): Promise<HomeworkRecord | null> {
-    return this.prisma.homework.findFirst({ where: { id: homeworkId, lessonId } });
+  async findById(organizationId: string, id: string): Promise<HomeworkRecord | null> {
+    return this.prisma.homework.findFirst({
+      where: {
+        id,
+        lesson: { course: { organizationId } },
+      },
+    });
   }
 
-  async listByLesson(lessonId: string): Promise<HomeworkRecord[]> {
+  async findMany(organizationId: string, lessonId?: string): Promise<HomeworkRecord[]> {
     return this.prisma.homework.findMany({
-      where: { lessonId },
-      orderBy: { deadline: "asc" },
+      where: {
+        lesson: { course: { organizationId } },
+        ...(lessonId ? { lessonId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 
   async update(
-    lessonId: string,
-    homeworkId: string,
-    input: UpdateHomeworkInput,
+    organizationId: string,
+    id: string,
+    input: UpdateHomeworkInput
   ): Promise<HomeworkRecord> {
-    const existing = await this.findById(lessonId, homeworkId);
-    if (!existing) throw new Error("Homework not found.");
-    return this.prisma.homework.update({ where: { id: homeworkId }, data: input });
+    const existing = await this.findById(organizationId, id);
+    if (!existing) {
+      throw new Error("Homework record not found");
+    }
+
+    return this.prisma.homework.update({
+      where: { id },
+      data: {
+        ...(input.title ? { title: input.title } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+      },
+    });
+  }
+
+  async delete(organizationId: string, id: string): Promise<void> {
+    const existing = await this.findById(organizationId, id);
+    if (!existing) {
+      throw new Error("Homework record not found");
+    }
+
+    await this.prisma.homework.delete({
+      where: { id },
+    });
   }
 }

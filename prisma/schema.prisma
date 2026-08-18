@@ -11,8 +11,8 @@ model User {
   email           String      @unique
   phone           String      @unique
   passwordHash    String
-  firstName       String
-  lastName        String
+  firstName       String      
+  lastName        String      
   verified        Boolean     @default(false)
   role            Role        @default(PARTICIPANT)
   createdAt       DateTime    @default(now())
@@ -121,9 +121,9 @@ model Student {
   habits           Habit[]
   matrixTasks      MatrixTask[]
   curator          Curator?      @relation(fields: [curatorId], references: [id])
-  group            Group?        @relation(fields: [groupId], references: [id])
-  marathon         Marathon      @relation(fields: [marathonId], references: [id], onDelete: Cascade)
-  user             User?         @relation(fields: [userId], references: [id])
+  group            Group?         @relation(fields: [groupId], references: [id])
+  marathon         Marathon       @relation(fields: [marathonId], references: [id], onDelete: Cascade)
+  user             User?          @relation(fields: [userId], references: [id])
   submissions      Submission[]
   @@index([marathonId])
   @@index([curatorId])

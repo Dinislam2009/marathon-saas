@@ -2636,29 +2636,467 @@ export async function updateOrganizerProfile(orgId, data) {
   }
 }
 
-// Compatibility action for the curator submissions UI.
-export async function reviewSubmission({ submissionId, status, studentId, points }) {
+
+// ==========================================
+// --- LEGACY COMPATIBILITY ACTIONS ----------
+// These actions are kept for older UI pages that
+// still call the pre-V2 action names.
+// ==========================================
+
+export async function getStudentsByMarathonId(marathonId) {
   try {
-    if (!submissionId || !status) {
-      return { ok: false, error: "Submission ID және статус қажет." };
+    if (!marathonId || marathonId === "undefined" || marathonId === "null") {
+      return [];
     }
 
-    const submission = await prisma.submission.update({
-      where: { id: String(submissionId) },
-      data: { status: String(status) },
+    const students = await prisma.student.findMany({
+      where: { marathonId: String(marathonId) },
+      include: {
+        curator: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { joinedAt: "desc" },
     });
 
-    if (String(status) === "APPROVED" && studentId && Number(points) > 0) {
-      await prisma.student.update({
-        where: { id: String(studentId) },
-        data: { points: { increment: Number(points) } },
-      });
-    }
-
-    revalidatePath("/");
-    return safeJson({ ok: true, submission });
+    return safeJson(
+      students.map((student) => ({
+        ...student,
+        name: student.name || "Қатысушы",
+        points: student.points || 0,
+        curatorName: student.curator?.name || null,
+        groupName: student.group?.name || null,
+      }))
+    );
   } catch (error) {
-    console.error("reviewSubmission error:", error);
-    return { ok: false, error: error?.message || "Жұмысты тексеру кезінде қате орын алды." };
+    console.error("getStudentsByMarathonId error:", error);
+    return [];
   }
 }
+
+export async function getStudentProgress(studentId) {
+  try {
+    if (!studentId || studentId === "undefined" || studentId === "null") {
+      return { ok: false, error: "Оқушы ID көрсетілмеген" };
+    }
+
+    const student = await prisma.student.findUnique({
+      where: { id: String(studentId) },
+      include: {
+        marathon: true,
+        curator: true,
+        group: true,
+      },
+    });
+
+    if (!student || !student.marathon) {
+      return {
+        ok: false,
+        error: "Оқушы немесе марафон табылмады",
+      };
+    }
+
+    const submissions = await prisma.submission.findMany({
+      where: {
+        studentId: student.id,
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            dayNumber: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    const allSubmissions = submissions.map((submission) => ({
+      ...submission,
+      dayNumber: submission.task?.dayNumber ?? null,
+    }));
+
+    return safeJson({
+      ok: true,
+      data: {
+        student,
+        marathon: student.marathon,
+        allSubmissions,
+      },
+    });
+  } catch (error) {
+    console.error("getStudentProgress error:", error);
+    return {
+      ok: false,
+      error: "Прогресс мәліметтерін жүктеу кезінде қате шықты",
+    };
+  }
+}
+
+// Compatibility actions required by legacy organization/manager UI.
+export async function checkStudent(value, isEmail) {
+  const result = await checkStudentForMarathon(value, isEmail, null);
+  if (result?.status === "already_in_this_marathon") {
+    return { ...result, status: "already_in_marathon" };
+  }
+  return result;
+}
+
+export async function claimUnassignedStudent(studentId, groupId = null, managerId) {
+  try {
+    if (!studentId || !managerId) {
+      return { ok: false, error: "Оқушы және менеджер ID қажет." };
+    }
+
+    const student = await prisma.student.findUnique({
+      where: { id: String(studentId) },
+      select: { id: true, managerId: true },
+    });
+
+    if (!student) {
+      return { ok: false, error: "Оқушы табылмады." };
+    }
+
+    const updated = await prisma.student.update({
+      where: { id: String(studentId) },
+      data: {
+        managerId: String(managerId),
+        ...(groupId ? { groupId: String(groupId) } : {}),
+      },
+    });
+
+    revalidatePath("/");
+    return safeJson({ ok: true, student: updated });
+  } catch (error) {
+    console.error("claimUnassignedStudent error:", error);
+    return { ok: false, error: error?.message || "Оқушыны менеджерге бекіту кезінде қате шықты." };
+  }
+}
+
+export async function createAnnouncement({
+  title,
+  content,
+  authorRole = "ORGANIZER",
+  authorName = "Ұйымдастырушы",
+  marathonId,
+  groupId = null,
+}) {
+  try {
+    if (!title?.trim() || !content?.trim() || !marathonId) {
+      return { ok: false, error: "Тақырып, мәтін және марафон міндетті." };
+    }
+
+    const marathon = await prisma.marathon.findUnique({
+      where: { id: String(marathonId) },
+      select: { id: true },
+    });
+
+    if (!marathon) {
+      return { ok: false, error: "Марафон табылмады." };
+    }
+
+    if (groupId) {
+      const group = await prisma.group.findFirst({
+        where: { id: String(groupId), marathonId: String(marathonId) },
+        select: { id: true },
+      });
+      if (!group) {
+        return { ok: false, error: "Топ осы марафонға тиесілі емес." };
+      }
+    }
+
+    const announcement = await prisma.announcement.create({
+      data: {
+        title: title.trim(),
+        content: content.trim(),
+        authorRole: String(authorRole || "ORGANIZER"),
+        authorName: String(authorName || "Ұйымдастырушы"),
+        marathonId: String(marathonId),
+        groupId: groupId ? String(groupId) : null,
+      },
+    });
+
+    revalidatePath("/");
+    return safeJson({ ok: true, announcement });
+  } catch (error) {
+    console.error("createAnnouncement error:", error);
+    return { ok: false, error: error?.message || "Хабарландыру жасау кезінде қате шықты." };
+  }
+}
+
+export async function resendOtp(uid, phone) {
+  try {
+    if (!uid) {
+      return { ok: false, error: "Пайдаланушы ID қажет." };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: String(uid) },
+      select: { id: true, phone: true },
+    });
+
+    if (!user) {
+      return { ok: false, error: "Пайдаланушы табылмады." };
+    }
+
+    const generatedCode = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await prisma.pendingOtp.upsert({
+      where: { userId: user.id },
+      update: {
+        code: generatedCode,
+        phone: phone || user.phone || "",
+        expiresAt,
+        createdAt: new Date(),
+      },
+      create: {
+        userId: user.id,
+        code: generatedCode,
+        phone: phone || user.phone || "",
+        expiresAt,
+      },
+    });
+
+    return { ok: true, userId: user.id, devCode: generatedCode };
+  } catch (error) {
+    console.error("resendOtp error:", error);
+    return { ok: false, error: error?.message || "OTP қайта жіберу кезінде қате шықты." };
+  }
+}
+
+// Compatibility aliases for older components.
+export const getstudentsByMarathonId = getStudentsByMarathonId;
+export const getcuratorsByMarathonId = getCuratorsByMarathonId;
+export const getgroupsByOrgId = getGroupsByOrgId;
+export const getstudentProgress = getStudentProgress;
+
+export const toggleMatrixTask = toggleMatrixTaskDone;
+export const updateStudentProfile = updateStudent;
+
+export async function getCuratorsByMarathonId(marathonId) {
+  try {
+    if (!marathonId) {
+      return {
+        ok: false,
+        error: "Marathon ID қажет.",
+        data: [],
+      };
+    }
+
+    const curators = await prisma.curator.findMany({
+      where: {
+        marathons: {
+          some: {
+            id: marathonId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        organizerId: true,
+        userId: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      ok: true,
+      data: curators,
+    };
+  } catch (error) {
+    console.error("getCuratorsByMarathonId error:", error);
+
+    return {
+      ok: false,
+      error: "Кураторларды жүктеу кезінде қате шықты.",
+      data: [],
+    };
+  }
+}
+
+export async function getGroupsByOrgId(orgId) {
+  try {
+    if (!orgId) {
+      return {
+        ok: false,
+        error: "Organization ID қажет.",
+        data: [],
+      };
+    }
+
+    const groups = await prisma.group.findMany({
+      where: {
+        marathon: {
+          organizerId: orgId,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        maxSize: true,
+        marathonId: true,
+        curatorId: true,
+        curator: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            students: true,
+          },
+        },
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      ok: true,
+      data: groups,
+    };
+  } catch (error) {
+    console.error("getGroupsByOrgId error:", error);
+
+    return {
+      ok: false,
+      error: "Топтарды жүктеу кезінде қате шықты.",
+      data: [],
+    };
+  }
+}
+
+export async function toggleHabit(habitId) {
+  return await toggleHabitToday(habitId);
+}
+export async function reviewSubmission({
+  submissionId,
+  status,
+  studentId,
+  points = 0,
+}) {
+  try {
+    if (!submissionId) {
+      return {
+        ok: false,
+        error: "Submission ID қажет.",
+      };
+    }
+
+    if (!["APPROVED", "REJECTED"].includes(status)) {
+      return {
+        ok: false,
+        error: "Қате статус.",
+      };
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: {
+        id: String(submissionId),
+      },
+      include: {
+        student: true,
+        task: true,
+      },
+    });
+
+    if (!submission) {
+      return {
+        ok: false,
+        error: "Тапсырма жіберілімі табылмады.",
+      };
+    }
+
+    const targetStudentId = studentId || submission.studentId;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedSubmission = await tx.submission.update({
+        where: {
+          id: String(submissionId),
+        },
+        data: {
+          status,
+        },
+        include: {
+          student: true,
+          task: true,
+        },
+      });
+
+      let updatedStudent = submission.student;
+
+      // XP тек APPROVED болған кезде қосылады.
+      // Бұрын APPROVED болған submission қайта өңделсе,
+      // ұпайды екінші рет қоспаймыз.
+      if (
+        status === "APPROVED" &&
+        submission.status !== "APPROVED"
+      ) {
+        const earnedPoints =
+          Number(points) > 0
+            ? Number(points)
+            : Number(submission.task?.points || 0);
+
+        if (earnedPoints > 0) {
+          updatedStudent = await tx.student.update({
+            where: {
+              id: String(targetStudentId),
+            },
+            data: {
+              points: {
+                increment: earnedPoints,
+              },
+            },
+          });
+        }
+      }
+
+      return {
+        submission: updatedSubmission,
+        student: updatedStudent,
+      };
+    });
+
+    revalidatePath("/");
+
+    return safeJson({
+      ok: true,
+      data: result,
+      submission: result.submission,
+      student: result.student,
+    });
+  } catch (error) {
+    console.error("reviewSubmission error:", error);
+
+    return {
+      ok: false,
+      error:
+        error?.message ||
+        "Тапсырманы тексеру кезінде серверлік қате шықты.",
+    };
+  }
+}
+
+export const gettasksByMarathon = getTasksByMarathon;
+export const getmarathonById = getMarathonById;

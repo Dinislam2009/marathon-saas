@@ -287,13 +287,14 @@ model Program {
 model Course {
   id String @id @default(cuid())
   organizationId String
-  programId String
+  programId String?
   name String
+  code           String?
   description String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  program Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
   groups Group[]
   lessons Lesson[]
   enrollments Enrollment[]

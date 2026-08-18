@@ -5,25 +5,28 @@
   "description": "Marafon/intensivter uyymdastyruğa arnalğan köpqoldanuşyly (multi-tenant) SaaS platforması",
   "scripts": {
     "dev": "next dev",
-    "build": "npm run prisma:generate && npm run prisma:v2:generate && next build",
+    "build": "prisma generate && prisma generate --schema=prisma/schema-v2.prisma && next build",
     "start": "next start",
     "lint": "next lint",
-    "prisma:validate": "prisma validate --schema=prisma/schema.prisma",
-    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+    "db:deploy:v2": "prisma migrate deploy --schema=prisma/schema-v2.prisma",
     "prisma:v2:validate": "prisma validate --schema=prisma/schema-v2.prisma",
     "prisma:v2:generate": "prisma generate --schema=prisma/schema-v2.prisma",
     "test:v2:core-schema": "node scripts/validate-loopit-v2-schema.mjs",
+    "test:v2:group-api": "tsx --import dotenv/config scripts/test-v2-group-api.mts",
+    "test:v2:enrollment-api": "tsx --import dotenv/config scripts/test-v2-enrollment-attendance-api.mts",
+    "test:v2:lesson-api": "tsx --import dotenv/config scripts/test-v2-lesson-homework-api.mts",
+    "test:v2:analytics-api": "tsx --import dotenv/config scripts/test-v2-analytics-api.mts",
+    "test:v2:student-api": "tsx --import dotenv/config scripts/test-v2-student-api.mts",
+    "test:v2:course-api": "tsx --import dotenv/config scripts/test-v2-course-api.mts",
     "test:v2:postgres": "node scripts/test-v2-postgres.mjs",
-    "test:v2:course-api": "node --experimental-strip-types --test scripts/test-v2-course-api-contracts.mts",
-    "test:v2:api-contracts": "node --experimental-strip-types --test scripts/test-v2-api-contracts.mts",
-    "test:v2:rbac": "node --experimental-strip-types --test scripts/test-v2-rbac.mts",
-    "typecheck": "npm run prisma:generate && npm run prisma:v2:generate && next typegen && tsc --noEmit"
+    "typecheck": "npm run prisma:v2:generate && next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "7.8.0",
     "@supabase/supabase-js": "^2.110.8",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "lucide-react": "^1.24.0",
     "next": "^16.2.7",
     "pg": "^8.22.0",
@@ -35,9 +38,10 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
     "prisma": "7.8.0",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.12"
   },
   "engines": {
-  "node": "20.x"
+    "node": ">=20.9.0"
   }
 }

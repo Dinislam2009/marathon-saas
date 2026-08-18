@@ -1,34 +1,30 @@
-import type { CreateHomeworkInput, HomeworkRecord, HomeworkRepository, UpdateHomeworkInput } from "./types.ts";
+import { HomeworkRepository } from "./repository";
+import { HomeworkRecord, CreateHomeworkInput, UpdateHomeworkInput } from "./types";
 
 export class HomeworkService {
-  private readonly repository: HomeworkRepository;
+  constructor(private readonly repository: HomeworkRepository) {}
 
-  constructor(repository: HomeworkRepository) {
-    this.repository = repository;
-  }
-
-  create(input: CreateHomeworkInput): Promise<HomeworkRecord> {
-    if (!input.lessonId) throw new Error("Lesson is required.");
-    if (!input.title.trim()) throw new Error("Homework title is required.");
+  async createHomework(input: CreateHomeworkInput): Promise<HomeworkRecord> {
     return this.repository.create(input);
   }
 
-  get(lessonId: string, homeworkId: string): Promise<HomeworkRecord | null> {
-    return this.repository.findById(lessonId, homeworkId);
+  async getHomework(organizationId: string, id: string): Promise<HomeworkRecord | null> {
+    return this.repository.findById(organizationId, id);
   }
 
-  list(lessonId: string): Promise<HomeworkRecord[]> {
-    return this.repository.listByLesson(lessonId);
+  async listHomeworks(organizationId: string, lessonId?: string): Promise<HomeworkRecord[]> {
+    return this.repository.findMany(organizationId, lessonId);
   }
 
-  update(
-    lessonId: string,
-    homeworkId: string,
-    input: UpdateHomeworkInput,
+  async updateHomework(
+    organizationId: string,
+    id: string,
+    input: UpdateHomeworkInput
   ): Promise<HomeworkRecord> {
-    if (input.title !== undefined && !input.title.trim()) {
-      throw new Error("Homework title is required.");
-    }
-    return this.repository.update(lessonId, homeworkId, input);
+    return this.repository.update(organizationId, id, input);
+  }
+
+  async deleteHomework(organizationId: string, id: string): Promise<void> {
+    return this.repository.delete(organizationId, id);
   }
 }

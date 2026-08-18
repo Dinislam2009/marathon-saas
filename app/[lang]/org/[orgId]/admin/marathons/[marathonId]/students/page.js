@@ -10,7 +10,6 @@ import Card from "@/components/Card";
 import Badge from "@/components/Badge";
 import LoadingState from "@/components/LoadingState";
 import * as actions from "@/app/actions";
-import { getStudentsByMarathonId } from "@/app/legacy-student-actions";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function MarathonPeoplePage({ params }) {
@@ -19,7 +18,7 @@ export default function MarathonPeoplePage({ params }) {
 
   const resolvedParams = use(params);
   const marathonId = resolvedParams?.marathonId;
-  const orgId = resolvedParams?.orgId;
+  const orgId = resolvedParams?.orgId; // 👈 orgId алынды
 
   const { ready, tick } = useData();
 
@@ -35,16 +34,22 @@ export default function MarathonPeoplePage({ params }) {
       try {
         setLoading(true);
 
-        const getMarathonFn = actions.getMarathonById || actions.getMarathonById;
+        // 1. Марафон ақпаратын жүктеу
+        const getMarathonFn = actions.getMarathonById || actions.getmarathonById;
         if (typeof getMarathonFn === "function") {
           const m = await getMarathonFn(marathonId);
           setMarathon(m);
         }
 
-        const st = await getStudentsByMarathonId(marathonId);
-        setStudents(st || []);
+        // 2. Оқушыларды жүктеу
+        const getStudentsFn = actions.getStudentsByMarathonId || actions.getstudentsByMarathonId;
+        if (typeof getStudentsFn === "function") {
+          const st = await getStudentsFn(marathonId);
+          setStudents(st || []);
+        }
 
-        const getCuratorsFn = actions.getCuratorsByMarathonId || actions.getCuratorsByMarathonId;
+        // 3. Кураторларды жүктеу (Бас/Кіші әріптерге қауіпсіз тексеру)
+        const getCuratorsFn = actions.getCuratorsByMarathonId || actions.getcuratorsByMarathonId;
         if (typeof getCuratorsFn === "function") {
           const mt = await getCuratorsFn(marathonId);
           setCurators(mt || []);
@@ -63,7 +68,8 @@ export default function MarathonPeoplePage({ params }) {
 
   if (!ready || loading) return <LoadingState />;
 
-  const backUrl = orgId
+  // Маршрутты қатесіз құру
+  const backUrl = orgId 
     ? `/${lang}/org/${orgId}/admin/marathons/${marathonId}`
     : `/${lang}/org/admin`;
 
@@ -83,15 +89,16 @@ export default function MarathonPeoplePage({ params }) {
         </div>
       </div>
 
+      {/* ТАБТАР */}
       <div className="inline-flex bg-slate-100 p-1 rounded-xl gap-1 w-fit">
         {[
-          {
-            key: "student",
-            label: isRu ? `Ученики (${students.length})` : `Оқушылар (${students.length})`
+          { 
+            key: "student", 
+            label: isRu ? `Ученики (${students.length})` : `Оқушылар (${students.length})` 
           },
-          {
-            key: "curator",
-            label: isRu ? `Кураторы (${curators.length})` : `Кураторлар (${curators.length})`
+          { 
+            key: "curator", 
+            label: isRu ? `Кураторы (${curators.length})` : `Кураторлар (${curators.length})` 
           },
         ].map((t) => (
           <button
@@ -109,13 +116,14 @@ export default function MarathonPeoplePage({ params }) {
         ))}
       </div>
 
+      {/* ОҚУШЫЛАР НЕМЕСЕ КУРАТОРЛАР КЕСТЕСІ */}
       {tab === "student" ? (
         <Card padded={false} className="overflow-hidden border border-slate-200/80 rounded-2xl shadow-xs">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400 tracking-wide bg-slate-50/50">
                 <th className="px-5 py-3 font-bold">{isRu ? "Ученик" : "Оқушы"}</th>
-                <th className="px-5 py-3 font-bold">Куратор</th>
+                <th className="px-5 py-3 font-bold">{isRu ? "Куратор" : "Куратор"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Баллы" : "Ұпай"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Статус" : "Күй"}</th>
               </tr>
@@ -166,7 +174,7 @@ export default function MarathonPeoplePage({ params }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400 tracking-wide bg-slate-50/50">
-                <th className="px-5 py-3 font-bold">Куратор</th>
+                <th className="px-5 py-3 font-bold">{isRu ? "Куратор" : "Куратор"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Контакты" : "Байланыс"}</th>
                 <th className="px-5 py-3 font-bold">{isRu ? "Кол-во учеников" : "Оқушы саны"}</th>
               </tr>

@@ -1,37 +1,15 @@
-export const GROUP_STATUSES = ["ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"] as const;
-export type GroupStatus = (typeof GROUP_STATUSES)[number];
+import { Group as PrismaGroup } from "../../../generated/prisma-v2";
 
-export type GroupRecord = {
-  id: string;
+export type GroupRecord = PrismaGroup;
+
+export interface CreateGroupInput {
   organizationId: string;
   courseId: string;
-  teacherId: string | null;
   name: string;
-  capacity: number | null;
-  status: GroupStatus;
-  createdAt: Date;
-  updatedAt: Date;
-};
+  capacity?: number;
+}
 
-export type CreateGroupInput = {
-  organizationId: string;
-  courseId: string;
-  teacherId?: string | null;
-  name: string;
-  capacity?: number | null;
-  status?: GroupStatus;
-};
-
-export type UpdateGroupInput = {
-  teacherId?: string | null;
+export interface UpdateGroupInput {
   name?: string;
-  capacity?: number | null;
-  status?: GroupStatus;
-};
-
-export interface GroupRepository {
-  create(input: CreateGroupInput): Promise<GroupRecord>;
-  findById(organizationId: string, groupId: string): Promise<GroupRecord | null>;
-  list(organizationId: string, courseId?: string): Promise<GroupRecord[]>;
-  update(organizationId: string, groupId: string, input: UpdateGroupInput): Promise<GroupRecord>;
+  capacity?: number;
 }

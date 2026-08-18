@@ -1,31 +1,17 @@
-export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+import { Attendance as PrismaAttendance, AttendanceStatus } from "../../../generated/prisma-v2";
 
-export interface AttendanceRecord {
-  id: string;
-  lessonId: string;
-  studentId: string;
-  status: AttendanceStatus;
-  note: string | null;
-  createdAt: Date;
-}
+export type AttendanceRecord = PrismaAttendance;
 
-export interface CreateAttendanceInput {
-  lessonId: string;
+export interface MarkAttendanceInput {
+  organizationId: string;
   studentId: string;
+  lessonId: string;
+  groupId?: string;
   status: AttendanceStatus;
-  note?: string | null;
+  note?: string;
 }
 
 export interface UpdateAttendanceInput {
   status?: AttendanceStatus;
-  note?: string | null;
+  note?: string;
 }
-
-export interface AttendanceRepository {
-  create(input: CreateAttendanceInput): Promise<AttendanceRecord>;
-  findById(lessonId: string, studentId: string): Promise<AttendanceRecord | null>;
-  listByLesson(lessonId: string): Promise<AttendanceRecord[]>;
-  update(lessonId: string, studentId: string, input: UpdateAttendanceInput): Promise<AttendanceRecord>;
-}
-
-export const ATTENDANCE_CORE_VERSION = "v2";

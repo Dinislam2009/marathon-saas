@@ -1,40 +1,73 @@
-import type { PrismaClient } from "../../../generated/prisma-v2";
-import type { CourseRepository, CreateCourseInput, CourseRecord, UpdateCourseInput } from "./types.ts";
-
-type PrismaV2Client = PrismaClient;
+import { PrismaClient } from "../../../generated/prisma-v2";
+import { CourseRepository } from "./repository";
+import { CourseRecord, CreateCourseInput, UpdateCourseInput } from "./types";
 
 export class PrismaCourseRepository implements CourseRepository {
-  private readonly prisma: PrismaV2Client;
-
-  constructor(prisma: PrismaV2Client) {
-    this.prisma = prisma;
-  }
+  constructor(private readonly prisma: PrismaClient) {}
 
   async create(input: CreateCourseInput): Promise<CourseRecord> {
     return this.prisma.course.create({
       data: {
-        organizationId: input.organizationId,
-        programId: input.programId,
         name: input.name,
-        description: input.description ?? null,
+        code: input.code,
+        description: input.description,
+        organization: {
+          connect: { id: input.organizationId },
+        },
+        ...(input.programId
+          ? { program: { connect: { id: input.programId } } }
+          : {}),
       },
     });
   }
 
-  async findById(organizationId: string, courseId: string): Promise<CourseRecord | null> {
-    return this.prisma.course.findFirst({ where: { id: courseId, organizationId } });
-  }
-
-  async list(organizationId: string, programId?: string): Promise<CourseRecord[]> {
-    return this.prisma.course.findMany({
-      where: { organizationId, ...(programId ? { programId } : {}) },
-      orderBy: { createdAt: "asc" },
+  async findById(organizationId: string, id: string): Promise<CourseRecord | null> {
+    return this.prisma.course.findFirst({
+      where: {
+        id,
+        organizationId,
+      },
     });
   }
 
-  async update(organizationId: string, courseId: string, input: UpdateCourseInput): Promise<CourseRecord> {
-    const existing = await this.findById(organizationId, courseId);
-    if (!existing) throw new Error("Course not found.");
-    return this.prisma.course.update({ where: { id: courseId }, data: input });
+  async findMany(organizationId: string): Promise<CourseRecord[]> {
+    return this.prisma.course.findMany({
+      where: {
+        organizationId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+
+  async update(
+    organizationId: string,
+    id: string,
+    input: UpdateCourseInput
+  ): Promise<CourseRecord> {
+    return this.prisma.course.update({
+      where: {
+        id,
+        organizationId,
+      },
+      data: {
+        name: input.name,
+        code: input.code,
+        description: input.description,
+        ...(input.programId
+          ? { program: { connect: { id: input.programId } } }
+          : {}),
+      },
+    });
+  }
+
+  async delete(organizationId: string, id: string): Promise<void> {
+    await this.prisma.course.delete({
+      where: {
+        id,
+        organizationId,
+      },
+    });
   }
 }

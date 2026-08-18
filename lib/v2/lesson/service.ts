@@ -1,44 +1,34 @@
-import type {
-  CreateLessonInput,
-  LessonRecord,
-  LessonRepository,
-  UpdateLessonInput,
-} from "./types.ts";
+import { LessonRepository } from "./repository";
+import { LessonRecord, CreateLessonInput, UpdateLessonInput } from "./types";
 
 export class LessonService {
-  private readonly repository: LessonRepository;
+  constructor(private readonly repository: LessonRepository) {}
 
-  constructor(repository: LessonRepository) {
-    this.repository = repository;
-  }
-
-  create(input: CreateLessonInput): Promise<LessonRecord> {
-    if (!input.courseId || !input.groupId) throw new Error("Course and group are required.");
-    if (!input.title.trim()) throw new Error("Lesson title is required.");
-    if (input.endsAt <= input.startsAt) throw new Error("Lesson end must be after start.");
+  async createLesson(input: CreateLessonInput): Promise<LessonRecord> {
     return this.repository.create(input);
   }
 
-  get(courseId: string, groupId: string, lessonId: string): Promise<LessonRecord | null> {
-    return this.repository.findById(courseId, groupId, lessonId);
+  async getLesson(organizationId: string, id: string): Promise<LessonRecord | null> {
+    return this.repository.findById(organizationId, id);
   }
 
-  list(courseId: string, groupId: string): Promise<LessonRecord[]> {
-    return this.repository.list(courseId, groupId);
+  async listLessons(
+    organizationId: string,
+    courseId?: string,
+    groupId?: string
+  ): Promise<LessonRecord[]> {
+    return this.repository.findMany(organizationId, courseId, groupId);
   }
 
-  update(
-    courseId: string,
-    groupId: string,
-    lessonId: string,
-    input: UpdateLessonInput,
+  async updateLesson(
+    organizationId: string,
+    id: string,
+    input: UpdateLessonInput
   ): Promise<LessonRecord> {
-    if (input.title !== undefined && !input.title.trim()) {
-      throw new Error("Lesson title is required.");
-    }
-    if (input.startsAt && input.endsAt && input.endsAt <= input.startsAt) {
-      throw new Error("Lesson end must be after start.");
-    }
-    return this.repository.update(courseId, groupId, lessonId, input);
+    return this.repository.update(organizationId, id, input);
+  }
+
+  async deleteLesson(organizationId: string, id: string): Promise<void> {
+    return this.repository.delete(organizationId, id);
   }
 }

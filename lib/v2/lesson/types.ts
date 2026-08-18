@@ -1,22 +1,14 @@
-export interface LessonRecord {
-  id: string;
-  courseId: string;
-  groupId: string;
-  title: string;
-  description: string | null;
-  startsAt: Date;
-  endsAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { Lesson as PrismaLesson } from "../../../generated/prisma-v2";
+
+export type LessonRecord = PrismaLesson;
 
 export interface CreateLessonInput {
-  courseId: string;
-  groupId: string;
   title: string;
   description?: string | null;
   startsAt: Date;
   endsAt: Date;
+  courseId: string;
+  groupId: string; // Schema V2-де міндетті өріс
 }
 
 export interface UpdateLessonInput {
@@ -24,13 +16,5 @@ export interface UpdateLessonInput {
   description?: string | null;
   startsAt?: Date;
   endsAt?: Date;
+  groupId?: string;
 }
-
-export interface LessonRepository {
-  create(input: CreateLessonInput): Promise<LessonRecord>;
-  findById(courseId: string, groupId: string, lessonId: string): Promise<LessonRecord | null>;
-  list(courseId: string, groupId: string): Promise<LessonRecord[]>;
-  update(courseId: string, groupId: string, lessonId: string, input: UpdateLessonInput): Promise<LessonRecord>;
-}
-
-export const LESSON_CORE_VERSION = "v2";

@@ -1,67 +1,57 @@
-import { NextResponse } from "next/server.js";
-import { PrismaStudentRepository } from "../../../../../../lib/v2/student/repository-prisma.ts";
-import { StudentService } from "../../../../../../lib/v2/student/service.ts";
-import { STUDENT_STATUSES, type CreateStudentInput } from "../../../../../../lib/v2/student/types.ts";
-import { prismaV2 } from "../../../../../../lib/v2/prisma.ts";
-import { getActorId, organizationErrorResponse, requireOrganizationAccess } from "../../../../../../lib/v2/organization/access.ts";
+import { NextResponse } from "next/server";
+import { StudentService } from "@/lib/v2/student/service";
+import { PrismaStudentRepository } from "@/lib/v2/student/repository-prisma";
+import { prismaV2 } from "@/lib/v2/prisma";
 
-const STUDENT_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "CURATOR"] as const;
+const studentService = new StudentService(new PrismaStudentRepository(prismaV2));
 
-function parseCreate(body: unknown, organizationId: string): CreateStudentInput {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new Error("Request body must be a JSON object.");
-  }
-  const value = body as Record<string, unknown>;
-  if (typeof value.firstName !== "string" || typeof value.lastName !== "string") {
-    throw new Error("firstName and lastName are required.");
-  }
-
-  const status = value.status === undefined ? undefined : value.status;
-  if (status !== undefined && (typeof status !== "string" || !STUDENT_STATUSES.includes(status as (typeof STUDENT_STATUSES)[number]))) {
-    throw new Error("Invalid student status.");
-  }
-
-  return {
-    organizationId,
-    firstName: value.firstName,
-    lastName: value.lastName,
-    phone: typeof value.phone === "string" ? value.phone : value.phone === null ? null : undefined,
-    email: typeof value.email === "string" ? value.email : value.email === null ? null : undefined,
-    dateOfBirth: typeof value.dateOfBirth === "string" ? new Date(value.dateOfBirth) : value.dateOfBirth === null ? null : undefined,
-    status: status as CreateStudentInput["status"],
-    source: typeof value.source === "string" ? value.source : value.source === null ? null : undefined,
-    notes: typeof value.notes === "string" ? value.notes : value.notes === null ? null : undefined,
-  };
-}
-
-function service() {
-  return new StudentService(new PrismaStudentRepository(prismaV2));
-}
-
-function errorResponse(error: unknown) {
-  const { message, status } = organizationErrorResponse(error);
-  return NextResponse.json({ error: message }, { status });
-}
-
-export async function GET(request: Request, { params }: { params: Promise<{ organizationId: string }> }) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ organizationId: string }> }
+) {
   try {
-    const actorId = getActorId(request);
     const { organizationId } = await params;
-    await requireOrganizationAccess(prismaV2, organizationId, actorId);
-    return NextResponse.json({ students: await service().listStudents(organizationId) });
-  } catch (error: unknown) {
-    return errorResponse(error);
+    const { searchParams } = new URL(request.url);
+    const groupId = searchParams.get("groupId") || undefined;
+
+    const students = await studentService.listStudents(organizationId, groupId);
+    return NextResponse.json(students);
+  } catch (error) {
+    console.error("GET /students error:", error);
+    return NextResponse.json({ error: "Failed to fetch students" }, { status: 500 });
   }
 }
 
-export async function POST(request: Request, { params }: { params: Promise<{ organizationId: string }> }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ organizationId: string }> }
+) {
   try {
-    const actorId = getActorId(request);
     const { organizationId } = await params;
-    await requireOrganizationAccess(prismaV2, organizationId, actorId, { write: true, writeRoles: STUDENT_WRITE_ROLES });
-    const student = await service().createStudent(parseCreate(await request.json(), organizationId));
-    return NextResponse.json({ student }, { status: 201 });
-  } catch (error: unknown) {
-    return errorResponse(error);
+    const body = await request.json();
+
+    if (!body.firstName || !body.lastName) {
+      return NextResponse.json(
+        { error: "firstName and lastName are required" },
+        { status: 400 }
+      );
+    }
+
+    const student = await studentService.createStudent({
+      organizationId,
+      groupId: body.groupId,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: body.email,
+      phone: body.phone,
+      status: body.status,
+      source: body.source,
+      notes: body.notes,
+    });
+
+    return NextResponse.json(student, { status: 201 });
+  } catch (error) {
+    console.error("POST /students error:", error);
+    return NextResponse.json({ error: "Failed to create student" }, { status: 500 });
   }
 }

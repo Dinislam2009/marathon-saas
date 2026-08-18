@@ -49,7 +49,7 @@ export default function MarathonDetailPage({ params }) {
     if (!marathonId) return;
     try {
       setIsLoadingTasks(true);
-      const getTasksFn = actions.getTasksByMarathon;
+      const getTasksFn = actions.getTasksByMarathon || actions.gettasksByMarathon;
       if (typeof getTasksFn === "function") {
         const tasksData = await getTasksFn(marathonId);
         if (Array.isArray(tasksData)) {

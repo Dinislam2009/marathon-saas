@@ -1,48 +1,61 @@
-import type { PrismaClient } from "../../../generated/prisma-v2";
-import type {
-  AttendanceRecord,
-  AttendanceRepository,
-  CreateAttendanceInput,
-  UpdateAttendanceInput,
-} from "./types.ts";
-
-type PrismaV2Client = PrismaClient;
+import { PrismaClient } from "../../../generated/prisma-v2";
+import { AttendanceRepository } from "./repository";
+import { AttendanceRecord, MarkAttendanceInput, UpdateAttendanceInput } from "./types";
 
 export class PrismaAttendanceRepository implements AttendanceRepository {
-  constructor(private readonly prisma: PrismaV2Client) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
-  async create(input: CreateAttendanceInput): Promise<AttendanceRecord> {
+  async mark(input: MarkAttendanceInput): Promise<AttendanceRecord> {
     return this.prisma.attendance.create({
       data: {
-        lessonId: input.lessonId,
-        studentId: input.studentId,
         status: input.status,
-        note: input.note ?? null,
+        note: input.note,
+        student: { connect: { id: input.studentId } },
+        lesson: { connect: { id: input.lessonId } },
       },
     });
   }
 
-  async findById(lessonId: string, studentId: string): Promise<AttendanceRecord | null> {
-    return this.prisma.attendance.findUnique({
-      where: { lessonId_studentId: { lessonId, studentId } },
+  async findById(organizationId: string, id: string): Promise<AttendanceRecord | null> {
+    return this.prisma.attendance.findFirst({
+      where: {
+        id,
+        student: { organizationId },
+      },
     });
   }
 
-  async listByLesson(lessonId: string): Promise<AttendanceRecord[]> {
+  async findMany(
+    organizationId: string,
+    groupId?: string,
+    studentId?: string
+  ): Promise<AttendanceRecord[]> {
     return this.prisma.attendance.findMany({
-      where: { lessonId },
-      orderBy: { createdAt: "asc" },
+      where: {
+        student: { organizationId },
+        ...(groupId ? { lesson: { groupId } } : {}),
+        ...(studentId ? { studentId } : {}),
+      },
+      orderBy: { id: "desc" },
     });
   }
 
   async update(
-    lessonId: string,
-    studentId: string,
-    input: UpdateAttendanceInput,
+    organizationId: string,
+    id: string,
+    input: UpdateAttendanceInput
   ): Promise<AttendanceRecord> {
+    const existing = await this.findById(organizationId, id);
+    if (!existing) {
+      throw new Error("Attendance record not found");
+    }
+
     return this.prisma.attendance.update({
-      where: { lessonId_studentId: { lessonId, studentId } },
-      data: input,
+      where: { id },
+      data: {
+        ...(input.status ? { status: input.status } : {}),
+        ...(input.note !== undefined ? { note: input.note } : {}),
+      },
     });
   }
 }
